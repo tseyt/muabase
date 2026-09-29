@@ -1,0 +1,13 @@
+[package]
+name = "external-vault-pkg"
+version.workspace = true
+rust-version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+psibase.workspace = true
+external-vault = { path = "service", version = "0.29.0" }

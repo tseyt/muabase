@@ -68,6 +68,8 @@ members = [
     "ClaimCouncil/service",
     "CreditClear",
     "CreditClear/service",
+    "ExternalVault",
+    "ExternalVault/service",
 ]
 
 exclude = [
