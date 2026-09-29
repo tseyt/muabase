@@ -26,6 +26,21 @@ namespace SystemService
    using ProdsConfigTable = psibase::Table<ProdsConfig, psibase::SingletonKey{}>;
    PSIO_REFLECT_TYPENAME(ProdsConfigTable)
 
+   /// Anchor checkpoint committing external Bitcoin / EVM state roots
+   struct AnchorCheckpoint
+   {
+      std::string          chain_type;
+      uint64_t             block_height;
+      psibase::Checksum256 tx_hash;
+      psibase::Checksum256 state_root;
+      uint64_t             timestamp;
+
+      using Primary = psibase::CompositeKey<&AnchorCheckpoint::chain_type, &AnchorCheckpoint::block_height>;
+   };
+   PSIO_REFLECT(AnchorCheckpoint, chain_type, block_height, tx_hash, state_root, timestamp)
+   using AnchorCheckpointTable = psibase::Table<AnchorCheckpoint, AnchorCheckpoint::Primary{}>;
+   PSIO_REFLECT_TYPENAME(AnchorCheckpointTable)
+
    // This service manages the active producers.
    // It must have native write permission
    class Producers : public psibase::Service
@@ -36,7 +51,7 @@ namespace SystemService
 
       static constexpr uint8_t DEFAULT_MAX_PRODS = 13;
 
-      using Tables = psibase::ServiceTables<CandidateInfoTable, ProdsConfigTable>;
+      using Tables = psibase::ServiceTables<CandidateInfoTable, ProdsConfigTable, AnchorCheckpointTable>;
 
       /// `prods-weak` and `prods-strong` are accounts that represent authorization
       /// by the current block producers.  `prods-weak` is a quorum that is sufficient
@@ -66,6 +81,12 @@ namespace SystemService
       /// A maximum size of the producer set producing blocks for the network
       void    setMaxProds(uint8_t maxProds);
       uint8_t getMaxProds();
+
+      /// Records an external Bitcoin OP_RETURN or EVM L2 state anchor checkpoint
+      void recordExternalAnchor(std::string          chain_type,
+                                uint64_t             block_height,
+                                psibase::Checksum256 tx_hash,
+                                psibase::Checksum256 state_root);
 
       uint32_t getThreshold(psibase::AccountNumber account);
       uint32_t antiThreshold(psibase::AccountNumber account);

@@ -273,6 +273,25 @@ namespace SystemService
       return countOverlapping(producers, rejecters) >= threshold;
    }
 
+   void Producers::recordExternalAnchor(std::string          chain_type,
+                                        uint64_t             block_height,
+                                        psibase::Checksum256 tx_hash,
+                                        psibase::Checksum256 state_root)
+   {
+      auto sender = getSender();
+      check(sender == Producers::service || sender == producerAccountWeak || sender == producerAccountStrong,
+            "Only authorized producers can record state anchor checkpoints");
+
+      auto table = open<AnchorCheckpointTable>();
+      table.put(AnchorCheckpoint{
+         .chain_type   = chain_type,
+         .block_height = block_height,
+         .tx_hash      = tx_hash,
+         .state_root   = state_root,
+         .timestamp    = to<Transact>().currentBlock().time.seconds()
+      });
+   }
+
 }  // namespace SystemService
 
 PSIBASE_DISPATCH(SystemService::Producers)

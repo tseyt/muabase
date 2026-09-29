@@ -44,6 +44,12 @@ pub mod tables {
         /// Whether the transaction should execute automatically as soon
         /// as it has enough approvals
         pub auto_exec: bool,
+
+        /// Optional Ricardian contract hash (Operating Agreement, Rental Contract, UCC filing)
+        pub ricardian_hash: Option<Checksum256>,
+
+        /// Required number of Adalah witnesses before execution (default 2 for Shahidayn)
+        pub required_witnesses: u8,
     }
     impl StagedTx {
         #[primary_key]
@@ -121,6 +127,28 @@ pub mod tables {
             (self.party, self.id)
         }
     }
+
+    /// Tracks binary Bayyinah (2-witness evidentiary attestation) for staged transactions
+    #[table(name = "WitnessAttestationTable", index = 5)]
+    #[derive(Pack, Unpack, Serialize, Deserialize, ToSchema, SimpleObject, Clone, Debug)]
+    pub struct WitnessAttestation {
+        pub id: u32,
+        pub witness: AccountNumber,
+        pub adalah_score: u32,
+        pub ikhtisas_domain: String,
+        pub timestamp: TimePointUSec,
+    }
+    impl WitnessAttestation {
+        #[primary_key]
+        fn pk(&self) -> (u32, AccountNumber) {
+            (self.id, self.witness)
+        }
+
+        #[secondary_key(1)]
+        fn by_witness(&self) -> (AccountNumber, u32) {
+            (self.witness, self.id)
+        }
+    }
 }
 
 pub mod impls {
@@ -134,6 +162,15 @@ pub mod impls {
 
     impl StagedTx {
         pub fn add(actions: Vec<Action>, auto_exec: bool) -> Self {
+            Self::add_with_ricardian(actions, auto_exec, None, 0)
+        }
+
+        pub fn add_with_ricardian(
+            actions: Vec<Action>,
+            auto_exec: bool,
+            ricardian_hash: Option<Checksum256>,
+            required_witnesses: u8,
+        ) -> Self {
             assert!(
                 actions.len() > 0,
                 "Staged transaction must contain at least one action",
@@ -163,11 +200,25 @@ pub mod impls {
                 proposer: get_sender(),
                 action_list: ActionList { actions },
                 auto_exec,
+                ricardian_hash,
+                required_witnesses,
             };
 
             StagedTxTable::new().put(&new_tx).unwrap();
 
             new_tx
+        }
+
+        pub fn witness_count(&self) -> u8 {
+            let table = WitnessAttestationTable::new();
+            table
+                .get_index_pk()
+                .range((self.id, AccountNumber::MIN)..=(self.id, AccountNumber::MAX))
+                .count() as u8
+        }
+
+        pub fn can_witness_execute(&self) -> bool {
+            self.witness_count() >= self.required_witnesses
         }
 
         pub fn get(id: u32, txid: Checksum256) -> Self {
@@ -224,6 +275,13 @@ pub mod impls {
                 .get_index_pk()
                 .range((id, AccountNumber::MIN)..=(id, AccountNumber::MAX))
                 .for_each(|p| parties.erase(&(p.id, p.party)));
+
+            // Delete all witness attestations for this staged tx
+            let attestations = WitnessAttestationTable::new();
+            attestations
+                .get_index_pk()
+                .range((id, AccountNumber::MIN)..=(id, AccountNumber::MAX))
+                .for_each(|a| attestations.erase(&(a.id, a.witness)));
 
             // Delete the staged tx itself
             StagedTxTable::new().erase(&id);

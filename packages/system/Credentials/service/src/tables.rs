@@ -114,4 +114,45 @@ pub mod tables {
             id
         }
     }
+
+    /// Soulbound (non-transferable) reliability/audit score (Adalah)
+    #[table(name = "AdalahTable", index = 3)]
+    #[derive(Pack, Unpack, ToSchema, Serialize, Deserialize, Debug, Clone)]
+    pub struct AdalahRecord {
+        pub account: AccountNumber,
+        pub score: u32,             // 0 - 10,000 (bps basis, e.g. 8500 = 85.00%)
+        pub total_audits: u32,
+        pub successful_audits: u32,
+        pub disputes_involved: u32,
+        pub last_updated: TimePointSec,
+    }
+    impl AdalahRecord {
+        #[primary_key]
+        fn pk(&self) -> AccountNumber {
+            self.account
+        }
+    }
+
+    /// Soulbound (non-transferable) domain competence credential (Ikhtisas)
+    #[table(name = "IkhtisasTable", index = 4)]
+    #[derive(Pack, Unpack, ToSchema, Serialize, Deserialize, Debug, Clone)]
+    pub struct IkhtisasRecord {
+        pub account: AccountNumber,
+        pub domain: String,         // e.g. "luxury_fashion", "commercial_equipment", "real_estate"
+        pub issuer: AccountNumber,
+        pub issued_at: TimePointSec,
+        pub cert_hash: Checksum256,
+        pub active: bool,
+    }
+    impl IkhtisasRecord {
+        #[primary_key]
+        fn pk(&self) -> (AccountNumber, String) {
+            (self.account, self.domain.clone())
+        }
+
+        #[secondary_key(1)]
+        fn by_domain(&self) -> (String, AccountNumber) {
+            (self.domain.clone(), self.account)
+        }
+    }
 }

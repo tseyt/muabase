@@ -15,6 +15,32 @@ namespace SystemService
                                    ServiceMethod      action,
                                    std::vector<Claim> claims)
    {
+      auto endTable = open<EndowmentPolicyTable>();
+      if (auto endRecord = endTable.getIndex<0>().get(sender))
+      {
+         if (endRecord->is_endowment)
+         {
+            // Endowment guard active: reject outward consumption.
+            // Allowed action services: the approved investment targets, the distributable yield account, or the auth service itself.
+            bool allowed = (action.service == endRecord->distributable_yield_account);
+            if (!allowed)
+            {
+               for (const auto& target : endRecord->approved_investment_targets)
+               {
+                  if (action.service == target)
+                  {
+                     allowed = true;
+                     break;
+                  }
+               }
+            }
+            if (!allowed && action.service != AuthDelegate::service)
+            {
+               abortMessage("EndowmentGuard: principal transfer to unapproved target rejected");
+            }
+         }
+      }
+
       auto owner = getOwner(sender);
 
       auto _ = recurse();
@@ -96,6 +122,21 @@ namespace SystemService
       if (created)
          table.put(AuthDelegateRecord{.account = name, .owner = owner});
       return created;
+   }
+
+   void AuthDelegate::setEndowmentPolicy(AccountNumber              account,
+                                         AccountNumber              yield_account,
+                                         std::vector<AccountNumber> approved_investments)
+   {
+      auto sender = getSender();
+      check(sender == account || sender == getOwner(account), "Unauthorized to set endowment policy");
+      auto endTable = open<EndowmentPolicyTable>();
+      endTable.put(EndowmentPolicyRecord{
+         .account = account,
+         .distributable_yield_account = yield_account,
+         .approved_investment_targets = approved_investments,
+         .is_endowment = true
+      });
    }
 
 }  // namespace SystemService

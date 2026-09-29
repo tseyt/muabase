@@ -26,6 +26,22 @@ namespace SystemService
        Table<AuthDelegateRecord, &AuthDelegateRecord::account, AuthDelegateRecord::Secondary{}>;
    PSIO_REFLECT_TYPENAME(AuthDelegateTable)
 
+   /// Endowment policy protecting trust principal (Waqf Asl)
+   struct EndowmentPolicyRecord
+   {
+      psibase::AccountNumber              account;
+      psibase::AccountNumber              distributable_yield_account;
+      std::vector<psibase::AccountNumber> approved_investment_targets;
+      bool                                is_endowment;
+   };
+   PSIO_REFLECT(EndowmentPolicyRecord,
+                account,
+                distributable_yield_account,
+                approved_investment_targets,
+                is_endowment)
+   using EndowmentPolicyTable = psibase::Table<EndowmentPolicyRecord, &EndowmentPolicyRecord::account>;
+   PSIO_REFLECT_TYPENAME(EndowmentPolicyTable)
+
    /// The `auth-delegate` service is an auth service that can be used to authenticate actions for accounts.
    ///
    /// Any account using this auth service must store in this service the name of
@@ -34,7 +50,7 @@ namespace SystemService
    {
      public:
       static constexpr auto service = psibase::AccountNumber("auth-delg");
-      using Tables                  = psibase::ServiceTables<AuthDelegateTable>;
+      using Tables                  = psibase::ServiceTables<AuthDelegateTable, EndowmentPolicyTable>;
 
       /// This is an implementation of the standard auth service interface defined in [SystemService::AuthInterface]
       ///
@@ -98,6 +114,11 @@ namespace SystemService
       bool newAccount(psibase::AccountNumber name,
                       psibase::AccountNumber owner,
                       NewAccountMode         mode);
+
+      /// Configures an EndowmentGuard (Waqf Asl) policy protecting capital principal
+      void setEndowmentPolicy(psibase::AccountNumber              account,
+                              psibase::AccountNumber              yield_account,
+                              std::vector<psibase::AccountNumber> approved_investments);
 
       /// Gets the owner account of the specified account
       psibase::AccountNumber getOwner(psibase::AccountNumber account);

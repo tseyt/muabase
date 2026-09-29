@@ -84,6 +84,62 @@ pub mod service {
         new_tx.id
     }
 
+    /// Proposes a new staged transaction with Ricardian legal hash and witness quorum
+    #[action]
+    fn proposeRicardian(
+        actions: Vec<Action>,
+        auto_exec: bool,
+        ricardian_hash: Option<Checksum256>,
+        required_witnesses: u8,
+    ) -> u32 {
+        let new_tx = StagedTx::add_with_ricardian(actions, auto_exec, ricardian_hash, required_witnesses);
+
+        emit_update(new_tx.txid.clone(), StagedTxEvent::PROPOSED);
+
+        // A proposal is also an implicit accept
+        accept(new_tx.id, new_tx.txid);
+
+        new_tx.id
+    }
+
+    /// Attests to a staged transaction as a qualified witness with Adalah credentials
+    #[action]
+    fn attestWitness(id: u32, txid: Checksum256, ikhtisas_domain: String) {
+        let staged_tx = StagedTx::get(id, txid);
+        assert!(staged_tx.required_witnesses > 0, "This staged tx does not require witnesses");
+        let witness = get_sender();
+
+        let table = WitnessAttestationTable::new();
+        assert!(
+            table.get_index_pk().get(&(id, witness)).is_none(),
+            "Witness has already attested to this staged tx"
+        );
+
+        let attestation = WitnessAttestation {
+            id,
+            witness,
+            adalah_score: 10000,
+            ikhtisas_domain,
+            timestamp: Transact::call().currentBlock().time,
+        };
+        table.put(&attestation).unwrap();
+
+        if staged_tx.auto_exec && staged_tx.can_witness_execute() {
+            let authorized = staged_tx
+                .invocations()
+                .iter()
+                .all(|(sender, service_method)| {
+                    StagedTxPolicy::new(*sender).map_or(true, |policy| {
+                        policy.does_auth(staged_tx.accepters(), *service_method)
+                    })
+                });
+
+            if authorized {
+                execute_impl(staged_tx);
+            }
+        }
+    }
+
     /// Indicates that the caller accepts the specified staged transaction
     ///
     /// Depending on the staging rules enforced by the auth service of the sender
@@ -99,7 +155,7 @@ pub mod service {
 
         emit_update(staged_tx.txid.clone(), StagedTxEvent::ACCEPTED);
 
-        if staged_tx.auto_exec {
+        if staged_tx.auto_exec && staged_tx.can_witness_execute() {
             let authorized = staged_tx
                 .invocations()
                 .iter()
@@ -166,6 +222,13 @@ pub mod service {
 
     fn execute_impl(staged_tx: StagedTx) {
         debug_print("Executing staged tx\n");
+
+        assert!(
+            staged_tx.can_witness_execute(),
+            "Staged transaction lacks required witness quorum ({} of {})",
+            staged_tx.witness_count(),
+            staged_tx.required_witnesses
+        );
 
         let accepters = staged_tx.accepters();
         staged_tx.delete();

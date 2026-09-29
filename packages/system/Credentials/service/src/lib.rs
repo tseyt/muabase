@@ -222,4 +222,79 @@ pub mod service {
         // Avoid orphaned resources
         VirtualServer::call_as(CRED_SYS).del_res_sub(id.to_string());
     }
+
+    /// Updates or initializes a soulbound Adalah reliability record
+    #[action]
+    #[allow(non_snake_case)]
+    fn updateAdalahScore(account: AccountNumber, score: u32, is_success: bool) {
+        let table = AdalahTable::read_write();
+        let mut record = table.get_index_pk().get(&account).unwrap_or(AdalahRecord {
+            account,
+            score: 10000,
+            total_audits: 0,
+            successful_audits: 0,
+            disputes_involved: 0,
+            last_updated: now(),
+        });
+
+        record.total_audits += 1;
+        if is_success {
+            record.successful_audits += 1;
+        } else {
+            record.disputes_involved += 1;
+        }
+        record.score = score;
+        record.last_updated = now();
+
+        table.put(&record).unwrap();
+    }
+
+    /// Fetches the Adalah reliability record for an account
+    #[action]
+    #[allow(non_snake_case)]
+    fn getAdalahRecord(account: AccountNumber) -> Option<AdalahRecord> {
+        AdalahTable::read().get_index_pk().get(&account)
+    }
+
+    /// Issues a non-transferable Ikhtisas domain competence tag
+    #[action]
+    #[allow(non_snake_case)]
+    fn issueIkhtisasTag(account: AccountNumber, domain: String, cert_hash: Checksum256) {
+        let table = IkhtisasTable::read_write();
+        let record = IkhtisasRecord {
+            account,
+            domain: domain.clone(),
+            issuer: get_sender(),
+            issued_at: now(),
+            cert_hash,
+            active: true,
+        };
+        table.put(&record).unwrap();
+    }
+
+    /// Revokes an Ikhtisas domain competence tag
+    #[action]
+    #[allow(non_snake_case)]
+    fn revokeIkhtisasTag(account: AccountNumber, domain: String) {
+        let table = IkhtisasTable::read_write();
+        if let Some(mut record) = table.get_index_pk().get(&(account, domain.clone())) {
+            assert!(
+                get_sender() == record.issuer || get_sender() == account,
+                "Unauthorized to revoke tag"
+            );
+            record.active = false;
+            table.put(&record).unwrap();
+        }
+    }
+
+    /// Checks whether an account holds an active Ikhtisas tag for a domain
+    #[action]
+    #[allow(non_snake_case)]
+    fn hasIkhtisas(account: AccountNumber, domain: String) -> bool {
+        IkhtisasTable::read()
+            .get_index_pk()
+            .get(&(account, domain))
+            .map(|r| r.active)
+            .unwrap_or(false)
+    }
 }
