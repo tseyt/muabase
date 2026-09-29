@@ -1,15 +1,19 @@
 <div align="center">
-  <img src="./doc/src/_img/logo-psibase-green.svg" />
-  <h1>psibase</h1>
+  <h1>MuamalatOS</h1>
+  <p><strong>The Serverless Full-Stack Operating System for RWAs, High-Trust Marketplaces, and Trade Guilds</strong></p>
+  <p>
+    <em>Built on the Psibase Wasm-in-Database Architecture &bull; Governed by Invariant Mathematical Fiqh al-Mu‘amalat</em>
+  </p>
   <p>
     &bull;
     <a href="#overview">Overview</a> &bull;
-    <a href="#demo-deployment-%EF%B8%8F">Demo 🖥️</a> &bull;
-    <a href="#technical-docs-">Docs 📓</a> &bull;
-    <a href="#build-from-source-%EF%B8%8F">Build 🛠️</a> &bull;
-    <a href="#running-psibase-infrastructure-">Run 🚀</a> &bull;
-    <a href="#contribute-">Contribute 🧬</a> &bull;
-    <a href="#support-">Support 📱</a> &bull;
+    <a href="#core-capabilities">Capabilities</a> &bull;
+    <a href="#fiqh-invariants">Fiqh Invariants</a> &bull;
+    <a href="#dual-locale-terminology">Dual Locale</a> &bull;
+    <a href="#architecture">Architecture</a> &bull;
+    <a href="#regulatory-safe-harbor">Regulatory Compliance</a> &bull;
+    <a href="#headless-commerce-quickstart">Headless Quickstart</a> &bull;
+    <a href="#build-from-source">Build & Run</a> &bull;
   </p>
 </div>
 
@@ -17,67 +21,183 @@
 
 ## Overview
 
-Psibase is a powerful protocol that enables communities to come together to easily self-host web applications. This repository is an open source implementation of that protocol.
-Any psinode deployment comes with some default applications, some of which are mandatory and critical for the infrastructure to function properly, and others are optional sample user applications.
+**MuamalatOS** is a specialized fork of the `psibase` protocol engineered to serve as a high-performance, serverless operating system for:
+1. **Family Offices & Private Syndicates:** Managing multi-jurisdictional asset portfolios, private Series LLCs, and multi-generational generational trusts (*Awqaf*) with hardcoded capital-preservation policies.
+2. **Real-World Asset (RWA) Tokenization (Chintai Parity):** Compliant fractionalization of tangible physical assets (equipment, luxury fashion, commercial fleet, real estate) with native Ricardian contract bindings, transfer restrictions, and secondary market debt-protection floors.
+3. **High-Trust P2P Rental & Lending Guilds:** Headless commerce infrastructure outcompeting rent-extracting legacy platforms (e.g., peer-to-peer designer fashion rentals outcompeting apps like Pickle by delivering **93%+ take-home yield** to lenders vs. industry standard ~80%), featuring autonomous multi-party revenue splits, co-owned mutual damage pools, and peer triage.
+4. **B2B Trade Cooperatives & Merchant Guilds:** Multi-lateral invoice netting (*Muqassah*) and inter-chain trust graph credit routing (*Wajahah-Hawalah*) eliminating liquidity fragmentation and predatory working-capital financing.
 
-Primary packages included in this repository:
+All protocol logic executes directly in WebAssembly inside the `Triedent` memory-mapped transactional state storage, combining the developer ergonomics and microsecond latency of **SpacetimeDB** with high-throughput Byzantine fault-tolerant consensus.
 
-| Package   | Description                                                                   |
-| --------- | ----------------------------------------------------------------------------- |
-| `psinode` | The psibase infrastructure node                                               |
-| `psibase` | Command-line utility for interacting with psinode. Used primarily by scripts. |
-| `psidk`   | The SDK used for developing web services                                      |
+---
 
-## Demo deployment 🖥️
+## Core Capabilities
 
-A demonstration deployment is currently hosted at [psibase.io](https://psibase.io) to showcase what psibase infrastructure could look like for end users. The applications available on this demo are sample applications and are not intended to be used for a production deployment.
+| Capability | Legacy Web2 / Web3 Stack | MuamalatOS Native Architecture |
+| :--- | :--- | :--- |
+| **Execution Speed** | Layer 1/2 VM calls, external RPC nodes, indexing subgraphs (1-15s latency) | **Wasm-in-Database** running directly on `Triedent`. Sub-millisecond read/write speed with built-in GraphQL and reactive WebSocket event streams. |
+| **P2P Rental Economics** | Platforms extract 20%–35% take-rate with opaque dispute processes | **93%+ Lender Payout:** Transparent on-chain fee split (3% protocol/infrastructure, 4% mutual shield pool, 93% asset owner/syndicate). |
+| **Damage Protection** | High insurance markups, slow claim denials by centralized adjusters | **Mutual Protection Pool (*Takaful*):** User-contributed reserve pool with fast 3-peer evidence triage (*Tahkim*) and annual underwriting surplus rebates. |
+| **Asset Co-Ownership** | Fragmented legal entities, expensive administrative SPVs | **Fractional Co-Buying (`Tokens` + `Nft`):** Co-owners pool capital to acquire high-yield assets, auto-split rental yields pro-rata, and exercise automated Right of First Refusal (*Shuf‘ah*). |
+| **Custodial Risk** | Centralized hot wallets or platform bank accounts | **100% Non-Custodial (`ExternalVault`):** Native Bitcoin Taproot Miniscript PSBTs, EVM Safe, Solana Squads, and Stripe Connect multiparty direct splits. Operators hold **0 keys**. |
+| **Governance / Sybil** | Tradable speculative tokens, plutocratic token-weighted voting | **Proof-of-Amanah:** Non-transferable, soulbound audit credentials (`Adalah`) and domain competence credentials (`Ikhtisas`). Zero native speculative token. |
 
-## Technical docs 📓
+---
 
-Documentation is hosted on the [docs app](https://docs.psibase.io/) of our demo deployment.
+## Hardcoded *Fiqh al-Mu‘amalat* Invariants
 
-## Build from source 🛠️
+MuamalatOS embeds classical jurisprudence constraints directly into state transition logic:
 
-We only officially support developing natively on Ubuntu 22.04, Ubuntu 24.04, and Ubuntu 26.04, although any Linux distribution may work. If you use a distribution other than Ubuntu 22.04, 24.04, or 26.04, ensure the versions of the dependencies you install are at least as high as they are in Ubuntu.
+```mermaid
+flowchart TD
+    subgraph Rental_or_Lease ["Usufruct Lease Execution"]
+        Lessee["Lessee / Renter"] -->|Gross Lease Payment| LeaseEngine["packages/user/LeaseEngine"]
+        LeaseEngine -->|93% Pro-Rata Yield| Owners["Asset Co-Owners (Tokens)"]
+        LeaseEngine -->|4% Tabarru'| Shield["MutualShield (Takaful Pool)"]
+        LeaseEngine -->|3% Platform Fee| Infra["Node Operator SaaS"]
+    end
 
-Some of our developers have very strong success with Ubuntu on WSL2, and also with Docker.
+    subgraph Late_Return_Detriment ["Late Penalty Enforcement"]
+        LateReturn["Late Return / Breach"] --> LeaseEngine
+        LeaseEngine -->|Actual Direct Damage| Reimbursement["Lessor / Repair Cost"]
+        LeaseEngine -->|100% Punitive Late Surcharge| CharitySink["Charity Sink Vault (Masraf al-Sadaqah)"]
+    end
 
-### Environment setup
+    subgraph Evidentiary_Gate ["Binary Bayyinah & Triage"]
+        Evidence["Photo / Invoice Proof Hash"] --> Quorum{"Witness Quorum >= 2\n(Ikhtisas + Adalah)"}
+        Quorum -->|Valid Attestation| ClaimCouncil["ClaimCouncil / Evaluations"]
+        ClaimCouncil -->|Approved Claim| Payout["Instant MutualShield Disbursement"]
+    end
+```
 
-> 📦 We maintain containerized development environments to simplify the development process. Developing within a container means the environment will automatically be set up for you. See the [Psibase Contributor](https://github.com/gofractally/psibase-contributor) repository for instructions on how to build from source within a container.
+1. **Zero-*Riba* Late-Fee Routing (`charity_sink_account`):** Creditors, lenders, and lessors can never profit from time-value late penalties. In `LeaseEngine` and `TokenStream`, punitive late deterrences are mathematically hard-routed to a designated public endowment vault (*Sadaqah*).
+2. **Elimination of Subjective People-Ranking:** `Fractals`, `FractalCore`, and `FractalTester` are deprecated from the active build. Humans are never subjected to popularity contests. `Evaluations`, `Guilds`, and `Subgroups` exclusively rank objective, verified work items (`ClaimId`, `BountyId`, `DealProposalId`).
+3. **Binary *Bayyinah* (Dual-Witness Gate):** Prior to entering dispute triage or releasing escrow in `StagedTx`, at least 2 qualified witnesses (`witness_quorum >= 2`) holding verified `Adalah` (reliability) and `Ikhtisas` (competence) credentials must co-sign the Ricardian evidence hash.
+4. **Tangible Asset Floor (`tangible_ratio_bps >= 5100`):** Secondary market trading of RWA tokens above or below par value is strictly gated in `TokenSwap`. When tangible asset backing (*‘Ayn*) falls below 51%, secondary trading at non-par is halted to prevent naked debt speculation (*Bay‘ al-Dayn*).
+5. **Right of First Refusal (*Haqq al-Shuf‘ah*):** When fractional co-owners list their share of an asset, existing co-owners enjoy an automated `rofr_window_sec` exclusive purchase window before units can be acquired by external parties.
+6. **Immutable Endowment Guard (`EndowmentPolicy`):** Accounts tagged as trust principal (*Waqf Asl*) reject outward capital consumption transfers; principal is restricted to approved productive investments, while 100% of generated yield flows into a dedicated distributable account (*Manfa‘ah*).
 
-The following is a list of dependencies you are required to install:
+---
 
-| Package        | Minimum Version | Description                                                                                                                                                      |
-| -------------- | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| autoconf       | 2.69            | A tool for producing configure scripts for building, installing, and packaging software                                                                          |
-| binaryen       | 113             | A compiler and toolchain infrastructure library for WebAssembly                                                                                                  |
-| boost          | 1.78            | A collection of C++ libraries                                                                                                                                    |
-| clang + llvm   | 16              | The LLVM compiler and toolchain for C/C++ and the libraries to interface with it                                                                                 |
-| cmake          | 3.22.1          | A build system generator that creates makefiles used for compilation                                                                                             |
-| g++            | 11              | A GNU compiler for C++                                                                                                                                           |
-| libssl-dev     | 1.1.1           | Development package for OpenSSL, enabling various cryptography and secure network communication                                                                  |
-| libtool        | 2.4.6           | Script that simplifies the process of creating and using shared libraries                                                                                        |
-| make           | 4.3             | Reads makefiles generated by cmake to build executables from source code                                                                                         |
-| node           | 24.20.0         | A JavaScript runtime                                                                                                                                             |
-| pkg-config     | 0.29.1          | A helper tool used during compilation to provide correct compiler flags, and to locate and manage library dependencies                                           |
-| Rust toolchain | 1.98            | Develop programs in Rust. Use `cargo` to install `cargo-component`, `mdbook`, `mdbook-linkcheck`, `mdbook-mermaid`, `mdbook-pagetoc`, `sccache`, and `wasm-pack` |
-| Wasi SDK       | 24.0            | A development toolchain for building WebAssembly programs that target the WebAssembly System Interface (WASI)                                                    |
-| yarn           | 4.18.0          | Javascript package manager                                                                                                                                       |
-| zstd           | 1.4.4           | Command-line utility that implements the Zstandard file compression algorithm                                                                                    |
+## Dual-Locale Terminology Switching
 
-Other notes:
+MuamalatOS provides an on-chain locale engine in `packages/user/Branding` so interfaces and developer tools can switch seamlessly between standard institutional terminology and classical jurisprudence terms:
 
-- Add the paths to `node`, `npm`, `yarn`, `cargo`, and `wasm-opt` into your PATH environment variable.
-- Set the `WASI_SDK_PREFIX` environment variable before building to the root of your llvm installation (e.g. `/usr/lib/llvm-16`). Alternatively, set this variable during the build using the CMake flag `-DWASI_SDK_PREFIX=....`.
-- Add the following targets to rust: `wasm32-wasip1`, `wasm32-unknown-unknown`
+| Canonical Entity / Concept | Institutional Locale (`"institutional"`) | Jurisprudence Locale (`"muamalat"`) |
+| :--- | :--- | :--- |
+| `RwaSeriesConfig` | Asset Token Series / Private LLC | *Sukuk al-Qirad / Musharakah* |
+| `UsufructLease` (Short-Term) | P2P Peer Rental / Usufruct Lease | *Ijarah al-A‘yan wa al-Manafi‘* |
+| `UsufructLease` (Progressive) | Progressive Lease-to-Own | *Musharakah Mutanaqisah* |
+| `MutualShield` | Mutual Protection Reserve Pool | *Takaful (Tabarru‘ & Ta‘awun)* |
+| `ClaimCouncil` | Peer Triage & Audit Committee | *Majlis al-Tahkim & Shura* |
+| `Evaluations` | Objective Bounty / Claim Ranking | *Ju‘alah Halaqa* |
+| `EndowmentPolicy` | Trust Principal Preservation Guard | *Hifz Asl al-Waqf* |
+| `rofr_window_sec` | Co-Owner Right of First Refusal | *Haqq al-Shuf‘ah* |
+| `charity_sink_account` | Public Endowment Charity Sink | *Masraf al-Sadaqah* |
+| `CreditClear` | Multilateral Invoice Clearing | *Muqassah & Wajahah-Hawalah* |
+| `AdalahScore` | Reliability & Audit Score | *‘Adalah (Reliability)* |
+| `IkhtisasTag` | Domain Competence Badge | *Ikhtisas (Specialization)* |
+| `tangible_ratio_bps` | Real Tangible Asset Backing Ratio | *Nisbat al-‘Ayn al-Haqiqiyyah* |
 
-> 🔍 You can reference the [Ubuntu 22.04 dockerfile](https://github.com/gofractally/image-builders/blob/main/docker/ubuntu-2204-builder.Dockerfile), [Ubuntu 24.04 dockerfile](https://github.com/gofractally/image-builders/blob/main/docker/ubuntu-2404-builder.Dockerfile), or [Ubuntu 26.04 dockerfile](https://github.com/gofractally/image-builders/blob/main/docker/ubuntu-2604-builder.Dockerfile) for an example on how an environment could be set up.
+---
 
-### Build
+## NYC BitLicense & Martin Act Regulatory Safe Harbor
 
-After your environment is set up, then you should be able to use the following build instructions:
+MuamalatOS is explicitly designed to operate under the **New York Department of Financial Services (NYDFS) BitLicense Pure Software Exemption (`23 NYCRR § 200.2(q)`)** and US Federal securities guidelines:
 
+1. **Zero Native Speculative Utility Token:** The protocol has no native volatile gas or governance token. Transaction bandwidth and storage are managed directly via CPU time accounting and bonded capacity without secondary market speculation.
+2. **Soulbound Non-Transferable Credentials:** Reputation scores (`AdalahScore`) and verification credentials (`IkhtisasTag`) are strictly soulbound to account keys and cannot be transferred, sold, or borrowed.
+3. **100% Non-Custodial Multi-Chain Signatures:** The core protocol never takes custody of fiat or digital currencies. All payments resolve either via client-side multi-party crypto primitives (Bitcoin Taproot Miniscript, EVM Safe, Solana Squads) or through direct enterprise payment splits (Stripe Connect multi-party webhooks). Software developers and infrastructure nodes hold **zero keys** to user capital.
+
+---
+
+## Headless Commerce Quickstart
+
+Install the headless client SDK in your React / Next.js / React Native application:
+
+```bash
+npm install @muamalatos/headless-sdk
+```
+
+Connect directly to your local or hosted `psinode` without backend middleware:
+
+```typescript
+import { createMuamalatClient } from "@muamalatos/headless-sdk";
+
+// Initialize client connecting to psinode Wasm database
+const client = createMuamalatClient({
+  endpoint: "https://my-node.muamalatos.org",
+  locale: "institutional", // or "muamalat"
+});
+
+// 1. List a luxury item or equipment for P2P rental
+const asset = await client.guild.assets.create({
+  title: "Designer Dress / Camera Kit",
+  dayRateUsd: 45.0,
+  replacementValueUsd: 1200.0,
+  tangibleRatioBps: 10000, // 100% tangible
+  rofrWindowSec: 86400,     // 24hr co-owner priority
+});
+
+// 2. Execute instant checkout with multi-party split
+const lease = await client.guild.leases.checkout({
+  assetId: asset.id,
+  durationDays: 4,
+  preConditionEvidenceHash: "0x3a4b...photos",
+});
+// Gross payment is automatically split:
+// 93% -> Owner, 4% -> Mutual Protection Pool, 3% -> SaaS Operator
+
+// 3. Complete return with condition sign-off
+await client.guild.leases.confirmReturn({
+  leaseId: lease.id,
+  postConditionEvidenceHash: "0x9f1c...photos",
+});
+```
+
+---
+
+## Repository Structure
+
+```
+├── packages/
+│   ├── system/
+│   │   ├── StagedTx/        # Ricardian contracts & dual-witness evidentiary gating
+│   │   ├── AuthDelegate/    # Endowment (Waqf) principal locks & permission routing
+│   │   ├── Credentials/     # Soulbound Adalah (reliability) & Ikhtisas (competence)
+│   │   └── Producers/       # Consensus & Bitcoin/L2 state-root anchor checkpoints
+│   ├── user/
+│   │   ├── Branding/        # Dual-locale terminology dictionary and network branding
+│   │   ├── Tokens/          # RWA series config, 51% tangible floor, investor caps
+│   │   ├── Nft/             # Individual physical item tokenization & custody tracking
+│   │   ├── TokenSwap/       # Par-value debt protection & Shuf'ah (ROFR) order books
+│   │   ├── LeaseEngine/     # P2P rentals, progressive buyouts & zero-riba charity sink
+│   │   ├── MutualShield/    # Takaful protection pool with epoch surplus rebates
+│   │   ├── ClaimCouncil/    # 3-peer rapid damage triage & Halaqa Ju'alah bounty ranking
+│   │   ├── CreditClear/     # Bilateral & multilateral B2B invoice netting (Muqassah)
+│   │   ├── ExternalVault/   # Non-custodial Bitcoin Taproot, EVM Safe & Stripe splits
+│   │   ├── Evaluations/     # Objective claim/bounty rank-ordering
+│   │   ├── Guilds/          # Cooperative merchant pods & investment committees
+│   │   └── Subgroups/       # 5-7 peer review pods (Halaqat)
+│   └── shared-ui/
+│       └── headless-sdk/    # Reactive TypeScript SDK (@muamalatos/headless-sdk)
+├── doc/
+│   └── MUAMALATOS_SPEC.md   # Mathematical specification, formulas, & regulatory proofs
+└── rust/
+    └── psibase/             # Core Wasm-in-Database micro-execution engine
+```
+
+---
+
+## Build from Source
+
+### Prerequisites
+- Ubuntu 22.04 / 24.04 / WSL2
+- Clang 16+, CMake 3.22+, Make 4.3+
+- Rust 1.98+ with `wasm32-wasip1` and `wasm32-unknown-unknown` targets
+- Node.js 24+, Yarn 4+
+
+### Compilation
 ```sh
 git submodule update --init --recursive
 mkdir build && cd build
@@ -87,46 +207,8 @@ ctest -j $(nproc)
 make install
 ```
 
-The built product lives in `CMAKE_INSTALL_PREFIX` (`$CMAKE_BINARY_DIR/psidk` in the above example).
+---
 
-#### Build flags
+## License
 
-The following are some of the common/useful build flags you can use to configure CMake that modify the build. Open the build directory and run `cmake -LH` to view a list of all options.
-
-| Flag                          | Example Values    | Description                                                                                          |
-| ----------------------------- | ----------------- | ---------------------------------------------------------------------------------------------------- |
-| BUILD_DEBUG_WASM              | `yes`,`no`        | Build debug wasms (Needed for using the debugger)                                                    |
-| CMAKE_BUILD_TYPE              | `Debug`,`Release` | Determines level of optimization for the native programs                                             |
-| CMAKE_EXPORT_COMPILE_COMMANDS | `yes`,`no`        | Tell CMake to generate compile_commands.json, used by various tools (e.g. clang format intellisense) |
-| CMAKE_INSTALL_PREFIX          | `psidk`           | Binary install location.                                                                             |
-
-## Running psibase infrastructure 🚀
-
-> 🔍 We currently do not provide an ARM binary or docker image. If your device uses an ARM chip, you should build psinode (or its [docker image](https://github.com/gofractally/image-builders)) yourself.
-
-To run psinode, you can either build from source as described above, or you can install prebuilt binaries through one of the following two methods:
-
-1. Installing a binary release, the latest of which can be found on our [Releases](https://github.com/gofractally/psibase/releases) page. We provide binary packages for Ubuntu 22.04, Ubuntu 24.04, and Ubuntu 26.04.
-2. Installing our psinode [Docker Image](https://github.com/orgs/gofractally/packages/container/package/psinode).
-
-To execute psinode from the docker image, you can use the following docker command (make sure to specify the `VERSION` you want to run):
-
-```
-docker run --rm -p 8080:8080 -p 3000:3000 -p 9090:9090 ghcr.io/gofractally/psinode:VERSION
-```
-
-Run psinode with `--help` to learn about the various options, or consult our technical [docs](https://docs.psibase.io/).
-
-## Contribute 🧬
-
-If you're interested in developing next-generation web application development & deployment infrastructure, welcome aboard! Come hang out in the community [telegram channel](https://t.me/psibase_developers) to learn how best to contribute.
-
-Alternatively, fork the project and do whatever you want with it!
-
-### MacOS 🍏
-
-If you have a Mac (including Apple Silicon), you can use an Ubuntu 22.04 VM or Docker container. We do not host ARM variants of our [docker images](https://github.com/orgs/gofractally/packages?repo_name=image-builders) on our GitHub container registry. Therefore if you would like to use either the `psibase-builder-ubuntu-2204` or `psibase-contributor` on your Apple Silicon Mac, you should pull the [image-builders](https://github.com/gofractally/image-builders) repo and build the images yourself.
-
-## Support 📱
-
-Some contributors to this repo hang out in [this telegram channel](https://t.me/psibase_developers). That's probably the best place to ask questions and get support.
+MuamalatOS is released under the Apache 2.0 License.
