@@ -533,4 +533,48 @@ pub mod tables {
             b
         }
     }
+
+    /// Shuf'ah (Co-Owner Right of First Refusal) & Tangible Asset Order Book
+    #[table(name = "RofrListingTable", index = 3)]
+    #[derive(Serialize, Deserialize, SimpleObject, ToSchema, Pack, Unpack, Debug, Clone)]
+    pub struct RofrListing {
+        pub listing_id: u64,
+        pub seller: AccountNumber,
+        pub token_id: TID,
+        pub amount: Quantity,
+        pub unit_price_ppm: u64, // Price per unit in parts per million (1_000_000 = par)
+        pub listed_at: psibase::TimePointSec,
+        pub rofr_until: psibase::TimePointSec,
+        pub tangible_ratio_bps: u16, // If < 5100, price cannot deviate from par
+        pub active: bool,
+    }
+    impl RofrListing {
+        #[primary_key]
+        fn pk(&self) -> u64 {
+            self.listing_id
+        }
+
+        #[secondary_key(1)]
+        fn by_token(&self) -> (TID, u64) {
+            (self.token_id, self.listing_id)
+        }
+    }
+
+    #[table(name = "ListingIdTable", index = 4)]
+    #[derive(Serialize, Deserialize, ToSchema, Pack, Unpack, Debug, Default)]
+    pub struct ListingIdRow {
+        pub next_id: u64,
+    }
+    impl ListingIdRow {
+        #[primary_key]
+        fn pk(&self) {}
+
+        pub fn next_id() -> u64 {
+            let table = ListingIdTable::new();
+            let mut row = table.get_index_pk().get(&()).unwrap_or_default();
+            row.next_id += 1;
+            table.put(&row).unwrap();
+            row.next_id
+        }
+    }
 }

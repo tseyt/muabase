@@ -216,6 +216,12 @@ pub mod tables {
                 .getAccount(debitor)
                 .expect("Receiver DNE");
 
+            if let Some(rwa) = NftRwaConfig::get(nft_id) {
+                if rwa.min_adalah_score > 0 {
+                    assert!(rwa.min_adalah_score <= 10000, "Invalid adalah score threshold");
+                }
+            }
+
             let new_instance = Self::new(nft_id, creditor, debitor);
             new_instance.save();
 
@@ -347,6 +353,28 @@ pub mod tables {
             NftHolderFlagsJson::from(psibase::Flags::new(self.config))
         }
     }
+
+    /// RWA Physical Asset NFT metadata and trust gating
+    #[table(name = "NftRwaConfigTable", index = 5)]
+    #[derive(Pack, Unpack, ToSchema, Serialize, Deserialize, Debug, Clone, SimpleObject)]
+    pub struct NftRwaConfig {
+        pub nft_id: NID,
+        pub legal_wrapper_hash: psibase::Checksum256,
+        pub min_adalah_score: u32,
+        pub tangible_ratio_bps: u16,
+        pub custodian_account: AccountNumber,
+        pub charity_sink_account: AccountNumber,
+    }
+    impl NftRwaConfig {
+        #[primary_key]
+        fn pk(&self) -> NID {
+            self.nft_id
+        }
+
+        pub fn get(nft_id: NID) -> Option<Self> {
+            NftRwaConfigTable::read().get_index_pk().get(&nft_id)
+        }
+    }
 }
 
 #[psibase::service(name = "nft", tables = "tables", recursive = true)]
@@ -461,6 +489,24 @@ pub mod service {
     #[action]
     pub fn exists(nftId: NID) -> bool {
         Nft::get(nftId).is_some()
+    }
+
+    /// Configures RWA NFT physical asset metadata and trust thresholds
+    #[action]
+    pub fn configureRwaNft(config: NftRwaConfig) {
+        let nft = Nft::get_assert(config.nft_id);
+        nft.check_is_owner(get_sender());
+        assert!(
+            config.tangible_ratio_bps >= 5100,
+            "Tangible backing ratio must be >= 5100 bps (51% tangible backing)"
+        );
+        NftRwaConfigTable::new().put(&config).unwrap();
+    }
+
+    /// Fetches RWA NFT configuration
+    #[action]
+    pub fn getNftRwaConfig(nftId: NID) -> Option<NftRwaConfig> {
+        NftRwaConfig::get(nftId)
     }
 
     #[event(history)]

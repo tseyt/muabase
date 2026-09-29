@@ -1053,4 +1053,29 @@ pub mod tables {
                 .sub_account
         }
     }
+
+    /// RWA Series Configuration for physical asset tokenization and fractional co-ownership
+    #[table(name = "RwaSeriesConfigTable", index = 10)]
+    #[derive(Pack, Unpack, ToSchema, SimpleObject, Serialize, Deserialize, Debug, Clone)]
+    pub struct RwaSeriesConfig {
+        pub token_id: u32,
+        pub legal_wrapper_hash: Checksum256, // Series LLC / Trust / Co-Buy Agreement hash
+        pub max_holders: u16,                // e.g., 99 for private Series LLC exemption
+        pub min_adalah_score: u32,           // Minimum trust score to hold or rent
+        pub tangible_ratio_bps: u16,         // Must be >= 5100 (51% real tangible assets)
+        pub rofr_window_sec: u32,            // Right of First Refusal (Shuf'ah) window for co-owners
+        pub custodian_account: AccountNumber,// Active operator / Mudarib (e.g. closet custodian)
+        pub custodian_fee_bps: u16,          // Operator labor share (e.g. 2000 = 20%)
+        pub charity_sink_account: AccountNumber, // Mandatory Zero-Riba sink for late fees
+    }
+    impl RwaSeriesConfig {
+        #[primary_key]
+        fn pk(&self) -> u32 {
+            self.token_id
+        }
+
+        pub fn get(token_id: u32) -> Option<Self> {
+            RwaSeriesConfigTable::read().get_index_pk().get(&token_id)
+        }
+    }
 }

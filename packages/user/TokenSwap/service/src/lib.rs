@@ -3,7 +3,7 @@ pub mod tables;
 
 #[psibase::service(name = "token-swap", tables = "tables::tables")]
 pub mod service {
-    use crate::tables::tables::{InitRow, Pool, Reserve};
+    use crate::tables::tables::{InitRow, ListingIdRow, Pool, Reserve, RofrListing, RofrListingTable};
     use psibase::services::events;
     use psibase::{
         services::{
@@ -202,6 +202,113 @@ pub mod service {
             current_token,
             current_amount,
         );
+    }
+
+    /// Lists RWA units for sale enforcing Tangible Floor (>= 51%) and Shuf'ah (Co-Owner priority)
+    #[action]
+    fn listRwaForSale(
+        token_id: TID,
+        amount: Quantity,
+        unit_price_ppm: u64,
+        rofr_window_sec: u32,
+        tangible_ratio_bps: u16,
+    ) -> u64 {
+        let seller = get_sender();
+        assert!(amount.value > 0, "Amount must be positive");
+        assert!(unit_price_ppm > 0, "Unit price must be positive");
+
+        // Tangible asset floor enforcement (Bay' al-Dayn Prevention):
+        // If tangible_ratio_bps < 5100, price cannot deviate from par value (1_000_000 ppm = 1.0)
+        if tangible_ratio_bps < 5100 {
+            assert_eq!(
+                unit_price_ppm, 1_000_000,
+                "Bay' al-Dayn Violation: Assets with < 51% tangible backing can only trade at exact par value"
+            );
+        }
+
+        // Debit tokens to escrow
+        psibase::services::tokens::Wrapper::call().debit(
+            token_id,
+            seller,
+            amount,
+            "RWA Listing Escrow".into(),
+        );
+
+        let now = psibase::services::transact::Wrapper::call()
+            .currentBlock()
+            .time
+            .seconds();
+        let rofr_until = now + psibase::Seconds::new(rofr_window_sec as i64);
+        let listing_id = ListingIdRow::next_id();
+
+        let listing = RofrListing {
+            listing_id,
+            seller,
+            token_id,
+            amount,
+            unit_price_ppm,
+            listed_at: now,
+            rofr_until,
+            tangible_ratio_bps,
+            active: true,
+        };
+
+        RofrListingTable::new().put(&listing).unwrap();
+        listing_id
+    }
+
+    /// Fills an RWA listing, strictly enforcing Shuf'ah (co-owner priority window)
+    #[action]
+    fn fillRwaListing(listing_id: u64, fill_amount: Quantity) {
+        let buyer = get_sender();
+        assert!(fill_amount.value > 0, "Fill amount must be positive");
+
+        let mut listing = RofrListingTable::read()
+            .get_index_pk()
+            .get(&listing_id)
+            .expect("Listing does not exist");
+        assert!(listing.active, "Listing is no longer active");
+        assert!(
+            listing.amount >= fill_amount,
+            "Requested fill amount exceeds available listing amount"
+        );
+
+        let now = psibase::services::transact::Wrapper::call()
+            .currentBlock()
+            .time
+            .seconds();
+
+        // Shuf'ah (Co-Owner Right of First Refusal) Enforcement:
+        // If within the rofr_until window, buyer MUST already hold a positive balance of this token
+        if now < listing.rofr_until {
+            let balance = psibase::services::tokens::Wrapper::call()
+                .getBalance(buyer, listing.token_id);
+            assert!(
+                balance.value > 0,
+                "Haqq al-Shuf'ah Violation: Co-owner exclusive purchase window active until {:?}",
+                listing.rofr_until
+            );
+        }
+
+        listing.amount = listing.amount - fill_amount;
+        if listing.amount.value == 0 {
+            listing.active = false;
+        }
+        RofrListingTable::new().put(&listing).unwrap();
+
+        // Credit RWA tokens from swap escrow to buyer
+        psibase::services::tokens::Wrapper::call().credit(
+            listing.token_id,
+            buyer,
+            fill_amount,
+            "RWA Purchase Fill".into(),
+        );
+    }
+
+    /// Fetches an RWA listing
+    #[action]
+    fn getRwaListing(listing_id: u64) -> Option<RofrListing> {
+        RofrListingTable::read().get_index_pk().get(&listing_id)
     }
 
     #[event(history)]

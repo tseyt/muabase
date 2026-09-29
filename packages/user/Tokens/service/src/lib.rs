@@ -388,6 +388,29 @@ pub mod service {
     #[action]
     fn credit(token_id: TID, debitor: AccountNumber, amount: Quantity, memo: Memo) {
         let creditor = get_sender();
+
+        if let Some(rwa) = RwaSeriesConfig::get(token_id) {
+            if rwa.max_holders > 0 {
+                let has_bal = BalanceTable::read()
+                    .get_index_pk()
+                    .get(&(debitor, token_id))
+                    .map(|b| b.balance.value > 0)
+                    .unwrap_or(false);
+                if !has_bal {
+                    let count = BalanceTable::read()
+                        .get_index_by_token()
+                        .range((token_id, AccountNumber::MIN)..=(token_id, AccountNumber::MAX))
+                        .filter(|b| b.balance.value > 0)
+                        .count();
+                    assert!(
+                        count < rwa.max_holders as usize,
+                        "RWA Series max_holders cap reached ({})",
+                        rwa.max_holders
+                    );
+                }
+            }
+        }
+
         SharedBalance::get_or_new(creditor, debitor, token_id).credit(amount, memo.clone());
 
         Wrapper::emit().history().balChanged(
@@ -398,6 +421,26 @@ pub mod service {
             fmt_amount(token_id, amount),
             memo,
         );
+    }
+
+    /// Configures RWA Series parameters (Tangible floor >= 51%, max holders, ROFR window)
+    #[action]
+    fn configureRwaSeries(config: RwaSeriesConfig) {
+        let sender = get_sender();
+        let token = Token::get_assert(config.token_id);
+        let nft = psibase::services::nft::Wrapper::call().getNft(token.nft_id).expect("NFT DNE");
+        assert_eq!(sender, nft.owner, "Only token owner can configure RWA Series");
+        assert!(
+            config.tangible_ratio_bps >= 5100,
+            "Tangible ratio must be >= 5100 bps (51% tangible backing required)"
+        );
+        RwaSeriesConfigTable::new().put(&config).unwrap();
+    }
+
+    /// Fetches RWA Series configuration
+    #[action]
+    fn getRwaConfig(token_id: TID) -> Option<RwaSeriesConfig> {
+        RwaSeriesConfig::get(token_id)
     }
 
     /// Uncredit tokens that were credited into a shared balance
