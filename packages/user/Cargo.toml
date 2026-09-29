@@ -60,6 +60,8 @@ members = [
     "NameMarket/service",
     "NameMarket/query-service",
     "NameMarket/plugin",
+    "LeaseEngine",
+    "LeaseEngine/service",
 ]
 
 exclude = [
