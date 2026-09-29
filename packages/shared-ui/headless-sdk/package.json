@@ -1,7 +1,7 @@
 {
-  "name": "@muamalatos/headless-sdk",
+  "name": "@muabase/headless-sdk",
   "version": "1.0.0",
-  "description": "Reactive Headless Commerce SDK for MuamalatOS & Psibase Wasm-in-Database State Machine",
+  "description": "Reactive Headless Commerce SDK for Muabase & Psibase Wasm-in-Database State Machine",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
@@ -10,15 +10,15 @@
     "test": "echo \"SDK tests pass\""
   },
   "keywords": [
-    "muamalatos",
+    "muabase",
     "psibase",
     "rwa",
     "headless-commerce",
     "p2p-rentals",
-    "fiqh-al-muamalat",
+    "islamic-jurisprudence",
     "takaful"
   ],
-  "author": "MuamalatOS Systems & Protocol Engineering",
+  "author": "Muabase Systems & Protocol Engineering",
   "license": "Apache-2.0",
   "peerDependencies": {
     "react": "^18.0.0 || ^19.0.0"

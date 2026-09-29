@@ -1,6 +1,6 @@
-# Quickstart: Build a P2P Rental Marketplace on MuamalatOS (15 Minutes)
+# Quickstart: Build a P2P Rental Marketplace on Muabase (15 Minutes)
 
-This quickstart guides you through building a peer-to-peer luxury fashion/equipment rental marketplace (competing directly with platforms like Pickle) using `@muamalatos/headless-sdk`. 
+This quickstart guides you through building a peer-to-peer luxury fashion/equipment rental marketplace (competing directly with platforms like Pickle) using `@muabase/headless-sdk`. 
 
 Key architectural advantages:
 - **93% Lender Take-Home:** Slashes incumbent platform take-rates (typically 20–30%) down to 4% protocol fee + 3% peer mutual protection (*Takaful*).
@@ -15,7 +15,7 @@ Key architectural advantages:
 Install the headless SDK and its peer dependencies in your Next.js, Vite, or React Native project:
 
 ```bash
-npm install @muamalatos/headless-sdk
+npm install @muabase/headless-sdk
 ```
 
 ---
@@ -25,12 +25,12 @@ npm install @muamalatos/headless-sdk
 Configure the client to connect to your local `psinode` or testnet RPC gateway:
 
 ```typescript
-// lib/muamalat.ts
-import { MuamalatClient } from '@muamalatos/headless-sdk';
+// lib/muabase.ts
+import { MuabaseClient } from '@muabase/headless-sdk';
 
-export const client = new MuamalatClient({
+export const client = new MuabaseClient({
   endpoint: process.env.NEXT_PUBLIC_PSIBASE_RPC_URL || 'http://localhost:8080',
-  defaultLocale: 'institutional', // or 'muamalat'
+  defaultLocale: 'institutional', // or 'muabase'
   appName: 'PickleKiller-FashionGuild',
 });
 ```
@@ -39,24 +39,25 @@ export const client = new MuamalatClient({
 
 ## 3. Real-Time Guild Catalog Hook
 
-Use `useMuamalatTable` to subscribe to active rental inventory. Data updates reactively via Server-Sent Events (SSE) on each block commit:
+Use `useMuabaseTable` to subscribe to active rental inventory. Data updates reactively via Server-Sent Events (SSE) on each block commit:
 
 ```tsx
 // components/ItemCatalog.tsx
 'use client';
 
 import React from 'react';
-import { useMuamalatTable } from '@muamalatos/headless-sdk';
-import { client } from '@/lib/muamalat';
+import { useMuabaseTable } from '@muabase/headless-sdk';
+import { client } from '@/lib/muabase';
 
 export function ItemCatalog() {
-  const { data: leases, loading, error } = useMuamalatTable(
+  const { data: leases, loading, error } = useMuabaseTable({
     client,
-    'lease-engine',
-    'UsufructLeaseTable',
-    { status: 'Active' },
-    5000 // Poll fallback interval (ms) if SSE reconnects
-  );
+    service: 'lease-engine',
+    table: 'UsufructLeaseTable',
+    query: '{ usufructLeaseTable { leaseId lessor lessee grossPayment status } }',
+    filter: (lease: any) => lease.status === 'Active',
+    pollIntervalMs: 5000, // Poll fallback interval (ms) if SSE reconnects
+  });
 
   if (loading) return <div>Loading verified inventory...</div>;
   if (error) return <div>Error loading catalog: {error.message}</div>;
@@ -64,12 +65,12 @@ export function ItemCatalog() {
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
       {leases.map((lease: any) => (
-        <div key={lease.lease_id} className="border rounded p-4 shadow-sm">
-          <h3 className="font-bold">Asset #{lease.asset_id}</h3>
+        <div key={lease.leaseId} className="border rounded p-4 shadow-sm">
+          <h3 className="font-bold">Asset #{lease.assetId || lease.leaseId}</h3>
           <p className="text-sm text-gray-600">Lessor: {lease.lessor}</p>
-          <p className="text-sm">Rate: ${(lease.rental_rate_per_day / 100).toFixed(2)} / day</p>
+          <p className="text-sm">Rate: ${(lease.grossPayment / 10000).toFixed(2)}</p>
           <p className="text-xs text-green-700">
-            Lender Take-Home: 93% (${((lease.rental_rate_per_day * 0.93) / 100).toFixed(2)})
+            Lender Take-Home: 93% (${((lease.grossPayment * 0.93) / 10000).toFixed(2)})
           </p>
         </div>
       ))}
@@ -86,34 +87,22 @@ Create an active lease agreement with client-side cryptographic attestation:
 
 ```typescript
 // actions/checkout.ts
-import { client } from '@/lib/muamalat';
+import { client } from '@/lib/muabase';
 
 export async function rentLuxuryItem(params: {
   assetId: number;
-  lessor: string;
-  lessee: string;
-  days: number;
-  dailyRateCents: number;
-  depositCents: number;
-  charitySinkAccount: string;
+  durationDays: number;
+  preConditionEvidenceHash: string;
 }) {
-  const now = Math.floor(Date.now() / 1000);
-  const leaseEnd = now + params.days * 86400;
-
-  // Execute createLease transaction via Psibase Wasm RPC
-  const result = await client.createLease({
-    asset_id: params.assetId,
-    lessor: params.lessor,
-    lessee: params.lessee,
-    rental_rate_per_day: params.dailyRateCents,
-    deposit_amount: params.depositCents,
-    lease_start: now,
-    lease_end: leaseEnd,
-    charity_sink_account: params.charitySinkAccount,
+  const lease = await client.guild.leases.checkout({
+    assetId: params.assetId,
+    durationDays: params.durationDays,
+    preConditionEvidenceHash: params.preConditionEvidenceHash,
+    rail: 'stripe_connect',
   });
 
-  console.log(`Lease created! TxHash: ${result.transaction_id}`);
-  return result;
+  console.log(`Lease created! Lease ID: ${lease.leaseId}`);
+  return lease;
 }
 ```
 
@@ -125,20 +114,15 @@ If settling outside the native chain (e.g., Stripe Connect, Bitcoin Taproot P2TR
 
 ```typescript
 // actions/splitSettlement.ts
-import { client } from '@/lib/muamalat';
+import { client } from '@/lib/muabase';
 
 export async function initiateStripeSplit(leaseId: number, grossAmountCents: number) {
   // Generates split intent: 93% Lessor, 4% Platform, 3% Mutual Shield
-  const intent = await client.requestExternalSplit({
-    vault_type: 'StripeConnect',
-    source_reference: `lease_${leaseId}`,
-    total_amount: grossAmountCents,
-    currency: 'USD',
-    splits: [
-      { recipient: 'acct_lessor_123', share_bps: 9300 }, // 93%
-      { recipient: 'acct_platform_dao', share_bps: 400 }, // 4%
-      { recipient: 'acct_takaful_pool', share_bps: 300 }, // 3%
-    ],
+  const intent = await client.transact('ext-vault', 'generateSplitIntent', {
+    leaseId,
+    railType: 'stripe_connect',
+    grossAmountCents,
+    lenderAccount: 'asset-owner',
   });
 
   return intent;
@@ -153,24 +137,35 @@ When the rental period concludes, the borrower or lender submits return status:
 
 ### Clean Return
 ```typescript
-import { client } from '@/lib/muamalat';
+import { client } from '@/lib/muabase';
 
-export async function markReturnedClean(leaseId: number) {
+export async function markReturnedClean(leaseId: string, postConditionHash: string) {
   // Releases 100% of security deposit back to lessee
-  return await client.returnClean(leaseId);
+  return await client.guild.leases.confirmReturn({
+    leaseId,
+    postConditionEvidenceHash: postConditionHash,
+  });
 }
 ```
 
 ### Disputed Return (Triggering Peer Triage Committee)
 ```typescript
-import { client } from '@/lib/muamalat';
+import { client } from '@/lib/muabase';
 
-export async function fileDamageClaim(leaseId: number, photoHashHex: string, claimNotes: string) {
+export async function fileDamageClaim(params: {
+  leaseId: string;
+  claimedAmountUsd: number;
+  preConditionHash: string;
+  postConditionHash: string;
+  repairQuoteHash: string;
+}) {
   // Enters STATUS_DISPUTED and initiates ClaimCouncil 3-peer evaluation
-  return await client.disputeReturn({
-    lease_id: leaseId,
-    evidence_hash: photoHashHex,
-    notes: claimNotes,
+  return await client.guild.claims.submitEvidence({
+    leaseId: params.leaseId,
+    claimedAmountUsd: params.claimedAmountUsd,
+    preConditionEvidenceHash: params.preConditionHash,
+    postConditionEvidenceHash: params.postConditionHash,
+    repairQuoteHash: params.repairQuoteHash,
   });
 }
 ```
@@ -186,15 +181,15 @@ Support both standard institutional terminology and authentic *Fiqh al-Mu‘amal
 'use client';
 
 import React, { useState } from 'react';
-import { client } from '@/lib/muamalat';
+import { client } from '@/lib/muabase';
 
 export function LocaleToggle() {
-  const [locale, setLocale] = useState<'institutional' | 'muamalat'>('institutional');
+  const [locale, setLocale] = useState<'institutional' | 'muabase'>('institutional');
 
   const toggle = () => {
-    const next = locale === 'institutional' ? 'muamalat' : 'institutional';
+    const next = locale === 'institutional' ? 'muabase' : 'institutional';
     setLocale(next);
-    client.setLocale(next);
+    client.locale = next;
   };
 
   return (
@@ -203,11 +198,11 @@ export function LocaleToggle() {
         onClick={toggle}
         className="px-3 py-1 text-sm bg-gray-800 text-white rounded hover:bg-gray-700"
       >
-        Mode: {locale === 'institutional' ? '🏢 Commercial Institutional' : '⚖️ Fiqh al-Mu‘amalat'}
+        Mode: {locale === 'institutional' ? '🏢 Commercial Institutional' : '⚖️ Muabase / Fiqh'}
       </button>
 
       <span className="text-xs text-gray-500">
-        {client.t('lease')} | {client.t('shield')} | {client.t('rofr')}
+        Current Mode: {locale}
       </span>
     </div>
   );

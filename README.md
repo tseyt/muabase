@@ -1,5 +1,5 @@
 <div align="center">
-  <h1>MuamalatOS</h1>
+  <h1>Muabase</h1>
   <p><strong>The Serverless Full-Stack Operating System for RWAs, High-Trust Marketplaces, and Trade Guilds</strong></p>
   <p>
     <em>Built on the Psibase Wasm-in-Database Architecture &bull; Governed by Invariant Mathematical Fiqh al-Mu‘amalat</em>
@@ -21,7 +21,7 @@
 
 ## Overview
 
-**MuamalatOS** is a specialized fork of the `psibase` protocol engineered to serve as a high-performance, serverless operating system for:
+**Muabase** is a specialized fork of the `psibase` protocol engineered to serve as a high-performance, serverless operating system for:
 1. **Family Offices & Private Syndicates:** Managing multi-jurisdictional asset portfolios, private Series LLCs, and multi-generational generational trusts (*Awqaf*) with hardcoded capital-preservation policies.
 2. **Real-World Asset (RWA) Tokenization (Chintai Parity):** Compliant fractionalization of tangible physical assets (equipment, luxury fashion, commercial fleet, real estate) with native Ricardian contract bindings, transfer restrictions, and secondary market debt-protection floors.
 3. **High-Trust P2P Rental & Lending Guilds:** Headless commerce infrastructure outcompeting rent-extracting legacy platforms (e.g., peer-to-peer designer fashion rentals outcompeting apps like Pickle by delivering **93%+ take-home yield** to lenders vs. industry standard ~80%), featuring autonomous multi-party revenue splits, co-owned mutual damage pools, and peer triage.
@@ -33,7 +33,7 @@ All protocol logic executes directly in WebAssembly inside the `Triedent` memory
 
 ## Core Capabilities
 
-| Capability | Legacy Web2 / Web3 Stack | MuamalatOS Native Architecture |
+| Capability | Legacy Web2 / Web3 Stack | Muabase Native Architecture |
 | :--- | :--- | :--- |
 | **Execution Speed** | Layer 1/2 VM calls, external RPC nodes, indexing subgraphs (1-15s latency) | **Wasm-in-Database** running directly on `Triedent`. Sub-millisecond read/write speed with built-in GraphQL and reactive WebSocket event streams. |
 | **P2P Rental Economics** | Platforms extract 20%–35% take-rate with opaque dispute processes | **93%+ Lender Payout:** Transparent on-chain fee split (3% protocol/infrastructure, 4% mutual shield pool, 93% asset owner/syndicate). |
@@ -46,7 +46,7 @@ All protocol logic executes directly in WebAssembly inside the `Triedent` memory
 
 ## Hardcoded *Fiqh al-Mu‘amalat* Invariants
 
-MuamalatOS embeds classical jurisprudence constraints directly into state transition logic:
+Muabase embeds classical jurisprudence constraints directly into state transition logic:
 
 ```mermaid
 flowchart TD
@@ -81,9 +81,9 @@ flowchart TD
 
 ## Dual-Locale Terminology Switching
 
-MuamalatOS provides an on-chain locale engine in `packages/user/Branding` so interfaces and developer tools can switch seamlessly between standard institutional terminology and classical jurisprudence terms:
+Muabase provides an on-chain locale engine in `packages/user/Branding` so interfaces and developer tools can switch seamlessly between standard institutional terminology and classical jurisprudence terms:
 
-| Canonical Entity / Concept | Institutional Locale (`"institutional"`) | Jurisprudence Locale (`"muamalat"`) |
+| Canonical Entity / Concept | Institutional Locale (`"institutional"`) | Jurisprudence Locale (`"muabase"`) |
 | :--- | :--- | :--- |
 | `RwaSeriesConfig` | Asset Token Series / Private LLC | *Sukuk al-Qirad / Musharakah* |
 | `UsufructLease` (Short-Term) | P2P Peer Rental / Usufruct Lease | *Ijarah al-A‘yan wa al-Manafi‘* |
@@ -103,7 +103,7 @@ MuamalatOS provides an on-chain locale engine in `packages/user/Branding` so int
 
 ## NYC BitLicense & Martin Act Regulatory Safe Harbor
 
-MuamalatOS is explicitly designed to operate under the **New York Department of Financial Services (NYDFS) BitLicense Pure Software Exemption (`23 NYCRR § 200.2(q)`)** and US Federal securities guidelines:
+Muabase is explicitly designed to operate under the **New York Department of Financial Services (NYDFS) BitLicense Pure Software Exemption (`23 NYCRR § 200.2(q)`)** and US Federal securities guidelines:
 
 1. **Zero Native Speculative Utility Token:** The protocol has no native volatile gas or governance token. Transaction bandwidth and storage are managed directly via CPU time accounting and bonded capacity without secondary market speculation.
 2. **Soulbound Non-Transferable Credentials:** Reputation scores (`AdalahScore`) and verification credentials (`IkhtisasTag`) are strictly soulbound to account keys and cannot be transferred, sold, or borrowed.
@@ -116,18 +116,18 @@ MuamalatOS is explicitly designed to operate under the **New York Department of 
 Install the headless client SDK in your React / Next.js / React Native application:
 
 ```bash
-npm install @muamalatos/headless-sdk
+npm install @muabase/headless-sdk
 ```
 
 Connect directly to your local or hosted `psinode` without backend middleware:
 
 ```typescript
-import { createMuamalatClient } from "@muamalatos/headless-sdk";
+import { createMuabaseClient } from "@muabase/headless-sdk";
 
 // Initialize client connecting to psinode Wasm database
-const client = createMuamalatClient({
-  endpoint: "https://my-node.muamalatos.org",
-  locale: "institutional", // or "muamalat"
+const client = createMuabaseClient({
+  endpoint: "https://my-node.muabase.org",
+  locale: "institutional", // or "muabase"
 });
 
 // 1. List a luxury item or equipment for P2P rental
@@ -180,9 +180,9 @@ await client.guild.leases.confirmReturn({
 │   │   ├── Guilds/          # Cooperative merchant pods & investment committees
 │   │   └── Subgroups/       # 5-7 peer review pods (Halaqat)
 │   └── shared-ui/
-│       └── headless-sdk/    # Reactive TypeScript SDK (@muamalatos/headless-sdk)
+│       └── headless-sdk/    # Reactive TypeScript SDK (@muabase/headless-sdk)
 ├── doc/
-│   └── MUAMALATOS_SPEC.md   # Mathematical specification, formulas, & regulatory proofs
+│   └── MUABASE_SPEC.md      # Mathematical specification, formulas, & regulatory proofs
 └── rust/
     └── psibase/             # Core Wasm-in-Database micro-execution engine
 ```
@@ -211,4 +211,4 @@ make install
 
 ## License
 
-MuamalatOS is released under the Apache 2.0 License.
+Muabase is released under the Apache 2.0 License.

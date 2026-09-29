@@ -1,3 +1,3 @@
 export * from "./types";
 export * from "./client";
-export * from "./react/useMuamalatTable";
+export * from "./react/useMuabaseTable";

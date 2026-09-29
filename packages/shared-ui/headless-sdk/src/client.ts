@@ -1,17 +1,18 @@
 import {
-  MuamalatConfig,
+  MuabaseConfig,
+  TerminologyLocale,
   CreateAssetInput,
   CheckoutLeaseInput,
   DamageClaimInput,
   UsufructLease,
 } from "./types";
 
-export class MuamalatClient {
+export class MuabaseClient {
   public endpoint: string;
-  public locale: "institutional" | "muamalat";
+  public locale: TerminologyLocale;
   public account: string;
 
-  constructor(config: MuamalatConfig) {
+  constructor(config: MuabaseConfig) {
     this.endpoint = config.endpoint.replace(/\/$/, "");
     this.locale = config.locale || "institutional";
     this.account = config.account || "anonymous";
@@ -31,7 +32,7 @@ export class MuamalatClient {
     });
 
     if (!res.ok) {
-      throw new Error(`MuamalatOS Query Failed [${res.status}]: ${res.statusText}`);
+      throw new Error(`Muabase Query Failed [${res.status}]: ${res.statusText}`);
     }
 
     const json = await res.json();
@@ -167,6 +168,6 @@ export class MuamalatClient {
   };
 }
 
-export function createMuamalatClient(config: MuamalatConfig): MuamalatClient {
-  return new MuamalatClient(config);
+export function createMuabaseClient(config: MuabaseConfig): MuabaseClient {
+  return new MuabaseClient(config);
 }

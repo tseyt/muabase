@@ -2,7 +2,7 @@
 
 ## 1. Architectural Purpose & Reconfiguration
 
-In MuamalatOS, `Guilds`, `Subgroups`, and `Evaluations` have been decoupled from subjective people-ranking mechanisms (e.g., `Fractals`) and repurposed into **objective, multi-party decision engines**.
+In Muabase, `Guilds`, `Subgroups`, and `Evaluations` have been decoupled from subjective people-ranking mechanisms (e.g., `Fractals`) and repurposed into **objective, multi-party decision engines**.
 
 Instead of conducting popularity votes or social-credit ranking over human individuals, `Subgroups` are configured as **5-to-7 peer review committees (*Halaqat*)** that evaluate and rank-order discrete, verified digital and real-world work items:
 - **`ClaimId`:** Physical damage claims, repair invoices, and condition reports submitted to `MutualShield` (*Takaful*).
@@ -59,7 +59,7 @@ graph TD
 
 ## 4. Dual-Locale Terminology Reference
 
-| Institutional Term | Muamalat / Jurisprudence Term | Functional Role in System |
+| Institutional Term | Muabase / Jurisprudence Term | Functional Role in System |
 | :--- | :--- | :--- |
 | **Merchant Guild** | *Niqabah / Sharikah* | Autonomous business cooperative |
 | **Review Pod / Subgroup** | *Halaqa (pl. Halaqat)* | 5–7 peer evaluation committee |

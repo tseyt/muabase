@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from "react";
-import { MuamalatClient } from "../client";
+import { MuabaseClient } from "../client";
 
 export interface UseTableOptions<T> {
-  client: MuamalatClient;
+  client: MuabaseClient;
   service: string;
   table: string;
   query: string;
@@ -11,11 +11,11 @@ export interface UseTableOptions<T> {
 }
 
 /**
- * SpacetimeDB-style reactive table sync hook for MuamalatOS.
+ * SpacetimeDB-style reactive table sync hook for Muabase.
  * Subscribes to live WebSocket event streams from psinode, updating table state
  * in real-time with sub-millisecond latency.
  */
-export function useMuamalatTable<T = any>({
+export function useMuabaseTable<T = any>({
   client,
   service,
   table,

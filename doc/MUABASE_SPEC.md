@@ -1,4 +1,4 @@
-# MuamalatOS Architectural Specification: Protocols, Fiqh Invariants, & Headless Commerce
+# Muabase Architectural Specification: Protocols, Fiqh Invariants, & Headless Commerce
 
 **Status:** Normative Specification & Technical Blueprint  
 **Version:** 1.0.0-rc1  
@@ -9,21 +9,21 @@
 
 ## 1. Executive Summary & Foundational Tenets
 
-MuamalatOS is a decentralized, serverless operating system tailored for Real-World Asset (RWA) syndication, Family Office capital governance, high-trust Peer-to-Peer (P2P) lending/rental marketplaces, and B2B trade cooperatives. 
+Muabase is a decentralized, serverless operating system tailored for Real-World Asset (RWA) syndication, Family Office capital governance, high-trust Peer-to-Peer (P2P) lending/rental marketplaces, and B2B trade cooperatives. 
 
-Built as a specialized runtime on top of the Psibase Wasm-in-Database architecture, MuamalatOS executes all business logic, index queries, and access controls within deterministic WebAssembly micro-services running directly over memory-mapped Trie storage (`Triedent`). It delivers microsecond query latencies and reactive event streams comparable to SpacetimeDB, while executing on an asynchronous Byzantine Fault Tolerant (BFT) state machine.
+Built as a specialized runtime on top of the Psibase Wasm-in-Database architecture, Muabase executes all business logic, index queries, and access controls within deterministic WebAssembly micro-services running directly over memory-mapped Trie storage (`Triedent`). It delivers microsecond query latencies and reactive event streams comparable to SpacetimeDB, while executing on an asynchronous Byzantine Fault Tolerant (BFT) state machine.
 
-Crucially, MuamalatOS enforces the mathematical invariants of classical Islamic commercial jurisprudence (*Fiqh al-Mu‘amalat*) at the state-transition level without requiring specialized religious terminology in the primary code primitives. All Wasm services, data tables, and actions use neutral, institutional identifiers while supporting dynamic dual-locale presentation.
+Crucially, Muabase enforces the mathematical invariants of classical Islamic commercial jurisprudence (*Fiqh al-Mu‘amalat*) at the state-transition level without requiring specialized religious terminology in the primary code primitives. All Wasm services, data tables, and actions use neutral, institutional identifiers while supporting dynamic dual-locale presentation.
 
 ---
 
 ## 2. Dual-Locale Terminology Specification
 
-To accommodate both traditional commercial syndicates (Manhattan family offices, commercial fleet co-ops, fashion rental platforms) and faith-based ethical financial institutions, MuamalatOS features a protocol-native dual-locale translation layer exposed via `packages/user/Branding`.
+To accommodate both traditional commercial syndicates (Manhattan family offices, commercial fleet co-ops, fashion rental platforms) and faith-based ethical financial institutions, Muabase features a protocol-native dual-locale translation layer exposed via `packages/user/Branding`.
 
 ### 2.1 Terminology Mapping Matrix
 
-| Canonical Code Identifier | Institutional Locale (`"institutional"`) | Jurisprudential Locale (`"muamalat"`) | Classical Legal Basis & Jurisprudential Invariant |
+| Canonical Code Identifier | Institutional Locale (`"institutional"`) | Jurisprudential Locale (`"muabase"`) | Classical Legal Basis & Jurisprudential Invariant |
 | :--- | :--- | :--- | :--- |
 | `RwaSeriesConfig` | Asset Token Series / Private LLC | *Sukuk al-Qirad / Musharakah* | Fractional co-ownership of real physical assets (*A'yan*) with shared profit and liability. |
 | `UsufructLease` (Fixed) | Usufruct Lease / P2P Rental | *Ijarah al-A‘yan wa al-Manafi‘* | Separation of asset ownership from temporary right-of-use (*Manfa‘ah*). |
@@ -44,7 +44,7 @@ To accommodate both traditional commercial syndicates (Manhattan family offices,
 
 ## 3. The 3-Layer Consensus & Governance Architecture
 
-MuamalatOS establishes consensus and governance through a three-layer decoupled architecture:
+Muabase establishes consensus and governance through a three-layer decoupled architecture:
 
 ```mermaid
 graph TD
@@ -157,7 +157,7 @@ When a fractional co-owner lists $N$ units of `TokenId` in `TokenSwap` at timest
 
 ## 5. The Inter-Chain `Wajahah-Hawalah` Liquidity Bridge
 
-In trade credit networks and inter-node settlement, participants frequently need cross-chain purchasing power without routing through volatile crypto exchanges or custodial bridges. MuamalatOS implements the **`Wajahah-Hawalah` Bridge**, deriving synthetic credit lines from earned commercial reputation (*Wajahah*) and locked endowment reserves (*Waqf*).
+In trade credit networks and inter-node settlement, participants frequently need cross-chain purchasing power without routing through volatile crypto exchanges or custodial bridges. Muabase implements the **`Wajahah-Hawalah` Bridge**, deriving synthetic credit lines from earned commercial reputation (*Wajahah*) and locked endowment reserves (*Waqf*).
 
 ### 5.1 The Mathematical Credit Limit Formula
 
@@ -187,14 +187,14 @@ At scheduled clearing epochs (e.g. daily at 00:00 UTC), `CreditClear` runs a det
 
 ## 6. NYC BitLicense & Regulatory Compliance Architecture
 
-MuamalatOS is specifically architected to comply with the stringent regulatory framework of the New York State Department of Financial Services (NYDFS) and US Federal securities law.
+Muabase is specifically architected to comply with the stringent regulatory framework of the New York State Department of Financial Services (NYDFS) and US Federal securities law.
 
 ### 6.1 Pure Software Exemption (`23 NYCRR § 200.2(q)`)
 
 Under New York Codes, Rules and Regulations (`23 NYCRR § 200.2(q)`):
 > *"Virtual Currency Business Activity does not include the development and dissemination of software in and of itself."*
 
-MuamalatOS achieves complete compliance under this safe harbor through four architectural guarantees:
+Muabase achieves complete compliance under this safe harbor through four architectural guarantees:
 1. **Zero Native Speculative Utility Token:** The protocol does not mint, distribute, sell, or require a native speculative gas token. Network bandwidth is allocated through computational CPU limit staking and deterministic quotas.
 2. **100% Non-Custodial Architecture (`ExternalVault`):** Neither the software developers, the foundation, nor node operators ever hold, custody, manage, or maintain private keys controlling customer funds. All digital asset movements require direct cryptographic signatures from the users' client devices:
    - *Bitcoin:* Native Taproot Miniscript PSBTs (`P2TR`) signed client-side via hardware wallets or WebAuthn passkeys.
@@ -211,7 +211,7 @@ MuamalatOS achieves complete compliance under this safe harbor through four arch
 
 ## 7. Headless Commerce Architecture & Reactive SDK
 
-The MuamalatOS Headless Commerce SDK (`@muamalatos/headless-sdk`) enables rapid frontend development (Next.js, React Native, Vite) by abstracting low-level Wasm actions into reactive, type-safe hooks and service calls.
+The Muabase Headless Commerce SDK (`@muabase/headless-sdk`) enables rapid frontend development (Next.js, React Native, Vite) by abstracting low-level Wasm actions into reactive, type-safe hooks and service calls.
 
 ### 7.1 P2P Rental Lifecycle Example (Fashion / Equipment Lending)
 
@@ -220,7 +220,7 @@ sequenceDiagram
     autonumber
     actor Lender as Lender (Asset Owner)
     actor Borrower as Borrower (Renter)
-    participant Client as Frontend (@muamalatos/headless-sdk)
+    participant Client as Frontend (@muabase/headless-sdk)
     participant Psibase as Wasm DB (LeaseEngine + MutualShield)
     participant Stripe as Stripe Connect / ExternalVault
 
@@ -257,7 +257,7 @@ sequenceDiagram
 - `packages/system/AuthDelegate`: Soulbound permissions and immutable `EndowmentGuard` principal locks.
 - `packages/system/Credentials`: Non-transferable `AdalahScore` (reliability) and `IkhtisasTag` (competence).
 - `packages/system/Producers`: Consensus parameters and hourly Bitcoin/EVM L2 state-root checkpoints.
-- `packages/user/Branding`: Dual-locale institutional/muamalat terminology translations and network branding.
+- `packages/user/Branding`: Dual-locale institutional/muabase terminology translations and network branding.
 - `packages/user/Tokens`: RWA series metadata, investor count limits, 51% tangible asset floor enforcement.
 - `packages/user/Nft`: Physical item tokenization, custody tracking, condition hashes.
 - `packages/user/TokenSwap`: Zero-debt-speculation trading rules, Shuf'ah (ROFR) exclusive windows.

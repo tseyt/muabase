@@ -1,7 +1,7 @@
-export type TerminologyLocale = "institutional" | "muamalat";
+export type TerminologyLocale = "institutional" | "muabase";
 
-export interface MuamalatConfig {
-  endpoint: string; // psinode URL (e.g. http://localhost:8080 or https://node.muamalatos.org)
+export interface MuabaseConfig {
+  endpoint: string; // psinode URL (e.g. http://localhost:8080 or https://node.muabase.org)
   locale?: TerminologyLocale;
   account?: string;
   keyPair?: {
