@@ -62,6 +62,12 @@ members = [
     "NameMarket/plugin",
     "LeaseEngine",
     "LeaseEngine/service",
+    "MutualShield",
+    "MutualShield/service",
+    "ClaimCouncil",
+    "ClaimCouncil/service",
+    "CreditClear",
+    "CreditClear/service",
 ]
 
 exclude = [
