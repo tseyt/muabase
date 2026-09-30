@@ -52,17 +52,17 @@ mod tables {
     pub fn get_canonical_terminology_mappings() -> Vec<TerminologyMapping> {
         vec![
             TerminologyMapping {
-                key: "rwa_series".to_string(),
+                key: "asset_pool".to_string(),
                 institutional: "RWA Asset Series / Series LLC".to_string(),
                 muamalat: "Sukuk al-Qirad / Musharakah".to_string(),
             },
             TerminologyMapping {
-                key: "usufruct_lease_fixed".to_string(),
+                key: "lease".to_string(),
                 institutional: "Fixed Usufruct Lease / P2P Rental".to_string(),
                 muamalat: "Ijarah al-A‘yan wa al-Manafi‘".to_string(),
             },
             TerminologyMapping {
-                key: "usufruct_lease_progressive".to_string(),
+                key: "lease_to_own".to_string(),
                 institutional: "Progressive Lease-to-Own".to_string(),
                 muamalat: "Musharakah Mutanaqisah".to_string(),
             },
@@ -87,7 +87,7 @@ mod tables {
                 muamalat: "Hifz Asl al-Waqf".to_string(),
             },
             TerminologyMapping {
-                key: "rofr_window".to_string(),
+                key: "priority_window".to_string(),
                 institutional: "Co-Owner Right of First Refusal".to_string(),
                 muamalat: "Haqq al-Shuf‘ah".to_string(),
             },
@@ -204,7 +204,11 @@ mod service {
 
         async fn translate_term(&self, term: String) -> String {
             let lookup_term = match term.as_str() {
+                "rwa_series" | "rwa" => "asset_pool",
+                "usufruct_lease_fixed" | "usufruct" | "rental" => "lease",
+                "usufruct_lease_progressive" | "rent_to_own" => "lease_to_own",
                 "evaluations" => "evals",
+                "rofr_window" | "rofr" => "priority_window",
                 "adalah_score" => "trust_score",
                 "ikhtisas_tag" => "domain_badge",
                 _ => term.as_str(),

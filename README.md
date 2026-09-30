@@ -85,14 +85,14 @@ Muabase provides an on-chain locale engine in `packages/user/Branding` so interf
 
 | Canonical Entity / Concept | Institutional Locale (`"institutional"`) | Jurisprudence Locale (`"muamalat"`) |
 | :--- | :--- | :--- |
-| `RwaSeriesConfig` | Asset Token Series / Private LLC | *Sukuk al-Qirad / Musharakah* |
-| `UsufructLease` (Short-Term) | P2P Peer Rental / Usufruct Lease | *Ijarah al-A‘yan wa al-Manafi‘* |
-| `UsufructLease` (Progressive) | Progressive Lease-to-Own | *Musharakah Mutanaqisah* |
-| `MutualShield` | Mutual Protection Reserve Pool | *Takaful (Tabarru‘ & Ta‘awun)* |
-| `ClaimCouncil` | Peer Triage & Audit Committee | *Majlis al-Tahkim & Shura* |
+| `asset_pool` | Asset Token Series / Private LLC | *Sukuk al-Qirad / Musharakah* |
+| `lease` | Fixed Usufruct Lease / P2P Rental | *Ijarah al-A‘yan wa al-Manafi‘* |
+| `lease_to_own` | Progressive Lease-to-Own | *Musharakah Mutanaqisah* |
+| `mutual_shield` | Mutual Protection Reserve Pool | *Takaful (Tabarru‘ & Ta‘awun)* |
+| `claim_council` | Peer Triage & Audit Committee | *Majlis al-Tahkim & Shura* |
 | `evals` | Objective Bounty / Claim Ranking | *Ju‘alah Halaqa* |
-| `EndowmentPolicy` | Trust Principal Preservation Guard | *Hifz Asl al-Waqf* |
-| `rofr_window_sec` | Co-Owner Right of First Refusal | *Haqq al-Shuf‘ah* |
+| `endowment_policy` | Trust Principal Preservation Guard | *Hifz Asl al-Waqf* |
+| `priority_window` | Co-Owner Right of First Refusal | *Haqq al-Shuf‘ah* |
 | `charity_sink_account` | Public Endowment Charity Sink | *Masraf al-Sadaqah* |
 | `CreditClear` | Multilateral Invoice Clearing | *Muqassah & Wajahah-Hawalah* |
 | `trust_score` | Reliability & Audit Score | *‘Adalah (Reliability)* |
