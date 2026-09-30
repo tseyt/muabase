@@ -64,18 +64,18 @@ flowchart TD
     end
 
     subgraph Evidentiary_Gate ["Binary Bayyinah & Triage"]
-        Evidence["Photo / Invoice Proof Hash"] --> Quorum{"Witness Quorum >= 2\n(Ikhtisas + Adalah)"}
-        Quorum -->|Valid Attestation| ClaimCouncil["ClaimCouncil / Evaluations"]
+        Evidence["Photo / Invoice Proof Hash"] --> Quorum{"Witness Quorum >= 2\n(trust_score + domain_badge)"}
+        Quorum -->|Valid Attestation| ClaimCouncil["ClaimCouncil / evals"]
         ClaimCouncil -->|Approved Claim| Payout["Instant MutualShield Disbursement"]
     end
 ```
 
-1. **Zero-*Riba* Late-Fee Routing (`charity_sink_account`):** Creditors, lenders, and lessors can never profit from time-value late penalties. In `LeaseEngine` and `TokenStream`, punitive late deterrences are mathematically hard-routed to a designated public endowment vault (*Sadaqah*).
-2. **Elimination of Subjective People-Ranking:** `Fractals`, `FractalCore`, and `FractalTester` are deprecated from the active build. Humans are never subjected to popularity contests. `Evaluations`, `Guilds`, and `Subgroups` exclusively rank objective, verified work items (`ClaimId`, `BountyId`, `DealProposalId`).
-3. **Binary *Bayyinah* (Dual-Witness Gate):** Prior to entering dispute triage or releasing escrow in `StagedTx`, at least 2 qualified witnesses (`witness_quorum >= 2`) holding verified `Adalah` (reliability) and `Ikhtisas` (competence) credentials must co-sign the Ricardian evidence hash.
-4. **Tangible Asset Floor (`tangible_ratio_bps >= 5100`):** Secondary market trading of RWA tokens above or below par value is strictly gated in `TokenSwap`. When tangible asset backing (*‘Ayn*) falls below 51%, secondary trading at non-par is halted to prevent naked debt speculation (*Bay‘ al-Dayn*).
-5. **Right of First Refusal (*Haqq al-Shuf‘ah*):** When fractional co-owners list their share of an asset, existing co-owners enjoy an automated `rofr_window_sec` exclusive purchase window before units can be acquired by external parties.
-6. **Immutable Endowment Guard (`EndowmentPolicy`):** Accounts tagged as trust principal (*Waqf Asl*) reject outward capital consumption transfers; principal is restricted to approved productive investments, while 100% of generated yield flows into a dedicated distributable account (*Manfa‘ah*).
+1. **Zero-*Riba* Late-Fee Routing (`charity_sink`):** Creditors, lenders, and lessors can never profit from time-value late penalties. In `LeaseEngine` and `TokenStream`, punitive late deterrences are mathematically hard-routed to a designated `charity_sink` public endowment vault (*Masraf al-Sadaqah* / Wasm: `charity_sink_account`).
+2. **Elimination of Subjective People-Ranking:** `Fractals`, `FractalCore`, and `FractalTester` are deprecated from the active build. Humans are never subjected to popularity contests. `Evaluations` (`evals`), `Guilds`, and `Subgroups` exclusively rank objective, verified work items (`ClaimId`, `BountyId`, `DealProposalId`).
+3. **Binary *Bayyinah* (Dual-Witness Gate):** Prior to entering dispute triage or releasing escrow in `StagedTx`, at least 2 qualified witnesses (`witness_quorum >= 2`) holding verified `trust_score` (reliability / `AdalahScore`) and `domain_badge` (competence / `IkhtisasTag`) credentials must co-sign the Ricardian evidence hash.
+4. **Tangible Asset Floor (`tangible_ratio` / `tangible_ratio_bps >= 5100`):** Secondary market trading of RWA tokens above or below par value is strictly gated in `TokenSwap`. When tangible asset backing (*‘Ayn*) falls below 51%, secondary trading at non-par is halted to prevent naked debt speculation (*Bay‘ al-Dayn*).
+5. **Right of First Refusal (*Haqq al-Shuf‘ah*):** When fractional co-owners list their share of an asset, existing co-owners enjoy an automated `priority_window` (`rofr_window_sec`) exclusive purchase window before units can be acquired by external parties.
+6. **Immutable Endowment Guard (`endowment_policy`):** Accounts tagged as trust principal (*Waqf Asl*) reject outward capital consumption transfers via `endowment_policy` (`EndowmentGuard`); principal is restricted to approved productive investments, while 100% of generated yield flows into a dedicated distributable account (*Manfa‘ah*).
 
 ---
 
@@ -93,11 +93,11 @@ Muabase provides an on-chain locale engine in `packages/user/Branding` so interf
 | `evals` | Objective Bounty / Claim Ranking | *Ju‘alah Halaqa* |
 | `endowment_policy` | Trust Principal Preservation Guard | *Hifz Asl al-Waqf* |
 | `priority_window` | Co-Owner Right of First Refusal | *Haqq al-Shuf‘ah* |
-| `charity_sink_account` | Public Endowment Charity Sink | *Masraf al-Sadaqah* |
-| `CreditClear` | Multilateral Invoice Clearing | *Muqassah & Wajahah-Hawalah* |
+| `charity_sink` | Public Endowment Charity Sink | *Masraf al-Sadaqah* |
+| `credit_clear` | Multilateral Invoice Clearing | *Muqassah & Wajahah-Hawalah* |
 | `trust_score` | Reliability & Audit Score | *‘Adalah (Reliability)* |
 | `domain_badge` | Domain Competence Badge | *Ikhtisas (Specialization)* |
-| `tangible_ratio_bps` | Real Tangible Asset Backing Ratio | *Nisbat al-‘Ayn al-Haqiqiyyah* |
+| `tangible_ratio` | Real Tangible Asset Backing Ratio | *Nisbat al-‘Ayn al-Haqiqiyyah* |
 
 ---
 
@@ -106,7 +106,7 @@ Muabase provides an on-chain locale engine in `packages/user/Branding` so interf
 Muabase is explicitly designed to operate under the **New York Department of Financial Services (NYDFS) BitLicense Pure Software Exemption (`23 NYCRR § 200.2(q)`)** and US Federal securities guidelines:
 
 1. **Zero Native Speculative Utility Token:** The protocol has no native volatile gas or governance token. Transaction bandwidth and storage are managed directly via CPU time accounting and bonded capacity without secondary market speculation.
-2. **Soulbound Non-Transferable Credentials:** Reputation scores (`AdalahScore`) and verification credentials (`IkhtisasTag`) are strictly soulbound to account keys and cannot be transferred, sold, or borrowed.
+2. **Soulbound Non-Transferable Credentials:** Reputation scores (`trust_score` / `AdalahScore`) and verification credentials (`domain_badge` / `IkhtisasTag`) are strictly soulbound to account keys and cannot be transferred, sold, or borrowed.
 3. **100% Non-Custodial Multi-Chain Signatures:** The core protocol never takes custody of fiat or digital currencies. All payments resolve either via client-side multi-party crypto primitives (Bitcoin Taproot Miniscript, EVM Safe, Solana Squads) or through direct enterprise payment splits (Stripe Connect multi-party webhooks). Software developers and infrastructure nodes hold **zero keys** to user capital.
 
 ---
@@ -135,8 +135,8 @@ const asset = await client.guild.assets.create({
   title: "Designer Dress / Camera Kit",
   dayRateUsd: 45.0,
   replacementValueUsd: 1200.0,
-  tangibleRatioBps: 10000, // 100% tangible
-  rofrWindowSec: 86400,     // 24hr co-owner priority
+  tangibleRatioBps: 10000, // 100% tangible (tangible_ratio)
+  priorityWindowSec: 86400, // 24hr co-owner priority (rofrWindowSec supported)
 });
 
 // 2. Execute instant checkout with multi-party split

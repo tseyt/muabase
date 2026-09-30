@@ -16,20 +16,25 @@ export interface RwaSeriesConfig {
   maxHolders: number;
   minTrustScore: number;    // Minimum trust score (0-10,000) to hold or rent
   minAdalahScore?: number;  // Backwards-compatible alias
-  tangibleRatioBps: number; // >= 5100
-  rofrWindowSec: number;
+  tangibleRatioBps: number; // >= 5100 (tangible_ratio)
+  priorityWindowSec?: number; // Co-owner Right of First Refusal window in seconds
+  rofrWindowSec: number;    // Backwards-compatible field
   custodianAccount: string;
   custodianFeeBps: number;
   charitySinkAccount: string;
 }
+
+export type AssetPoolConfig = RwaSeriesConfig;
 
 export interface CreateAssetInput {
   title: string;
   dayRateUsd: number;
   replacementValueUsd: number;
   minTrustScore?: number;    // Defaults to 7000
+  minAdalahScore?: number;   // Backwards-compatible alias
   tangibleRatioBps?: number; // Defaults to 10000 (100%)
-  rofrWindowSec?: number;    // Defaults to 86400 (24h)
+  priorityWindowSec?: number;// Defaults to 86400 (24h)
+  rofrWindowSec?: number;    // Backwards-compatible alias
   custodianAccount?: string;
   custodianFeeBps?: number;
   maxHolders?: number;

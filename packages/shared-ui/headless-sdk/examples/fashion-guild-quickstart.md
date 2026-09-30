@@ -4,7 +4,7 @@ This quickstart guides you through building a peer-to-peer luxury fashion/equipm
 
 Key architectural advantages:
 - **93% Lender Take-Home:** Slashes incumbent platform take-rates (typically 20–30%) down to 4% protocol fee + 3% peer mutual protection (*Takaful*).
-- **Zero-*Riba* Deterrence:** 100% of punitive late-return penalties are hard-routed to a designated community charity sink (`charity_sink_account`).
+- **Zero-*Riba* Deterrence:** 100% of punitive late-return penalties are hard-routed to a designated community charity sink (`charity_sink` / `charity_sink_account`).
 - **Peer Triage Committee (*Halaqa*):** Disputed returns are arbitrated by 3 independent guild peers via photo evidence hashes rather than opaque centralized customer support.
 - **Dual-Locale Branding:** Seamlessly toggle between standard institutional UI labels and explicit *Fiqh al-Mu‘amalat* terms.
 
@@ -215,7 +215,7 @@ export function LocaleToggle() {
 
 | Invariant | Implementation Mechanism | Regulatory / Jurisprudential Reference |
 |---|---|---|
-| **Zero-*Riba*** | Punitive late fees routed to `charity_sink_account` | Qur'an 2:278–279; AAOIFI Shariah Std 8 |
+| **Zero-*Riba*** | Punitive late fees routed to `charity_sink` (`charity_sink_account`) | Qur'an 2:278–279; AAOIFI Shariah Std 8 |
 | **93% Payout** | `9300 bps` / `400 bps` / `300 bps` fixed split | Disintermediation of 25–30% Web2 fee models |
 | **Non-Custodial** | 0-key `ExternalVault` client-side multisig / Stripe split | NYC BitLicense 23 NYCRR § 200.2(q) |
 | **Peer Triage** | 3-witness Condorcet rank-order in `ClaimCouncil` | AAOIFI Shariah Std 5 (Guarantees & Indemnities) |

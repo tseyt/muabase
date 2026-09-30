@@ -38,7 +38,7 @@ To accommodate both traditional commercial syndicates (Manhattan family offices,
 | `Wajahah-Hawalah` | Earned-Respect Liquidity Bridge | *Wajahah & Hawalah* | Novation and debt assignment backed by commercial goodwill, reputation (*Wajahah*), and collateral. |
 | `trust_score` | Reliability & Audit Score | *‘Adalah* | Non-transferable track record of probity, contract fulfillment, and truthful witness testimony. |
 | `domain_badge` | Domain Competence Credential | *Ikhtisas* | Soulbound domain capability verification (e.g. textile inspection, real estate appraisal). |
-| `tangible_ratio_bps` | Tangible Asset Backing Ratio | *Nisbat al-‘Ayn al-Haqiqiyyah* | Mathematical floor enforcing >= 51% tangible asset/usufruct backing to prevent naked debt trading. |
+| `tangible_ratio` | Tangible Asset Backing Ratio | *Nisbat al-‘Ayn al-Haqiqiyyah* | Mathematical floor enforcing >= 51% tangible asset/usufruct backing to prevent naked debt trading (Wasm: `tangible_ratio_bps`). |
 
 ---
 
@@ -67,7 +67,7 @@ graph TD
 
     subgraph Layer_3 ["Layer 3: Halaqa Object-Centric Evaluations"]
         ObjectiveItems["Objective Claims, Bounties & Deals (ClaimId / BountyId)"]
-        WitnessGate["2-Witness Binary Bayyinah Gate (Adalah >= threshold)"]
+        WitnessGate["2-Witness Binary Bayyinah Gate (trust_score >= threshold)"]
         CondorcetHalaqa["5-7 Peer Review Halaqat (Schulze Condorcet)"]
         ObjectiveItems --> WitnessGate
         WitnessGate --> CondorcetHalaqa
@@ -114,7 +114,7 @@ $$\Delta \text{Balance}(\text{Lessor}) \le C_{\text{actual}}$$
 $$\Delta \text{Balance}(\text{CharitySink}) = S_{\text{deterrent}}$$
 $$\forall \text{ transaction } t, \quad \frac{\partial \text{Balance}(\text{Lessor})}{\partial S_{\text{deterrent}}} = 0$$
 
-Inside `packages/user/LeaseEngine` and `packages/user/TokenStream`, this invariant is enforced at the WebAssembly level: any transaction that attempts to route $S_{\text{deterrent}}$ to any account other than `charity_sink_account` immediately asserts failure and aborts state execution.
+Inside `packages/user/LeaseEngine` and `packages/user/TokenStream`, this invariant is enforced at the WebAssembly level: any transaction that attempts to route $S_{\text{deterrent}}$ to any account other than the designated `charity_sink` vault (Wasm state field: `charity_sink_account`) immediately asserts failure and aborts state execution.
 
 ### 4.2 Binary *Bayyinah* (Dual-Witness Evidentiary Gate)
 
@@ -124,8 +124,9 @@ Inside `packages/user/LeaseEngine` and `packages/user/TokenStream`, this invaria
 Let an evidentiary submission $E$ consist of a cryptographic digest $H(M)$ where $M$ is the canonical Ricardian metadata (e.g. condition photos, repair invoices, bill of lading).
 For $E$ to unlock state execution in `StagedTx` or `ClaimCouncil`:
 $$\text{WitnessSet}(E) = \{ w_i \in \text{Accounts} \mid \text{VerifySig}(w_i, H(M)) = \text{true} \}$$
-$$\forall w_i \in \text{WitnessSet}(E): \quad \text{AdalahScore}(w_i) \ge \tau_{\text{adalah}} \quad \land \quad \text{Domain}(E) \in \text{Ikhtisas}(w_i)$$
+$$\forall w_i \in \text{WitnessSet}(E): \quad \text{trust\_score}(w_i) \ge \tau_{\text{trust}} \quad \land \quad \text{domain}(E) \in \text{domain\_badge}(w_i)$$
 $$\text{Status}(E) = \begin{cases} \text{Approved}, & \text{if } |\text{WitnessSet}(E)| \ge 2 \\ \text{PendingWitnessQuorum}, & \text{otherwise} \end{cases}$$
+*(Underlying service contracts record these in `packages/system/Credentials` via `AdalahScore` and `IkhtisasTag`).*
 
 ### 4.3 Tangible Asset Floor & Secondary Market Debt Trading (*Bay‘ al-Dayn*)
 
@@ -134,13 +135,13 @@ $$\text{Status}(E) = \begin{cases} \text{Approved}, & \text{if } |\text{WitnessS
 **Mathematical Definition:**
 Let an RWA token series $S$ have total asset valuation $V(S)$, partitioned into:
 $$V(S) = V_{\text{tangible}} + V_{\text{receivables}} + V_{\text{cash}}$$
-The tangible ratio in basis points is defined as:
-$$\text{tangible\_ratio\_bps} = \left\lfloor \frac{V_{\text{tangible}} + V_{\text{usufruct}}}{V(S)} \times 10,000 \right\rfloor$$
+The canonical `tangible_ratio` in basis points (`tangible_ratio_bps`) is defined as:
+$$\text{tangible\_ratio} = \left\lfloor \frac{V_{\text{tangible}} + V_{\text{usufruct}}}{V(S)} \times 10,000 \right\rfloor$$
 
 **Order Book Enforcement in `TokenSwap`:**
-$$\text{AllowTrade}(P_{\text{order}}, P_{\text{par}}) = \begin{cases} \text{true}, & \text{if } \text{tangible\_ratio\_bps} \ge 5100 \\ \text{true}, & \text{if } \text{tangible\_ratio\_bps} < 5100 \ \land \ P_{\text{order}} = P_{\text{par}} \\ \text{false}, & \text{if } \text{tangible\_ratio\_bps} < 5100 \ \land \ P_{\text{order}} \ne P_{\text{par}} \end{cases}$$
+$$\text{AllowTrade}(P_{\text{order}}, P_{\text{par}}) = \begin{cases} \text{true}, & \text{if } \text{tangible\_ratio} \ge 5100 \\ \text{true}, & \text{if } \text{tangible\_ratio} < 5100 \ \land \ P_{\text{order}} = P_{\text{par}} \\ \text{false}, & \text{if } \text{tangible\_ratio} < 5100 \ \land \ P_{\text{order}} \ne P_{\text{par}} \end{cases}$$
 
-Any limit order or market swap in `TokenSwap` that deviates from $P_{\text{par}}$ when $\text{tangible\_ratio\_bps} < 5100$ is rejected by the service transaction hook.
+Any limit order or market swap in `TokenSwap` that deviates from $P_{\text{par}}$ when $\text{tangible\_ratio} < 5100$ is rejected by the service transaction hook.
 
 ### 4.4 Co-Owner Right of First Refusal (*Haqq al-Shuf‘ah*)
 
@@ -148,10 +149,10 @@ Any limit order or market swap in `TokenSwap` that deviates from $P_{\text{par}}
 
 **State Machine Implementation:**
 When a fractional co-owner lists $N$ units of `TokenId` in `TokenSwap` at timestamp $T_{\text{list}}$:
-1. An exclusive pre-emption window is initialized:
-   $$W_{\text{rofr}} = [T_{\text{list}}, \; T_{\text{list}} + \text{rofr\_window\_sec})$$
+1. An exclusive pre-emption window (`priority_window`, contract field `rofr_window_sec`) is initialized:
+   $$W_{\text{priority}} = [T_{\text{list}}, \; T_{\text{list}} + \text{priority\_window})$$
 2. For any trade fill attempt at timestamp $t$:
-   $$\text{CanFill}(Buyer, t) = \begin{cases} \text{true}, & \text{if } t \ge T_{\text{list}} + \text{rofr\_window\_sec} \\ \text{true}, & \text{if } t < T_{\text{list}} + \text{rofr\_window\_sec} \ \land \ \text{Balance}(Buyer, \text{TokenId}) > 0 \\ \text{false}, & \text{otherwise} \end{cases}$$
+   $$\text{CanFill}(Buyer, t) = \begin{cases} \text{true}, & \text{if } t \ge T_{\text{list}} + \text{priority\_window} \\ \text{true}, & \text{if } t < T_{\text{list}} + \text{priority\_window} \ \land \ \text{Balance}(Buyer, \text{TokenId}) > 0 \\ \text{false}, & \text{otherwise} \end{cases}$$
 
 ---
 
@@ -205,7 +206,7 @@ Muabase achieves complete compliance under this safe harbor through four archite
    - 4% transferred directly to the guild's segregated mutual shield account.
    - 3% transferred to the SaaS node host.
    At no point do funds enter an intermediate custody wallet managed by the software vendor.
-4. **Soulbound, Non-Tradable Reputation:** Reputation and trust metrics (`AdalahScore`, `IkhtisasTag`) are stored as non-fungible, non-transferable data attributes tied immutably to user public keys. They cannot be traded, transferred, encumbered, or monetized, completely eliminating classification as an investment contract or virtual currency under the Howey and Martin Act tests.
+4. **Soulbound, Non-Tradable Reputation:** Reputation and trust metrics (`trust_score` / `domain_badge`, recorded in contracts via `AdalahScore` and `IkhtisasTag`) are stored as non-fungible, non-transferable data attributes tied immutably to user public keys. They cannot be traded, transferred, encumbered, or monetized, completely eliminating classification as an investment contract or virtual currency under the Howey and Martin Act tests.
 
 ---
 
@@ -225,7 +226,7 @@ sequenceDiagram
     participant Stripe as Stripe Connect / ExternalVault
 
     Lender->>Client: List Asset (Day Rate: $45, Value: $1200)
-    Client->>Psibase: guild.assets.create(RwaSeriesConfig)
+    Client->>Psibase: guild.assets.create(AssetPoolConfig)
     Psibase-->>Client: Asset Registered (#1042)
 
     Borrower->>Client: Book Rental (4 Days, $180 Gross)
@@ -239,7 +240,7 @@ sequenceDiagram
     Client->>Psibase: guild.leases.confirmReturn(post_condition_hash)
     alt Clean Return
         Lender->>Client: Acknowledge Condition
-        Psibase-->>Lender: Deposit Release / AdalahScore increment
+        Psibase-->>Lender: Deposit Release / trust_score increment
     else Damaged Asset
         Lender->>Client: File Damage Claim ($250 repair)
         Client->>Psibase: guild.claims.submitEvidence(hashes, quotes)
@@ -254,16 +255,16 @@ sequenceDiagram
 ## 8. Summary of Service Directory Structure
 
 - `packages/system/StagedTx`: Ricardian contracts, 2-witness quorums (`witness_quorum >= 2`), multi-sig transaction pipeline.
-- `packages/system/AuthDelegate`: Soulbound permissions and immutable `EndowmentGuard` principal locks.
-- `packages/system/Credentials`: Non-transferable `AdalahScore` (reliability) and `IkhtisasTag` (competence).
+- `packages/system/AuthDelegate`: Soulbound permissions and immutable `endowment_policy` (`EndowmentGuard`) principal locks.
+- `packages/system/Credentials`: Non-transferable `trust_score` (reliability / `AdalahScore`) and `domain_badge` (competence / `IkhtisasTag`).
 - `packages/system/Producers`: Consensus parameters and hourly Bitcoin/EVM L2 state-root checkpoints.
 - `packages/user/Branding`: Dual-locale institutional/muamalat terminology translations and network branding.
-- `packages/user/Tokens`: RWA series metadata, investor count limits, 51% tangible asset floor enforcement.
+- `packages/user/Tokens`: `asset_pool` (`RwaSeriesConfig`) metadata, investor count limits, 51% `tangible_ratio` floor enforcement.
 - `packages/user/Nft`: Physical item tokenization, custody tracking, condition hashes.
-- `packages/user/TokenSwap`: Zero-debt-speculation trading rules, Shuf'ah (ROFR) exclusive windows.
-- `packages/user/LeaseEngine`: General-purpose short-term rental & progressive lease-to-own with zero-riba charity penalty routing.
-- `packages/user/MutualShield`: Takaful protection reserve pool with annual surplus rebates.
-- `packages/user/ClaimCouncil`: Rapid 3-peer damage triage and Halaqa Condorcet bounty ranking.
-- `packages/user/CreditClear`: Multilateral B2B invoice clearing and Wajahah-Hawalah trust limits.
+- `packages/user/TokenSwap`: Zero-debt-speculation trading rules, Shuf'ah (`priority_window` / `rofr_window_sec`) exclusive windows.
+- `packages/user/LeaseEngine`: General-purpose short-term `usufruct` rental & progressive `equity_lease` with zero-riba `charity_sink` penalty routing.
+- `packages/user/MutualShield`: `mutual_shield` protection reserve pool with annual surplus rebates.
+- `packages/user/ClaimCouncil`: Rapid 3-peer damage triage (`claim_council`) and `evals` Condorcet bounty ranking.
+- `packages/user/CreditClear`: Multilateral B2B invoice clearing (`credit_clear`) and `Wajahah-Hawalah` trust limits.
 - `packages/user/ExternalVault`: Non-custodial Bitcoin Taproot, EVM Safe, Solana Squads, and Stripe Connect split payloads.
-- `packages/shared-ui/headless-sdk`: Reactive TypeScript SDK for frontend developers.
+- `packages/shared-ui/headless-sdk`: Reactive TypeScript SDK for frontend developers (`AssetPoolConfig`, `UsufructLease`, `MuabaseClient`).

@@ -208,9 +208,12 @@ mod service {
                 "usufruct_lease_fixed" | "lease" | "rental" | "fixed_lease" => "usufruct",
                 "usufruct_lease_progressive" | "lease_to_own" | "rent_to_own" | "equity_usufruct" => "equity_lease",
                 "evaluations" => "evals",
-                "rofr_window" | "rofr" => "priority_window",
+                "rofr_window" | "rofr" | "rofr_window_sec" => "priority_window",
                 "adalah_score" => "trust_score",
                 "ikhtisas_tag" => "domain_badge",
+                "charity_sink_account" => "charity_sink",
+                "tangible_ratio_bps" => "tangible_ratio",
+                "endowment_guard" => "endowment_policy",
                 _ => term.as_str(),
             };
             let current_locale = LocaleTable::read().get_index_pk().get(&()).unwrap_or_default().locale;
