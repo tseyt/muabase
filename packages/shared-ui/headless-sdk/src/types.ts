@@ -1,4 +1,4 @@
-export type TerminologyLocale = "institutional" | "muabase";
+export type TerminologyLocale = "institutional" | "muamalat";
 
 export interface MuabaseConfig {
   endpoint: string; // psinode URL (e.g. http://localhost:8080 or https://node.muabase.org)

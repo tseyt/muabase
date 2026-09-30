@@ -59,7 +59,7 @@ graph TD
 
 ## 4. Dual-Locale Terminology Reference
 
-| Institutional Term | Muabase / Jurisprudence Term | Functional Role in System |
+| Institutional Term | Muamalat / Jurisprudence Term | Functional Role in System |
 | :--- | :--- | :--- |
 | **Merchant Guild** | *Niqabah / Sharikah* | Autonomous business cooperative |
 | **Review Pod / Subgroup** | *Halaqa (pl. Halaqat)* | 5–7 peer evaluation committee |

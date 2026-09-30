@@ -30,7 +30,7 @@ import { MuabaseClient } from '@muabase/headless-sdk';
 
 export const client = new MuabaseClient({
   endpoint: process.env.NEXT_PUBLIC_PSIBASE_RPC_URL || 'http://localhost:8080',
-  defaultLocale: 'institutional', // or 'muabase'
+  defaultLocale: 'institutional', // or 'muamalat'
   appName: 'PickleKiller-FashionGuild',
 });
 ```
@@ -184,10 +184,10 @@ import React, { useState } from 'react';
 import { client } from '@/lib/muabase';
 
 export function LocaleToggle() {
-  const [locale, setLocale] = useState<'institutional' | 'muabase'>('institutional');
+  const [locale, setLocale] = useState<'institutional' | 'muamalat'>('institutional');
 
   const toggle = () => {
-    const next = locale === 'institutional' ? 'muabase' : 'institutional';
+    const next = locale === 'institutional' ? 'muamalat' : 'institutional';
     setLocale(next);
     client.locale = next;
   };
@@ -198,7 +198,7 @@ export function LocaleToggle() {
         onClick={toggle}
         className="px-3 py-1 text-sm bg-gray-800 text-white rounded hover:bg-gray-700"
       >
-        Mode: {locale === 'institutional' ? '🏢 Commercial Institutional' : '⚖️ Muabase / Fiqh'}
+        Mode: {locale === 'institutional' ? '🏢 Commercial Institutional' : '⚖️ Fiqh al-Mu‘amalat'}
       </button>
 
       <span className="text-xs text-gray-500">

@@ -23,7 +23,7 @@ To accommodate both traditional commercial syndicates (Manhattan family offices,
 
 ### 2.1 Terminology Mapping Matrix
 
-| Canonical Code Identifier | Institutional Locale (`"institutional"`) | Jurisprudential Locale (`"muabase"`) | Classical Legal Basis & Jurisprudential Invariant |
+| Canonical Code Identifier | Institutional Locale (`"institutional"`) | Jurisprudential Locale (`"muamalat"`) | Classical Legal Basis & Jurisprudential Invariant |
 | :--- | :--- | :--- | :--- |
 | `RwaSeriesConfig` | Asset Token Series / Private LLC | *Sukuk al-Qirad / Musharakah* | Fractional co-ownership of real physical assets (*A'yan*) with shared profit and liability. |
 | `UsufructLease` (Fixed) | Usufruct Lease / P2P Rental | *Ijarah al-A‘yan wa al-Manafi‘* | Separation of asset ownership from temporary right-of-use (*Manfa‘ah*). |
@@ -257,7 +257,7 @@ sequenceDiagram
 - `packages/system/AuthDelegate`: Soulbound permissions and immutable `EndowmentGuard` principal locks.
 - `packages/system/Credentials`: Non-transferable `AdalahScore` (reliability) and `IkhtisasTag` (competence).
 - `packages/system/Producers`: Consensus parameters and hourly Bitcoin/EVM L2 state-root checkpoints.
-- `packages/user/Branding`: Dual-locale institutional/muabase terminology translations and network branding.
+- `packages/user/Branding`: Dual-locale institutional/muamalat terminology translations and network branding.
 - `packages/user/Tokens`: RWA series metadata, investor count limits, 51% tangible asset floor enforcement.
 - `packages/user/Nft`: Physical item tokenization, custody tracking, condition hashes.
 - `packages/user/TokenSwap`: Zero-debt-speculation trading rules, Shuf'ah (ROFR) exclusive windows.

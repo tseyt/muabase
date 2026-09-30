@@ -83,7 +83,7 @@ flowchart TD
 
 Muabase provides an on-chain locale engine in `packages/user/Branding` so interfaces and developer tools can switch seamlessly between standard institutional terminology and classical jurisprudence terms:
 
-| Canonical Entity / Concept | Institutional Locale (`"institutional"`) | Jurisprudence Locale (`"muabase"`) |
+| Canonical Entity / Concept | Institutional Locale (`"institutional"`) | Jurisprudence Locale (`"muamalat"`) |
 | :--- | :--- | :--- |
 | `RwaSeriesConfig` | Asset Token Series / Private LLC | *Sukuk al-Qirad / Musharakah* |
 | `UsufructLease` (Short-Term) | P2P Peer Rental / Usufruct Lease | *Ijarah al-A‘yan wa al-Manafi‘* |
@@ -127,7 +127,7 @@ import { createMuabaseClient } from "@muabase/headless-sdk";
 // Initialize client connecting to psinode Wasm database
 const client = createMuabaseClient({
   endpoint: "https://my-node.muabase.org",
-  locale: "institutional", // or "muabase"
+  locale: "institutional", // or "muamalat"
 });
 
 // 1. List a luxury item or equipment for P2P rental
