@@ -90,7 +90,7 @@ Muabase provides an on-chain locale engine in `packages/user/Branding` so interf
 | `UsufructLease` (Progressive) | Progressive Lease-to-Own | *Musharakah Mutanaqisah* |
 | `MutualShield` | Mutual Protection Reserve Pool | *Takaful (Tabarru‘ & Ta‘awun)* |
 | `ClaimCouncil` | Peer Triage & Audit Committee | *Majlis al-Tahkim & Shura* |
-| `Evaluations` | Objective Bounty / Claim Ranking | *Ju‘alah Halaqa* |
+| `evals` | Objective Bounty / Claim Ranking | *Ju‘alah Halaqa* |
 | `EndowmentPolicy` | Trust Principal Preservation Guard | *Hifz Asl al-Waqf* |
 | `rofr_window_sec` | Co-Owner Right of First Refusal | *Haqq al-Shuf‘ah* |
 | `charity_sink_account` | Public Endowment Charity Sink | *Masraf al-Sadaqah* |

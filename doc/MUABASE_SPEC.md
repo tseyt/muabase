@@ -30,7 +30,7 @@ To accommodate both traditional commercial syndicates (Manhattan family offices,
 | `UsufructLease` (Progressive) | Progressive Lease-to-Own | *Musharakah Mutanaqisah* | Gradual transfer of fractional asset equity alongside decreasing rental installments. |
 | `MutualShield` | Mutual Protection Reserve Pool | *Takaful (Tabarru‘ & Ta‘awun)* | Non-profit risk pooling based on gratuitous contribution (*Tabarru‘*) with pro-rata surplus return. |
 | `ClaimCouncil` | Peer Triage Committee | *Majlis al-Tahkim & Shura* | Impartial arbitration by qualified, reliable peers (*Hakam*) based on tangible evidence (*Bayyinah*). |
-| `Evaluations` | Objective Bounty / Proposal Ranking | *Ju‘alah & Halaqa* | Performance-based compensation for verified work items, ranked via objective Condorcet criteria. |
+| `evals` | Objective Bounty / Proposal Ranking | *Ju‘alah & Halaqa* | Performance-based compensation for verified work items, ranked via objective Condorcet criteria. |
 | `EndowmentPolicy` | Trust Principal Preservation Lock | *Hifz Asl al-Waqf* | Strict preservation of principal corpus (*Asl*) while allowing only productive yield (*Manfa‘ah*) to flow. |
 | `rofr_window_sec` | Co-Owner Right of First Refusal | *Haqq al-Shuf‘ah* | Mandatory exclusive pre-emption window for existing fractional co-owners before external offering. |
 | `charity_sink_account` | Public Endowment Charity Sink | *Masraf al-Sadaqah* | Absolute zero-creditor-enrichment rule: punitive late fees are routed to charitable public utility. |

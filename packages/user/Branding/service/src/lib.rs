@@ -77,7 +77,7 @@ mod tables {
                 muamalat: "Majlis al-Tahkim & Shura".to_string(),
             },
             TerminologyMapping {
-                key: "evaluations".to_string(),
+                key: "evals".to_string(),
                 institutional: "Objective Bounty & Claim Ranking".to_string(),
                 muamalat: "Ju‘alah Halaqa".to_string(),
             },
@@ -203,9 +203,10 @@ mod service {
         }
 
         async fn translate_term(&self, term: String) -> String {
+            let lookup_term = if term == "evaluations" { "evals" } else { term.as_str() };
             let current_locale = LocaleTable::read().get_index_pk().get(&()).unwrap_or_default().locale;
             for mapping in get_canonical_terminology_mappings() {
-                if mapping.key == term {
+                if mapping.key == lookup_term {
                     return if current_locale == "muamalat" {
                         mapping.muamalat
                     } else {
