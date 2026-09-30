@@ -36,8 +36,8 @@ To accommodate both traditional commercial syndicates (Manhattan family offices,
 | `charity_sink_account` | Public Endowment Charity Sink | *Masraf al-Sadaqah* | Absolute zero-creditor-enrichment rule: punitive late fees are routed to charitable public utility. |
 | `CreditClear` | Multilateral Invoice Netting | *Muqassah* | Debt set-off between reciprocal trading partners to extinguish obligations without cash transfers. |
 | `Wajahah-Hawalah` | Earned-Respect Liquidity Bridge | *Wajahah & Hawalah* | Novation and debt assignment backed by commercial goodwill, reputation (*Wajahah*), and collateral. |
-| `AdalahScore` | Reliability & Audit Score | *‘Adalah* | Non-transferable track record of probity, contract fulfillment, and truthful witness testimony. |
-| `IkhtisasTag` | Domain Competence Credential | *Ikhtisas* | Soulbound domain capability verification (e.g. textile inspection, real estate appraisal). |
+| `trust_score` | Reliability & Audit Score | *‘Adalah* | Non-transferable track record of probity, contract fulfillment, and truthful witness testimony. |
+| `domain_badge` | Domain Competence Credential | *Ikhtisas* | Soulbound domain capability verification (e.g. textile inspection, real estate appraisal). |
 | `tangible_ratio_bps` | Tangible Asset Backing Ratio | *Nisbat al-‘Ayn al-Haqiqiyyah* | Mathematical floor enforcing >= 51% tangible asset/usufruct backing to prevent naked debt trading. |
 
 ---

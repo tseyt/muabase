@@ -95,8 +95,8 @@ Muabase provides an on-chain locale engine in `packages/user/Branding` so interf
 | `rofr_window_sec` | Co-Owner Right of First Refusal | *Haqq al-Shuf‘ah* |
 | `charity_sink_account` | Public Endowment Charity Sink | *Masraf al-Sadaqah* |
 | `CreditClear` | Multilateral Invoice Clearing | *Muqassah & Wajahah-Hawalah* |
-| `AdalahScore` | Reliability & Audit Score | *‘Adalah (Reliability)* |
-| `IkhtisasTag` | Domain Competence Badge | *Ikhtisas (Specialization)* |
+| `trust_score` | Reliability & Audit Score | *‘Adalah (Reliability)* |
+| `domain_badge` | Domain Competence Badge | *Ikhtisas (Specialization)* |
 | `tangible_ratio_bps` | Real Tangible Asset Backing Ratio | *Nisbat al-‘Ayn al-Haqiqiyyah* |
 
 ---

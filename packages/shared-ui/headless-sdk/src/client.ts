@@ -74,7 +74,7 @@ export class MuabaseClient {
             tokenId: 1042,
             legalWrapperHash: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
             maxHolders: input.maxHolders || 99,
-            minAdalahScore: 7000,
+            minAdalahScore: input.minTrustScore || 7000,
             tangibleRatioBps: input.tangibleRatioBps || 10000,
             rofrWindowSec: input.rofrWindowSec || 86400,
             custodianAccount: input.custodianAccount || "custodian",

@@ -102,12 +102,12 @@ mod tables {
                 muamalat: "Muqassah & Wajahah-Hawalah".to_string(),
             },
             TerminologyMapping {
-                key: "adalah_score".to_string(),
+                key: "trust_score".to_string(),
                 institutional: "Reliability & Audit Score".to_string(),
                 muamalat: "‘Adalah (Probity / Reliability)".to_string(),
             },
             TerminologyMapping {
-                key: "ikhtisas_tag".to_string(),
+                key: "domain_badge".to_string(),
                 institutional: "Domain Competence Credential".to_string(),
                 muamalat: "Ikhtisas (Domain Specialization)".to_string(),
             },
@@ -203,7 +203,12 @@ mod service {
         }
 
         async fn translate_term(&self, term: String) -> String {
-            let lookup_term = if term == "evaluations" { "evals" } else { term.as_str() };
+            let lookup_term = match term.as_str() {
+                "evaluations" => "evals",
+                "adalah_score" => "trust_score",
+                "ikhtisas_tag" => "domain_badge",
+                _ => term.as_str(),
+            };
             let current_locale = LocaleTable::read().get_index_pk().get(&()).unwrap_or_default().locale;
             for mapping in get_canonical_terminology_mappings() {
                 if mapping.key == lookup_term {

@@ -14,7 +14,8 @@ export interface RwaSeriesConfig {
   tokenId: number;
   legalWrapperHash: string; // SHA-256 of Series LLC / Trust agreement
   maxHolders: number;
-  minAdalahScore: number;
+  minTrustScore: number;    // Minimum trust score (0-10,000) to hold or rent
+  minAdalahScore?: number;  // Backwards-compatible alias
   tangibleRatioBps: number; // >= 5100
   rofrWindowSec: number;
   custodianAccount: string;
@@ -26,6 +27,7 @@ export interface CreateAssetInput {
   title: string;
   dayRateUsd: number;
   replacementValueUsd: number;
+  minTrustScore?: number;    // Defaults to 7000
   tangibleRatioBps?: number; // Defaults to 10000 (100%)
   rofrWindowSec?: number;    // Defaults to 86400 (24h)
   custodianAccount?: string;
