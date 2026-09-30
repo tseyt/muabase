@@ -57,13 +57,13 @@ mod tables {
                 muamalat: "Sukuk al-Qirad / Musharakah".to_string(),
             },
             TerminologyMapping {
-                key: "lease".to_string(),
+                key: "usufruct".to_string(),
                 institutional: "Fixed Usufruct Lease / P2P Rental".to_string(),
                 muamalat: "Ijarah al-A‘yan wa al-Manafi‘".to_string(),
             },
             TerminologyMapping {
-                key: "lease_to_own".to_string(),
-                institutional: "Progressive Lease-to-Own".to_string(),
+                key: "equity_lease".to_string(),
+                institutional: "Progressive Lease-to-Own / Equity Lease".to_string(),
                 muamalat: "Musharakah Mutanaqisah".to_string(),
             },
             TerminologyMapping {
@@ -205,8 +205,8 @@ mod service {
         async fn translate_term(&self, term: String) -> String {
             let lookup_term = match term.as_str() {
                 "rwa_series" | "rwa" => "asset_pool",
-                "usufruct_lease_fixed" | "usufruct" | "rental" => "lease",
-                "usufruct_lease_progressive" | "rent_to_own" => "lease_to_own",
+                "usufruct_lease_fixed" | "lease" | "rental" | "fixed_lease" => "usufruct",
+                "usufruct_lease_progressive" | "lease_to_own" | "rent_to_own" | "equity_usufruct" => "equity_lease",
                 "evaluations" => "evals",
                 "rofr_window" | "rofr" => "priority_window",
                 "adalah_score" => "trust_score",

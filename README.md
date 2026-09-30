@@ -86,8 +86,8 @@ Muabase provides an on-chain locale engine in `packages/user/Branding` so interf
 | Canonical Entity / Concept | Institutional Locale (`"institutional"`) | Jurisprudence Locale (`"muamalat"`) |
 | :--- | :--- | :--- |
 | `asset_pool` | Asset Token Series / Private LLC | *Sukuk al-Qirad / Musharakah* |
-| `lease` | Fixed Usufruct Lease / P2P Rental | *Ijarah al-A‘yan wa al-Manafi‘* |
-| `lease_to_own` | Progressive Lease-to-Own | *Musharakah Mutanaqisah* |
+| `usufruct` | Fixed Usufruct Lease / P2P Rental | *Ijarah al-A‘yan wa al-Manafi‘* |
+| `equity_lease` | Progressive Lease-to-Own / Equity Lease | *Musharakah Mutanaqisah* |
 | `mutual_shield` | Mutual Protection Reserve Pool | *Takaful (Tabarru‘ & Ta‘awun)* |
 | `claim_council` | Peer Triage & Audit Committee | *Majlis al-Tahkim & Shura* |
 | `evals` | Objective Bounty / Claim Ranking | *Ju‘alah Halaqa* |
