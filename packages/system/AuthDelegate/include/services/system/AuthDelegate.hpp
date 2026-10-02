@@ -115,7 +115,7 @@ namespace SystemService
                       psibase::AccountNumber owner,
                       NewAccountMode         mode);
 
-      /// Configures an EndowmentGuard (Waqf Asl) policy protecting capital principal
+      /// Configures an EndowmentPolicy (Waqf Asl) protecting capital principal
       void setEndowmentPolicy(psibase::AccountNumber              account,
                               psibase::AccountNumber              yield_account,
                               std::vector<psibase::AccountNumber> approved_investments);

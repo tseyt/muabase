@@ -69,14 +69,14 @@ export class MuabaseClient {
   public guild = {
     assets: {
       create: async (input: CreateAssetInput) => {
-        return this.transact("tokens", "configureRwaSeries", {
+        return this.transact("tokens", "configureAssetPool", {
           config: {
             tokenId: 1042,
             legalWrapperHash: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
             maxHolders: input.maxHolders || 99,
-            minAdalahScore: input.minTrustScore ?? input.minAdalahScore ?? 7000,
+            minTrustScore: input.minTrustScore ?? input.minAdalahScore ?? 7000,
             tangibleRatioBps: input.tangibleRatioBps || 10000,
-            rofrWindowSec: input.priorityWindowSec ?? input.rofrWindowSec ?? 86400,
+            priorityWindowSec: input.priorityWindowSec ?? input.rofrWindowSec ?? 86400,
             custodianAccount: input.custodianAccount || "custodian",
             custodianFeeBps: input.custodianFeeBps || 0,
             charitySinkAccount: "waqf-sadaqah",

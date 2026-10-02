@@ -3,7 +3,10 @@ pub mod tables;
 
 #[psibase::service(name = "token-swap", tables = "tables::tables")]
 pub mod service {
-    use crate::tables::tables::{InitRow, ListingIdRow, Pool, Reserve, RofrListing, RofrListingTable};
+    use crate::tables::tables::{
+        InitRow, ListingIdRow, Pool, PriorityListing, PriorityListingTable, Reserve, RofrListing,
+        RofrListingTable,
+    };
     use psibase::services::events;
     use psibase::{
         services::{
@@ -204,13 +207,13 @@ pub mod service {
         );
     }
 
-    /// Lists RWA units for sale enforcing Tangible Floor (>= 51%) and Shuf'ah (Co-Owner priority)
+    /// Lists asset units for sale enforcing Tangible Floor (>= 51%) and priority window (Shuf'ah co-owner priority)
     #[action]
-    fn listRwaForSale(
+    fn listAssetWithPriority(
         token_id: TID,
         amount: Quantity,
         unit_price_ppm: u64,
-        rofr_window_sec: u32,
+        priority_window_sec: u32,
         tangible_ratio_bps: u16,
     ) -> u64 {
         let seller = get_sender();
@@ -231,39 +234,57 @@ pub mod service {
             token_id,
             seller,
             amount,
-            "RWA Listing Escrow".into(),
+            "Asset Listing Escrow".into(),
         );
 
         let now = psibase::services::transact::Wrapper::call()
             .currentBlock()
             .time
             .seconds();
-        let rofr_until = now + psibase::Seconds::new(rofr_window_sec as i64);
+        let priority_until = now + psibase::Seconds::new(priority_window_sec as i64);
         let listing_id = ListingIdRow::next_id();
 
-        let listing = RofrListing {
+        let listing = PriorityListing {
             listing_id,
             seller,
             token_id,
             amount,
             unit_price_ppm,
             listed_at: now,
-            rofr_until,
+            priority_until,
             tangible_ratio_bps,
             active: true,
         };
 
-        RofrListingTable::new().put(&listing).unwrap();
+        PriorityListingTable::new().put(&listing).unwrap();
         listing_id
     }
 
-    /// Fills an RWA listing, strictly enforcing Shuf'ah (co-owner priority window)
+    /// Backwards-compatible alias for listAssetWithPriority
     #[action]
-    fn fillRwaListing(listing_id: u64, fill_amount: Quantity) {
+    fn listRwaForSale(
+        token_id: TID,
+        amount: Quantity,
+        unit_price_ppm: u64,
+        rofr_window_sec: u32,
+        tangible_ratio_bps: u16,
+    ) -> u64 {
+        Self::listAssetWithPriority(
+            token_id,
+            amount,
+            unit_price_ppm,
+            rofr_window_sec,
+            tangible_ratio_bps,
+        )
+    }
+
+    /// Fills an asset listing, strictly enforcing priority window (co-owner pre-emption)
+    #[action]
+    fn fillPriorityListing(listing_id: u64, fill_amount: Quantity) {
         let buyer = get_sender();
         assert!(fill_amount.value > 0, "Fill amount must be positive");
 
-        let mut listing = RofrListingTable::read()
+        let mut listing = PriorityListingTable::read()
             .get_index_pk()
             .get(&listing_id)
             .expect("Listing does not exist");
@@ -279,14 +300,14 @@ pub mod service {
             .seconds();
 
         // Shuf'ah (Co-Owner Right of First Refusal) Enforcement:
-        // If within the rofr_until window, buyer MUST already hold a positive balance of this token
-        if now < listing.rofr_until {
+        // If within the priority_until window, buyer MUST already hold a positive balance of this token
+        if now < listing.priority_until {
             let balance = psibase::services::tokens::Wrapper::call()
                 .getBalance(buyer, listing.token_id);
             assert!(
                 balance.value > 0,
                 "Haqq al-Shuf'ah Violation: Co-owner exclusive purchase window active until {:?}",
-                listing.rofr_until
+                listing.priority_until
             );
         }
 
@@ -294,21 +315,33 @@ pub mod service {
         if listing.amount.value == 0 {
             listing.active = false;
         }
-        RofrListingTable::new().put(&listing).unwrap();
+        PriorityListingTable::new().put(&listing).unwrap();
 
-        // Credit RWA tokens from swap escrow to buyer
+        // Credit asset tokens from swap escrow to buyer
         psibase::services::tokens::Wrapper::call().credit(
             listing.token_id,
             buyer,
             fill_amount,
-            "RWA Purchase Fill".into(),
+            "Asset Purchase Fill".into(),
         );
     }
 
-    /// Fetches an RWA listing
+    /// Backwards-compatible alias for fillPriorityListing
     #[action]
-    fn getRwaListing(listing_id: u64) -> Option<RofrListing> {
-        RofrListingTable::read().get_index_pk().get(&listing_id)
+    fn fillRwaListing(listing_id: u64, fill_amount: Quantity) {
+        Self::fillPriorityListing(listing_id, fill_amount);
+    }
+
+    /// Fetches an asset listing
+    #[action]
+    fn getPriorityListing(listing_id: u64) -> Option<PriorityListing> {
+        PriorityListingTable::read().get_index_pk().get(&listing_id)
+    }
+
+    /// Backwards-compatible alias for getPriorityListing
+    #[action]
+    fn getRwaListing(listing_id: u64) -> Option<PriorityListing> {
+        Self::getPriorityListing(listing_id)
     }
 
     #[event(history)]

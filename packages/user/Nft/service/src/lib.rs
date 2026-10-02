@@ -216,9 +216,9 @@ pub mod tables {
                 .getAccount(debitor)
                 .expect("Receiver DNE");
 
-            if let Some(rwa) = NftRwaConfig::get(nft_id) {
-                if rwa.min_adalah_score > 0 {
-                    assert!(rwa.min_adalah_score <= 10000, "Invalid adalah score threshold");
+            if let Some(asset) = NftAssetConfig::get(nft_id) {
+                if asset.min_trust_score > 0 {
+                    assert!(asset.min_trust_score <= 10000, "Invalid trust score threshold");
                 }
             }
 
@@ -354,27 +354,29 @@ pub mod tables {
         }
     }
 
-    /// RWA Physical Asset NFT metadata and trust gating
-    #[table(name = "NftRwaConfigTable", index = 5)]
+    /// Asset Pool Physical Asset NFT metadata and trust gating
+    #[table(name = "NftAssetConfigTable", index = 5)]
     #[derive(Pack, Unpack, ToSchema, Serialize, Deserialize, Debug, Clone, SimpleObject)]
-    pub struct NftRwaConfig {
+    pub struct NftAssetConfig {
         pub nft_id: NID,
         pub legal_wrapper_hash: psibase::Checksum256,
-        pub min_adalah_score: u32,
+        pub min_trust_score: u32,
         pub tangible_ratio_bps: u16,
         pub custodian_account: AccountNumber,
         pub charity_sink_account: AccountNumber,
     }
-    impl NftRwaConfig {
+    impl NftAssetConfig {
         #[primary_key]
         fn pk(&self) -> NID {
             self.nft_id
         }
 
         pub fn get(nft_id: NID) -> Option<Self> {
-            NftRwaConfigTable::read().get_index_pk().get(&nft_id)
+            NftAssetConfigTable::read().get_index_pk().get(&nft_id)
         }
     }
+    pub type NftRwaConfig = NftAssetConfig;
+    pub type NftRwaConfigTable = NftAssetConfigTable;
 }
 
 #[psibase::service(name = "nft", tables = "tables", recursive = true)]

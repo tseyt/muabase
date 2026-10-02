@@ -36,7 +36,7 @@ namespace SystemService
             }
             if (!allowed && action.service != AuthDelegate::service)
             {
-               abortMessage("EndowmentGuard: principal transfer to unapproved target rejected");
+               abortMessage("EndowmentPolicy: principal transfer to unapproved target rejected");
             }
          }
       }

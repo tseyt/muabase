@@ -102,9 +102,9 @@ pub mod service {
         new_tx.id
     }
 
-    /// Attests to a staged transaction as a qualified witness with Adalah credentials
+    /// Attests to a staged transaction as a qualified witness with trust_score and domain_badge credentials
     #[action]
-    fn attestWitness(id: u32, txid: Checksum256, ikhtisas_domain: String) {
+    fn attestWitness(id: u32, txid: Checksum256, domain_badge: String) {
         let staged_tx = StagedTx::get(id, txid);
         assert!(staged_tx.required_witnesses > 0, "This staged tx does not require witnesses");
         let witness = get_sender();
@@ -118,8 +118,8 @@ pub mod service {
         let attestation = WitnessAttestation {
             id,
             witness,
-            adalah_score: 10000,
-            ikhtisas_domain,
+            trust_score: 10000,
+            domain_badge,
             timestamp: Transact::call().currentBlock().time,
         };
         table.put(&attestation).unwrap();

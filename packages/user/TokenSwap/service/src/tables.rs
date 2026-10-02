@@ -534,21 +534,21 @@ pub mod tables {
         }
     }
 
-    /// Shuf'ah (Co-Owner Right of First Refusal) & Tangible Asset Order Book
-    #[table(name = "RofrListingTable", index = 3)]
+    /// Priority Window & Tangible Asset Order Book (Haqq al-Shuf'ah)
+    #[table(name = "PriorityListingTable", index = 3)]
     #[derive(Serialize, Deserialize, SimpleObject, ToSchema, Pack, Unpack, Debug, Clone)]
-    pub struct RofrListing {
+    pub struct PriorityListing {
         pub listing_id: u64,
         pub seller: AccountNumber,
         pub token_id: TID,
         pub amount: Quantity,
         pub unit_price_ppm: u64, // Price per unit in parts per million (1_000_000 = par)
         pub listed_at: psibase::TimePointSec,
-        pub rofr_until: psibase::TimePointSec,
+        pub priority_until: psibase::TimePointSec,
         pub tangible_ratio_bps: u16, // If < 5100, price cannot deviate from par
         pub active: bool,
     }
-    impl RofrListing {
+    impl PriorityListing {
         #[primary_key]
         fn pk(&self) -> u64 {
             self.listing_id
@@ -559,6 +559,8 @@ pub mod tables {
             (self.token_id, self.listing_id)
         }
     }
+    pub type RofrListing = PriorityListing;
+    pub type RofrListingTable = PriorityListingTable;
 
     #[table(name = "ListingIdTable", index = 4)]
     #[derive(Serialize, Deserialize, ToSchema, Pack, Unpack, Debug, Default)]

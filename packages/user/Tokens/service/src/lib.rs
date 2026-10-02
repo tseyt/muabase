@@ -389,8 +389,8 @@ pub mod service {
     fn credit(token_id: TID, debitor: AccountNumber, amount: Quantity, memo: Memo) {
         let creditor = get_sender();
 
-        if let Some(rwa) = RwaSeriesConfig::get(token_id) {
-            if rwa.max_holders > 0 {
+        if let Some(pool) = AssetPoolConfig::get(token_id) {
+            if pool.max_holders > 0 {
                 let has_bal = BalanceTable::read()
                     .get_index_pk()
                     .get(&(debitor, token_id))
@@ -403,9 +403,9 @@ pub mod service {
                         .filter(|b| b.balance.value > 0)
                         .count();
                     assert!(
-                        count < rwa.max_holders as usize,
-                        "RWA Series max_holders cap reached ({})",
-                        rwa.max_holders
+                        count < pool.max_holders as usize,
+                        "Asset Pool max_holders cap reached ({})",
+                        pool.max_holders
                     );
                 }
             }
@@ -423,24 +423,36 @@ pub mod service {
         );
     }
 
-    /// Configures RWA Series parameters (Tangible floor >= 51%, max holders, ROFR window)
+    /// Configures Asset Pool parameters (Tangible floor >= 51%, max holders, Priority window)
     #[action]
-    fn configureRwaSeries(config: RwaSeriesConfig) {
+    fn configureAssetPool(config: AssetPoolConfig) {
         let sender = get_sender();
         let token = Token::get_assert(config.token_id);
         let nft = psibase::services::nft::Wrapper::call().getNft(token.nft_id).expect("NFT DNE");
-        assert_eq!(sender, nft.owner, "Only token owner can configure RWA Series");
+        assert_eq!(sender, nft.owner, "Only token owner can configure Asset Pool");
         assert!(
             config.tangible_ratio_bps >= 5100,
             "Tangible ratio must be >= 5100 bps (51% tangible backing required)"
         );
-        RwaSeriesConfigTable::new().put(&config).unwrap();
+        AssetPoolConfigTable::new().put(&config).unwrap();
     }
 
-    /// Fetches RWA Series configuration
+    /// Backwards-compatible alias for configureAssetPool
     #[action]
-    fn getRwaConfig(token_id: TID) -> Option<RwaSeriesConfig> {
-        RwaSeriesConfig::get(token_id)
+    fn configureRwaSeries(config: AssetPoolConfig) {
+        Self::configureAssetPool(config);
+    }
+
+    /// Fetches Asset Pool configuration
+    #[action]
+    fn getAssetPool(token_id: TID) -> Option<AssetPoolConfig> {
+        AssetPoolConfig::get(token_id)
+    }
+
+    /// Backwards-compatible alias for getAssetPool
+    #[action]
+    fn getRwaConfig(token_id: TID) -> Option<AssetPoolConfig> {
+        Self::getAssetPool(token_id)
     }
 
     /// Uncredit tokens that were credited into a shared balance

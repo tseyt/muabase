@@ -134,8 +134,8 @@ pub mod tables {
     pub struct WitnessAttestation {
         pub id: u32,
         pub witness: AccountNumber,
-        pub adalah_score: u32,
-        pub ikhtisas_domain: String,
+        pub trust_score: u32,
+        pub domain_badge: String,
         pub timestamp: TimePointUSec,
     }
     impl WitnessAttestation {

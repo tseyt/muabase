@@ -10,21 +10,21 @@ export interface MuabaseConfig {
   };
 }
 
-export interface RwaSeriesConfig {
+export interface AssetPoolConfig {
   tokenId: number;
   legalWrapperHash: string; // SHA-256 of Series LLC / Trust agreement
   maxHolders: number;
   minTrustScore: number;    // Minimum trust score (0-10,000) to hold or rent
   minAdalahScore?: number;  // Backwards-compatible alias
   tangibleRatioBps: number; // >= 5100 (tangible_ratio)
-  priorityWindowSec?: number; // Co-owner Right of First Refusal window in seconds
-  rofrWindowSec: number;    // Backwards-compatible field
+  priorityWindowSec: number; // Co-owner Right of First Refusal window in seconds
+  rofrWindowSec?: number;    // Backwards-compatible alias
   custodianAccount: string;
   custodianFeeBps: number;
   charitySinkAccount: string;
 }
 
-export type AssetPoolConfig = RwaSeriesConfig;
+export type RwaSeriesConfig = AssetPoolConfig;
 
 export interface CreateAssetInput {
   title: string;

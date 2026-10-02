@@ -163,7 +163,7 @@ pub mod service {
     }
 
     /// Mode A: Casts vote in 3-peer rapid damage triage.
-    /// When 2-of-3 peers approve: triggers instant MutualShield payout and decrements respondent AdalahScore.
+    /// When 2-of-3 peers approve: triggers instant MutualShield payout and decrements respondent trust_score.
     #[action]
     pub fn voteDamageClaim(claim_id: u64, approve: bool, approved_payout: Quantity) {
         let voter = get_sender();
@@ -195,8 +195,8 @@ pub mod service {
             // Credit the claimant directly through MutualShield
             claim.status = CLAIM_STATUS_DISBURSED;
 
-            // Update respondent AdalahScore in Credentials (penalize fault)
-            // psibase::services::credential::Wrapper::call().updateAdalahScore(claim.respondent, 7500, false);
+            // Update respondent trust_score in Credentials (penalize fault)
+            // psibase::services::credential::Wrapper::call().updateTrustScore(claim.respondent, 7500, false);
 
             Wrapper::emit().history().claimResolved(claim_id, true, claim.approved_amount);
         } else if claim.rejections.len() >= 2 {

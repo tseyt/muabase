@@ -115,10 +115,10 @@ pub mod tables {
         }
     }
 
-    /// Soulbound (non-transferable) reliability/audit score (Adalah)
-    #[table(name = "AdalahTable", index = 3)]
+    /// Soulbound (non-transferable) reliability/audit score (trust_score / Adalah)
+    #[table(name = "TrustScoreTable", index = 3)]
     #[derive(Pack, Unpack, ToSchema, Serialize, Deserialize, Debug, Clone)]
-    pub struct AdalahRecord {
+    pub struct TrustScoreRecord {
         pub account: AccountNumber,
         pub score: u32,             // 0 - 10,000 (bps basis, e.g. 8500 = 85.00%)
         pub total_audits: u32,
@@ -126,17 +126,19 @@ pub mod tables {
         pub disputes_involved: u32,
         pub last_updated: TimePointSec,
     }
-    impl AdalahRecord {
+    impl TrustScoreRecord {
         #[primary_key]
         fn pk(&self) -> AccountNumber {
             self.account
         }
     }
+    pub type AdalahRecord = TrustScoreRecord;
+    pub type AdalahTable = TrustScoreTable;
 
-    /// Soulbound (non-transferable) domain competence credential (Ikhtisas)
-    #[table(name = "IkhtisasTable", index = 4)]
+    /// Soulbound (non-transferable) domain competence credential (domain_badge / Ikhtisas)
+    #[table(name = "DomainBadgeTable", index = 4)]
     #[derive(Pack, Unpack, ToSchema, Serialize, Deserialize, Debug, Clone)]
-    pub struct IkhtisasRecord {
+    pub struct DomainBadgeRecord {
         pub account: AccountNumber,
         pub domain: String,         // e.g. "luxury_fashion", "commercial_equipment", "real_estate"
         pub issuer: AccountNumber,
@@ -144,7 +146,7 @@ pub mod tables {
         pub cert_hash: Checksum256,
         pub active: bool,
     }
-    impl IkhtisasRecord {
+    impl DomainBadgeRecord {
         #[primary_key]
         fn pk(&self) -> (AccountNumber, String) {
             (self.account, self.domain.clone())
@@ -155,4 +157,6 @@ pub mod tables {
             (self.domain.clone(), self.account)
         }
     }
+    pub type IkhtisasRecord = DomainBadgeRecord;
+    pub type IkhtisasTable = DomainBadgeTable;
 }

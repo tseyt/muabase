@@ -223,12 +223,12 @@ pub mod service {
         VirtualServer::call_as(CRED_SYS).del_res_sub(id.to_string());
     }
 
-    /// Updates or initializes a soulbound Adalah reliability record
+    /// Updates or initializes a soulbound trust score (Adalah) reliability record
     #[action]
     #[allow(non_snake_case)]
-    fn updateAdalahScore(account: AccountNumber, score: u32, is_success: bool) {
-        let table = AdalahTable::read_write();
-        let mut record = table.get_index_pk().get(&account).unwrap_or(AdalahRecord {
+    fn updateTrustScore(account: AccountNumber, score: u32, is_success: bool) {
+        let table = TrustScoreTable::read_write();
+        let mut record = table.get_index_pk().get(&account).unwrap_or(TrustScoreRecord {
             account,
             score: 10000,
             total_audits: 0,
@@ -249,19 +249,33 @@ pub mod service {
         table.put(&record).unwrap();
     }
 
-    /// Fetches the Adalah reliability record for an account
+    /// Backwards-compatible alias for updateTrustScore
     #[action]
     #[allow(non_snake_case)]
-    fn getAdalahRecord(account: AccountNumber) -> Option<AdalahRecord> {
-        AdalahTable::read().get_index_pk().get(&account)
+    fn updateAdalahScore(account: AccountNumber, score: u32, is_success: bool) {
+        Self::updateTrustScore(account, score, is_success);
     }
 
-    /// Issues a non-transferable Ikhtisas domain competence tag
+    /// Fetches the trust score reliability record for an account
     #[action]
     #[allow(non_snake_case)]
-    fn issueIkhtisasTag(account: AccountNumber, domain: String, cert_hash: Checksum256) {
-        let table = IkhtisasTable::read_write();
-        let record = IkhtisasRecord {
+    fn getTrustScore(account: AccountNumber) -> Option<TrustScoreRecord> {
+        TrustScoreTable::read().get_index_pk().get(&account)
+    }
+
+    /// Backwards-compatible alias for getTrustScore
+    #[action]
+    #[allow(non_snake_case)]
+    fn getAdalahRecord(account: AccountNumber) -> Option<TrustScoreRecord> {
+        Self::getTrustScore(account)
+    }
+
+    /// Issues a non-transferable domain competence badge (Ikhtisas)
+    #[action]
+    #[allow(non_snake_case)]
+    fn issueDomainBadge(account: AccountNumber, domain: String, cert_hash: Checksum256) {
+        let table = DomainBadgeTable::read_write();
+        let record = DomainBadgeRecord {
             account,
             domain: domain.clone(),
             issuer: get_sender(),
@@ -272,29 +286,50 @@ pub mod service {
         table.put(&record).unwrap();
     }
 
-    /// Revokes an Ikhtisas domain competence tag
+    /// Backwards-compatible alias for issueDomainBadge
     #[action]
     #[allow(non_snake_case)]
-    fn revokeIkhtisasTag(account: AccountNumber, domain: String) {
-        let table = IkhtisasTable::read_write();
+    fn issueIkhtisasTag(account: AccountNumber, domain: String, cert_hash: Checksum256) {
+        Self::issueDomainBadge(account, domain, cert_hash);
+    }
+
+    /// Revokes a domain competence badge
+    #[action]
+    #[allow(non_snake_case)]
+    fn revokeDomainBadge(account: AccountNumber, domain: String) {
+        let table = DomainBadgeTable::read_write();
         if let Some(mut record) = table.get_index_pk().get(&(account, domain.clone())) {
             assert!(
                 get_sender() == record.issuer || get_sender() == account,
-                "Unauthorized to revoke tag"
+                "Unauthorized to revoke badge"
             );
             record.active = false;
             table.put(&record).unwrap();
         }
     }
 
-    /// Checks whether an account holds an active Ikhtisas tag for a domain
+    /// Backwards-compatible alias for revokeDomainBadge
     #[action]
     #[allow(non_snake_case)]
-    fn hasIkhtisas(account: AccountNumber, domain: String) -> bool {
-        IkhtisasTable::read()
+    fn revokeIkhtisasTag(account: AccountNumber, domain: String) {
+        Self::revokeDomainBadge(account, domain);
+    }
+
+    /// Checks whether an account holds an active domain badge
+    #[action]
+    #[allow(non_snake_case)]
+    fn hasDomainBadge(account: AccountNumber, domain: String) -> bool {
+        DomainBadgeTable::read()
             .get_index_pk()
             .get(&(account, domain))
             .map(|r| r.active)
             .unwrap_or(false)
+    }
+
+    /// Backwards-compatible alias for hasDomainBadge
+    #[action]
+    #[allow(non_snake_case)]
+    fn hasIkhtisas(account: AccountNumber, domain: String) -> bool {
+        Self::hasDomainBadge(account, domain)
     }
 }
