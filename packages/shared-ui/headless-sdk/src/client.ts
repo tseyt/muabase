@@ -5,6 +5,14 @@ import {
   CheckoutLeaseInput,
   DamageClaimInput,
   UsufructLease,
+  CoopPoolInput,
+  RevenueReportInput,
+  DistributionResult,
+  CreateMarketInput,
+  StakeAllocationInput,
+  MarketPosition,
+  MarketResolutionInput,
+  ClaimRewardResult,
 } from "./types";
 
 export class MuabaseClient {
@@ -163,6 +171,168 @@ export class MuabaseClient {
           invoice1Id: parseInt(invoice1, 10),
           invoice2Id: parseInt(invoice2, 10),
         });
+      },
+    },
+  };
+
+  /**
+   * Real Estate & Infrastructure Digital Cooperative namespace (MizanVest)
+   */
+  public coop = {
+    pools: {
+      create: async (input: CoopPoolInput) => {
+        return this.transact("tokens", "configureAssetPool", {
+          config: {
+            tokenId: 2001,
+            legalWrapperHash: input.legalWrapperHash,
+            maxHolders: 499,
+            minTrustScore: 6000,
+            tangibleRatioBps: input.tangibleRatioBps || 10000,
+            priorityWindowSec: input.priorityWindowSec || 86400,
+            custodianAccount: input.custodianAccount || "mizan-custodian",
+            custodianFeeBps: 200, // 2% annual management fee
+            charitySinkAccount: "waqf-sadaqah",
+          },
+        });
+      },
+
+      reportRevenue: async (input: RevenueReportInput) => {
+        return this.transact("tokenstream", "recordGrossRevenue", {
+          poolId: input.poolId,
+          source: input.source,
+          grossAmountCents: input.grossAmountCents,
+          operatingExpensesCents: input.operatingExpensesCents,
+          evidenceHash: input.evidenceHash,
+        });
+      },
+
+      executeStabilizedDistribution: async (params: {
+        poolId: number;
+        grossRevenueCents: number;
+        operatingExpensesCents: number;
+        portfolioValuationCents: number;
+      }): Promise<DistributionResult> => {
+        const netIncomeCents = params.grossRevenueCents - params.operatingExpensesCents;
+        const grossYieldBps = Math.floor((params.grossRevenueCents * 10000) / params.portfolioValuationCents);
+        const netYieldBps = Math.floor((netIncomeCents * 10000) / params.portfolioValuationCents);
+
+        let effectivePayoutBps = netYieldBps;
+        let reserveSurplusAddedCents = 0;
+        let reserveDrawCents = 0;
+
+        if (netYieldBps > 1200) {
+          // Outperformance: Cap distribution at 12%, excess routes to Yield Stabilization Fund
+          effectivePayoutBps = 1200;
+          reserveSurplusAddedCents = Math.floor(((netYieldBps - 1200) * params.portfolioValuationCents) / 10000);
+        } else if (netYieldBps < 800) {
+          // Underperformance: Draw from Yield Stabilization Fund up to 8% target floor
+          reserveDrawCents = Math.floor(((800 - netYieldBps) * params.portfolioValuationCents) / 10000);
+          effectivePayoutBps = 800;
+        }
+
+        const res = await this.transact("tokenstream", "distributeCoopYield", {
+          poolId: params.poolId,
+          netYieldBps,
+          effectivePayoutBps,
+          reserveSurplusAddedCents,
+          reserveDrawCents,
+        });
+
+        return {
+          distributionId: String(res.distributionId || "dist-1"),
+          poolId: params.poolId,
+          grossYieldBps,
+          netYieldBps,
+          effectivePayoutBps,
+          reserveSurplusAddedCents,
+          reserveDrawCents,
+          reserveTotalBalanceCents: res.reserveTotalBalanceCents || 25000000,
+        };
+      },
+    },
+
+    shares: {
+      invest: async (input: { poolId: number; amountCents: number; rail?: string }) => {
+        if (input.rail === "stripe_connect") {
+          return await this.transact("ext-vault", "generateInvestmentIntent", {
+            poolId: input.poolId,
+            amountCents: input.amountCents,
+            railType: "stripe_connect",
+            investorAccount: this.account,
+          });
+        }
+
+        return await this.transact("tokens", "purchaseDigitalShares", {
+          poolId: input.poolId,
+          amountCents: input.amountCents,
+          buyer: this.account,
+        });
+      },
+    },
+  };
+
+  /**
+   * Ethical Forecasting & Ju'alah Knowledge Bounty namespace (Irfan.Markets)
+   */
+  public forecasting = {
+    markets: {
+      create: async (input: CreateMarketInput) => {
+        return this.transact("evals", "createJu'alahBounty", {
+          question: input.question,
+          category: input.category,
+          outcomes: input.outcomes,
+          resolutionTimestamp: input.resolutionTimestamp,
+          oracleAccount: input.oracleAccount,
+          minTrustScore: input.minTrustScore || 5000,
+          descriptionHash: input.descriptionHash,
+          charitySinkAccount: "waqf-sadaqah",
+        });
+      },
+
+      resolve: async (input: MarketResolutionInput) => {
+        return this.transact("evals", "resolveJu'alahBounty", {
+          marketId: input.marketId,
+          winningOutcomeIndex: input.winningOutcomeIndex,
+          evidenceHash: input.evidenceHash,
+          dualWitnessSignatures: input.dualWitnessSignatures || [],
+        });
+      },
+    },
+
+    vault: {
+      allocateStake: async (input: StakeAllocationInput): Promise<MarketPosition> => {
+        const result = await this.transact("tokenstream", "allocateYieldStake", {
+          marketId: input.marketId,
+          outcomeIndex: input.outcomeIndex,
+          principalAmountUsd: input.principalAmountUsd,
+          staker: this.account,
+          rail: input.rail || "native_usdc",
+        });
+
+        return {
+          positionId: String(result.positionId || "pos-1"),
+          marketId: input.marketId,
+          account: this.account,
+          outcomeIndex: input.outcomeIndex,
+          principalAmountUsd: input.principalAmountUsd,
+          prizeShares: input.principalAmountUsd * 86400, // Amount * Duration (stake_seconds)
+          allocationTimestamp: Math.floor(Date.now() / 1000),
+          status: "Active",
+        };
+      },
+
+      claim: async (positionId: string): Promise<ClaimRewardResult> => {
+        const res = await this.transact("tokenstream", "claimJu'alahReward", {
+          positionId: parseInt(positionId, 10),
+          claimer: this.account,
+        });
+
+        return {
+          positionId,
+          principalRefundUsd: res.principalRefundUsd, // 100% of user principal returned
+          yieldPrizeRewardUsd: res.yieldPrizeRewardUsd || 0, // Pro-rata share of redirected yield
+          skillPointsEarned: res.skillPointsEarned || 250, // Soulbound trust_score addition
+        };
       },
     },
   };

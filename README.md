@@ -155,6 +155,11 @@ await client.guild.leases.confirmReturn({
 });
 ```
 
+### Reference Implementation Guides
+- **[High-Trust P2P Rental Marketplace (Pickle Competitor)](packages/shared-ui/headless-sdk/examples/fashion-guild-quickstart.md):** 93% take-home yield, 4% mutual shield, 3% SaaS operator, zero-*riba* charity sink routing.
+- **[Real Estate & Solar Infrastructure Cooperative (MizanVest)](packages/shared-ui/headless-sdk/examples/mizanvest-quickstart.md):** Workforce housing & commercial solar syndication, Yield Stabilization Reserve (8–12% target payout), 100% tangible asset backing.
+- **[Positive-Sum Ethical Forecasting Protocol (Irfan.Markets)](packages/shared-ui/headless-sdk/examples/irfan-markets-quickstart.md):** 100% principal protection, Ju‘alah knowledge bounties from redirected yield, binary *Bayyinah* resolution gate.
+
 ---
 
 ## Repository Structure

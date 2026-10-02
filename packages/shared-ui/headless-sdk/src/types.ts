@@ -71,3 +71,77 @@ export interface DamageClaimInput {
   postConditionEvidenceHash: string;
   repairQuoteHash: string;
 }
+
+// Cooperative & Real Estate Infrastructure Types (MizanVest)
+export interface CoopPoolInput {
+  name: string;
+  targetYieldMinBps: number; // e.g. 800 (8.00%)
+  targetYieldMaxBps: number; // e.g. 1200 (12.00%)
+  stabilizationReserveCapBps: number; // e.g. 500 (5.00% of portfolio)
+  tangibleRatioBps?: number; // Defaults to 10000 (100% tangible)
+  priorityWindowSec?: number; // Co-owner pre-emption (Haqq al-Shuf'ah)
+  legalWrapperHash: string; // Master Series LLC / Trust deed hash
+  custodianAccount?: string;
+}
+
+export interface RevenueReportInput {
+  poolId: number;
+  source: "workforce_housing_rent" | "commercial_solar_ppa";
+  grossAmountCents: number;
+  operatingExpensesCents: number;
+  evidenceHash: string; // Utility statement or tenant ledger digest
+}
+
+export interface DistributionResult {
+  distributionId: string;
+  poolId: number;
+  grossYieldBps: number;
+  netYieldBps: number;
+  effectivePayoutBps: number; // Clamped between 800 and 1200 bps
+  reserveSurplusAddedCents: number;
+  reserveDrawCents: number;
+  reserveTotalBalanceCents: number;
+}
+
+// Ethical Forecasting & Ju'alah Knowledge Bounty Types (Irfan.Markets)
+export interface CreateMarketInput {
+  question: string;
+  category: string;
+  outcomes: string[];
+  resolutionTimestamp: number;
+  oracleAccount: string;
+  minTrustScore?: number; // Required reliability score to participate
+  descriptionHash: string;
+}
+
+export interface StakeAllocationInput {
+  marketId: number;
+  outcomeIndex: number;
+  principalAmountUsd: number;
+  rail?: "solana_marinade" | "native_usdc" | "evm_safe";
+}
+
+export interface MarketPosition {
+  positionId: string;
+  marketId: number;
+  account: string;
+  outcomeIndex: number;
+  principalAmountUsd: number;
+  prizeShares: number; // Time-weighted: Principal * Seconds
+  allocationTimestamp: number;
+  status: "Active" | "Claimed" | "Refunded";
+}
+
+export interface MarketResolutionInput {
+  marketId: number;
+  winningOutcomeIndex: number;
+  evidenceHash: string;
+  dualWitnessSignatures?: string[]; // Binary Bayyinah gate
+}
+
+export interface ClaimRewardResult {
+  positionId: string;
+  principalRefundUsd: number; // Always 100% of principal
+  yieldPrizeRewardUsd: number; // Pro-rata share of accrued yield
+  skillPointsEarned: number; // Soulbound trust_score increment
+}
