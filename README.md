@@ -1,18 +1,18 @@
 <div align="center">
   <h1>Muabase</h1>
-  <p><strong>The Serverless Full-Stack Operating System for RWAs, High-Trust Marketplaces, and Trade Guilds</strong></p>
+  <p><strong>The Real-Time Wasm Operating System for High-Trust Digital Commerce</strong></p>
   <p>
-    <em>Built on the Psibase Wasm-in-Database Architecture &bull; Governed by Invariant Mathematical Fiqh al-Mu‘amalat</em>
+    <em>Sub-Millisecond Wasm-in-Database Speed &bull; Zero Backend Middleware &bull; Governed by Invariant Mathematical Fiqh al-Mu‘amalat</em>
   </p>
   <p>
     &bull;
     <a href="#overview">Overview</a> &bull;
-    <a href="#core-capabilities">Capabilities</a> &bull;
+    <a href="#core-capabilities-matrix">Capabilities Matrix</a> &bull;
     <a href="#fiqh-invariants">Fiqh Invariants</a> &bull;
     <a href="#dual-locale-terminology">Dual Locale</a> &bull;
-    <a href="#architecture">Architecture</a> &bull;
     <a href="#regulatory-safe-harbor">Regulatory Compliance</a> &bull;
     <a href="#headless-commerce-quickstart">Headless Quickstart</a> &bull;
+    <a href="#reference-guides">Reference Guides</a> &bull;
     <a href="#build-from-source">Build & Run</a> &bull;
   </p>
 </div>
@@ -21,14 +21,34 @@
 
 ## Overview
 
-**Muabase** is a specialized fork of the `psibase` protocol engineered to serve as a high-performance, serverless operating system for:
-1. **Family Offices & Private Syndicates:** Managing multi-jurisdictional asset portfolios, private Series LLCs, and multi-generational generational trusts with hardcoded capital-preservation policies (`endowment_policy` / **Trust Principal Preservation Lock** / *Hifz Asl al-Waqf*).
-2. **Real-World Asset (RWA) Tokenization (Chintai Parity):** Compliant fractionalization of tangible physical assets (`asset_pool` / **RWA Asset Series & Series LLC** / *Sukuk al-Qirad & Musharakah*) with native Ricardian contract bindings, transfer restrictions, Right of First Refusal pre-emption (`priority_window` / **Co-Owner Right of First Refusal** / *Haqq al-Shuf‘ah*), and secondary market debt-protection floors (`tangible_ratio` / **Tangible Asset Backing Ratio >= 51%** / *Nisbat al-‘Ayn al-Haqiqiyyah*).
-3. **High-Trust P2P Rental & Lending Guilds:** Headless commerce infrastructure outcompeting rent-extracting legacy platforms (e.g., peer-to-peer designer fashion rentals outcompeting apps like Pickle by delivering **93%+ take-home yield** to lenders vs. industry standard ~80%) via fixed usufruct leases (`usufruct` / **Fixed Usufruct Lease** / *Ijarah al-A‘yan wa al-Manafi‘*), automated multi-party splits (`external_vault` / **Non-Custodial Multi-Chain Splits** / *Amanah Ghayr Hiyaziyyah*), co-owned mutual damage pools (`mutual_shield` / **Mutual Protection Reserve Pool** / *Takaful*), and 3-peer evidence triage (`claim_council` / **Peer Triage Committee** / *Majlis al-Tahkim*).
-4. **B2B Trade Cooperatives & Merchant Guilds:** Multi-lateral invoice netting (`credit_clear` / **Multilateral Invoice Netting** / *Muqassah*) and inter-chain trust graph credit routing (`wajahah_hawalah` / **Earned-Respect Liquidity Bridge** / *Wajahah & Hawalah*) eliminating liquidity fragmentation and predatory working-capital factoring.
-5. **Social Tastemaker & Dining Discovery Guilds:** Un-gameable social restaurant tracking and ranking apps outcompeting Web2 incumbents like Beli through cryptographic proof-of-visit (`binary_bayyinah` / **Dual-Witness Evidentiary Gate** / *Bayyinah* receipt hashing), **93%+ tastemaker monetization** (`guild_pod` / **Cooperative Pod & Review Circle** / *Halaqat al-Tijarah*), and Wasm-native Condorcet pairwise tournaments (`evals` / **Objective Bounty & Claim Ranking** / *Ju‘alah Halaqa*).
+**Muabase** is a serverless, real-time transactional database and application engine designed to replace the entire legacy backend stack (PostgreSQL + Redis + GraphQL servers + Auth microservices) and slow, speculative smart-contract blockchains with a single, high-performance architecture.
 
-All protocol logic executes directly in WebAssembly inside the `Triedent` memory-mapped transactional state storage, combining the developer ergonomics and microsecond latency of **SpacetimeDB** with high-throughput Byzantine fault-tolerant consensus.
+Executing WebAssembly directly inside memory-mapped Trie storage (`Triedent`), Muabase pairs the developer ergonomics, sub-millisecond query latency, and reactive subscriptions of **SpacetimeDB** with high-throughput Byzantine fault-tolerant consensus and the invariant mathematical constraints of classical commercial jurisprudence (**Fiqh al-Mu‘amalat**).
+
+### The Broken Status Quo: Extractive Web2 vs. Speculative Web3
+
+Modern applications requiring trust, peer-to-peer commerce, verified reviews, or multi-party revenue distribution are trapped between two broken paradigms:
+
+1. **Legacy Web2 is Extractive, Opaque, and Fragile:** Centralized incumbents (marketplaces, review apps, rental platforms, discovery networks) operate as rent-seeking middlemen. They extract 20%–35% take-rates, trap user data in proprietary walled gardens, manipulate rankings with pay-to-play advertising, and expose operators to severe custodial liabilities. Meanwhile, building these apps requires stitching together brittle database clusters, caches, and sync engines costing thousands of dollars a month before acquiring a single user.
+2. **Traditional Web3 is Slow, Costly, and Casino-Like:** Smart contract platforms suffer from 1–15 second RPC latency, brittle indexing subgraphs, volatile gas spikes, and speculative governance tokens that attract regulatory scrutiny rather than authentic commercial utility.
+
+### The Muabase Solution: Universal Invariant Commercial Infrastructure
+
+Muabase provides a developer-first alternative: a single, high-performance database where **commercial ethics, non-custodial payouts, and evidentiary verification are hardcoded directly into state transition logic**. 
+
+Frontends (Next.js, Vite, React Native) connect directly to `psinode` nodes without intermediate backend servers, querying data with microsecond latency and subscribing to live tables via reactive Server-Sent Events (`useMuabaseTable`).
+
+Instead of rigid, vertical-specific backends, Muabase equips developers with **17 universal canonical primitives**:
+- **93%+ Take-Home Yields (`usufruct` / *Ijarah al-Manafi‘*):** Slashes platform take-rates down to a 3% SaaS fee, passing 93% directly to creators, lenders, and asset owners, with 4% routed to member-owned mutual protection pools (`mutual_shield` / *Takaful*).
+- **Cryptographic Evidentiary Verification (`binary_bayyinah` / *Bayyinah*):** Eliminates bot astroturfing and review fraud by gating disputes and attestations behind 2-witness quorums verifying Ricardian photo or receipt hashes co-signed by soulbound domain credentials (`domain_badge` / *Ikhtisas*) and reliability scores (`trust_score` / *‘Adalah*).
+- **Objective Condorcet Ranking (`evals` / *Ju‘alah Halaqa*):** Eliminates subjective popularity contests and pay-to-play algorithms. Arbitrary entities (restaurants, damage claims, development bounties) are ranked via un-gameable Schulze Condorcet tournaments directly in WebAssembly.
+- **100% Non-Custodial Multi-Chain Execution (`external_vault` / *Amanah Ghayr Hiyaziyyah*):** Zero operator keys or custody of funds. Payments settle via client-side multisig (Bitcoin Taproot Miniscript, EVM Safe, Solana Squads) or automated Stripe Connect destination splits, safely operating under the NYDFS BitLicense pure software exemption (`23 NYCRR § 200.2(q)`).
+- **Zero-*Riba* Restitution (`charity_sink` / *Masraf al-Sadaqah*):** Punitive late fees or guest cancellation deterrents never line the platform's pockets; direct costs are reimbursed to the injured party, while punitive surcharges route 100% to a community charity sink.
+- **Tangible Parity Floors (`tangible_ratio` >= 51%):** Secondary market trading of real-world asset shares at non-par is mathematically halted if physical backing falls below 51%, blocking naked debt speculation (*Bay‘ al-Dayn*).
+- **Capital Preservation Guards (`endowment_policy` / *Hifz Asl al-Waqf*):** Trust principal accounts reject outward capital consumption transfers, ensuring principal remains locked in productive assets while generated yield flows to beneficiaries.
+
+Whether building a peer-to-peer luxury rental platform, an un-gameable social restaurant ranking app, a real estate cooperative, or a multilateral B2B clearinghouse, builders compose these same universal primitives on the client.
+
 
 ---
 
@@ -90,7 +110,11 @@ flowchart TD
 
 ## Dual-Locale Terminology Switching
 
-Muabase provides an on-chain locale engine in `packages/user/Branding` so interfaces and developer tools can switch seamlessly between standard institutional terminology and classical jurisprudence terms:
+Muabase provides an on-chain locale engine in `packages/user/Branding` so interfaces and developer tools can switch seamlessly between standard institutional terminology and classical jurisprudence terms.
+
+> [!NOTE]
+> **Developer & AI Agent Guidance:**  
+> The Institutional and Muamalat terms below are **presentation labels** mapped dynamically via `client.locale`. In TypeScript and client-side code, always interact via the canonical SDK services (`client.tokens`, `client.leaseEngine`, `client.stagedTx`, `client.evaluations`, `client.externalVault`) or the corresponding canonical Wasm service accounts (`"tokens"`, `"lease-eng"`, `"staged-tx"`, `"evals"`, `"ext-vault"`). See [`llms.txt`](llms.txt) for machine-readable context.
 
 | Canonical Key (`key`) | Institutional Locale (`"institutional"`) | Jurisprudential Locale (`"muamalat"`) | Classical Legal Basis & Jurisprudential Invariant |
 | :--- | :--- | :--- | :--- |
@@ -147,27 +171,34 @@ const client = createMuabaseClient({
 // Example A: P2P Luxury Rental Flow (Pickle Competitor)
 // =========================================================================
 
-// 1. List a luxury item or equipment into an asset_pool (Sukuk al-Qirad)
-const asset = await client.guild.assets.create({
-  title: "Designer Dress / Camera Kit",
-  dayRateUsd: 45.0,
-  replacementValueUsd: 1200.0,
-  tangibleRatioBps: 10000,  // 100% tangible asset backing (tangible_ratio)
+// 1. List a luxury item into canonical asset_pool (Sukuk al-Qirad)
+const asset = await client.tokens.configureAssetPool({
+  tokenId: 1042,
+  legalWrapperHash: "0x1234...series_llc_digest",
+  maxHolders: 99,
+  minTrustScore: 7000,
+  tangibleRatioBps: 10000,  // 100% tangible asset backing (tangible_ratio >= 5100)
   priorityWindowSec: 86400, // 24h co-owner priority window (Haqq al-Shuf'ah)
+  custodianAccount: "custodian",
+  custodianFeeBps: 0,
+  charitySinkAccount: "waqf-sadaqah",
 });
 
 // 2. Execute instant checkout with autonomous 93%/4%/3% split
-const lease = await client.guild.leases.checkout({
-  assetId: asset.id,
-  durationDays: 4,
+const lease = await client.leaseEngine.createLease({
+  lessor: "asset-owner",
+  tokenId: 1042,
+  durationSec: 4 * 86400,
+  grossPayment: { value: 1800000 }, // $180.00
+  paymentTokenId: 1,
   preConditionEvidenceHash: "0x3a4b...photos", // Binary Bayyinah digest
+  charitySinkAccount: "waqf-sadaqah",
 });
-// Gross payment splits autonomously:
 // 93% -> Asset Owner, 4% -> Mutual Protection Pool (Takaful), 3% -> SaaS Operator
 
 // 3. Complete return with condition sign-off
-await client.guild.leases.confirmReturn({
-  leaseId: lease.id,
+await client.leaseEngine.confirmCleanReturn({
+  leaseId: lease.leaseId,
   postConditionEvidenceHash: "0x9f1c...photos",
 });
 
@@ -176,22 +207,29 @@ await client.guild.leases.confirmReturn({
 // =========================================================================
 
 // 1. Log verified dining experience with cryptographic proof-of-visit (Bayyinah)
-await client.dining.restaurants.submitProofOfVisit({
-  restaurantId: 3001,
-  receiptDigestHash: "0x8f2d...pos_receipt_sha256",
-  visitTimestamp: Math.floor(Date.now() / 1000),
-  overallRatingBps: 9200, // 9.20 / 10.0
-  dishesOrdered: ["Hand-rolled Cavatelli", "Dry-aged Ribeye"],
+await client.stagedTx.recordAttestation({
+  service: "evaluation",
+  entityId: 3001,
+  evidenceHash: "0x8f2d...pos_receipt_sha256",
+  attester: client.account,
+  witnessQuorum: 2,
+  metadata: {
+    overallRatingBps: 9200, // 9.20 / 10.0
+    dishes: ["Hand-rolled Cavatelli", "Dry-aged Ribeye"],
+    timestamp: Math.floor(Date.now() / 1000),
+  },
 });
 
 // 2. Submit pairwise comparison into Wasm Condorcet tournament (evals)
-await client.dining.rankings.recordComparison({
-  winnerRestaurantId: 3001,
-  loserRestaurantId: 2042,
+await client.evaluations.recordPairwiseVote({
+  winnerId: 3001,
+  loserId: 2042,
   category: "food",
+  voter: client.account,
 });
 ```
 
+<a name="reference-guides"></a>
 ### Reference Implementation Guides
 - **[High-Trust P2P Rental Marketplace (Pickle Competitor)](packages/shared-ui/headless-sdk/examples/fashion-guild-quickstart.md):** 93% take-home yield (`usufruct`), 4% mutual shield (`mutual_shield` / *Takaful*), 3% SaaS operator, zero-*riba* charity sink routing (`charity_sink` / *Masraf al-Sadaqah*).
 - **[Un-Gameable Social Restaurant Ranking & Tastemaker App (Beli Competitor)](packages/shared-ui/headless-sdk/examples/beli-competitor-quickstart.md):** 93% tastemaker take-home, cryptographic proof-of-visit (`binary_bayyinah` / *Bayyinah* receipt hashing), Wasm-native Condorcet pairwise tournaments (`evals` / *Ju‘alah Halaqa*), non-custodial supper club escrow (`external_vault` / *Amanah Ghayr Hiyaziyyah*), and zero-*riba* food rescue sink (`charity_sink`).

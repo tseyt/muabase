@@ -80,6 +80,159 @@ export class MuabaseClient {
   }
 
   /**
+   * =========================================================================
+   * Canonical Muabase Protocol Wasm Services
+   * =========================================================================
+   */
+
+  public tokens = {
+    /**
+     * Configure an on-chain Asset Pool (Series LLC / Sukuk al-Qirad).
+     * Wasm Service: "tokens", Action: "configureAssetPool"
+     * @param config.tangibleRatioBps Basis points integer >= 5100 (51.00% tangible backing floor). 10000 = 100%. Never pass floats.
+     * @param config.minTrustScore Minimum reliability score in basis points (0-10000). Default 7000.
+     * @param config.priorityWindowSec Right of First Refusal window in seconds (e.g. 86400 = 24h).
+     * @param config.charitySinkAccount Designated public charity sink vault (defaults to "waqf-sadaqah").
+     */
+    configureAssetPool: async (config: AssetPoolConfig) => {
+      return this.transact("tokens", "configureAssetPool", { config });
+    },
+  };
+
+  public leaseEngine = {
+    /**
+     * Create a usufruct lease for P2P rental or table booking (Ijarah al-Manafi').
+     * Wasm Service: "lease-eng", Action: "createLease"
+     * @param args.grossPayment.value Integer token units in precision 4 ($1.00 = 10000). Never pass raw floats.
+     * @param args.preConditionEvidenceHash 0x-prefixed 32-byte SHA-256 hex digest string.
+     * @param args.charitySinkAccount "waqf-sadaqah" for zero-riba late penalty routing.
+     */
+    createLease: async (args: Record<string, any>) => {
+      return this.transact("lease-eng", "createLease", args);
+    },
+    /**
+     * Confirm clean item return or dining conclusion, releasing deposits.
+     * Wasm Service: "lease-eng", Action: "confirmCleanReturn"
+     */
+    confirmCleanReturn: async (args: { leaseId: number; postConditionEvidenceHash: string }) => {
+      return this.transact("lease-eng", "confirmCleanReturn", args);
+    },
+    /**
+     * Settle late return or cancellation: direct damage to host, punitive deterrence to charity sink.
+     * Wasm Service: "lease-eng", Action: "settleCancellation"
+     */
+    settleCancellation: async (args: {
+      leaseId: number;
+      actualKitchenRestitution: { value: number };
+      punitivePenalty: { value: number };
+      charitySinkAccount: string;
+    }) => {
+      return this.transact("lease-eng", "settleCancellation", args);
+    },
+  };
+
+  public stagedTx = {
+    /**
+     * Record a Ricardian evidence attestation with dual-witness Bayyinah gate.
+     * Wasm Service: "staged-tx", Action: "recordAttestation"
+     * @param args.evidenceHash 0x-prefixed 32-byte SHA-256 digest string of physical proof.
+     * @param args.witnessQuorum Minimum number of co-signers required (default 2 for Bayyinah gate).
+     */
+    recordAttestation: async (args: {
+      service: string;
+      entityId: number;
+      evidenceHash: string;
+      attester?: string;
+      witnessQuorum?: number;
+      metadata?: any;
+    }) => {
+      return this.transact("staged-tx", "recordAttestation", args);
+    },
+  };
+
+  public evaluations = {
+    /**
+     * Record a pairwise Condorcet tournament ballot (Ju'alah Halaqa).
+     * Wasm Service: "evals", Action: "recordPairwiseVote"
+     * @param args.winnerId Entity ID ranked higher.
+     * @param args.loserId Entity ID ranked lower.
+     */
+    recordPairwiseVote: async (args: {
+      winnerId: number;
+      loserId: number;
+      category?: string;
+      voter?: string;
+      receiptHash?: string | null;
+    }) => {
+      return this.transact("evals", "recordPairwiseVote", args);
+    },
+    createJu'alahBounty: async (args: Record<string, any>) => {
+      return this.transact("evals", "createJu'alahBounty", args);
+    },
+    resolveJu'alahBounty: async (args: Record<string, any>) => {
+      return this.transact("evals", "resolveJu'alahBounty", args);
+    },
+  };
+
+  public claimCouncil = {
+    /**
+     * Submit a physical damage claim to 3-peer rapid triage committee.
+     * Wasm Service: "claimcouncil", Action: "submitDamageClaim"
+     */
+    submitDamageClaim: async (args: Record<string, any>) => {
+      return this.transact("claimcouncil", "submitDamageClaim", args);
+    },
+    voteDamageClaim: async (args: { claimId: number; approve: boolean; approvedPayout: { value: number } }) => {
+      return this.transact("claimcouncil", "voteDamageClaim", args);
+    },
+  };
+
+  public externalVault = {
+    /**
+     * Generate non-custodial multi-party split intent (93% Owner / 4% Takaful / 3% SaaS).
+     * Wasm Service: "ext-vault", Action: "generateSplitIntent"
+     * @param args.grossAmountCents Integer currency cents ($1.00 = 100).
+     */
+    generateSplitIntent: async (args: Record<string, any>) => {
+      return this.transact("ext-vault", "generateSplitIntent", args);
+    },
+    generateInvestmentIntent: async (args: Record<string, any>) => {
+      return this.transact("ext-vault", "generateInvestmentIntent", args);
+    },
+  };
+
+  public creditClear = {
+    /**
+     * Execute bilateral or multilateral B2B invoice set-off (Muqassah).
+     * Wasm Service: "creditclear", Action: "executeBilateralNetting"
+     */
+    executeBilateralNetting: async (args: { invoice1Id: number; invoice2Id: number }) => {
+      return this.transact("creditclear", "executeBilateralNetting", args);
+    },
+  };
+
+  public tokenStream = {
+    recordGrossRevenue: async (args: Record<string, any>) => {
+      return this.transact("tokenstream", "recordGrossRevenue", args);
+    },
+    distributeCoopYield: async (args: Record<string, any>) => {
+      return this.transact("tokenstream", "distributeCoopYield", args);
+    },
+    allocateYieldStake: async (args: Record<string, any>) => {
+      return this.transact("tokenstream", "allocateYieldStake", args);
+    },
+    claimJu'alahReward: async (args: Record<string, any>) => {
+      return this.transact("tokenstream", "claimJu'alahReward", args);
+    },
+  };
+
+  /**
+   * =========================================================================
+   * Convenience Domain Namespaces (Delegating to Canonical Services)
+   * =========================================================================
+   */
+
+  /**
    * Guild domain namespace
    */
   public guild = {

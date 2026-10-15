@@ -1,0 +1,163 @@
+# Muabase: AI Agent Developer Reference & Machine Context (llms.txt)
+
+> **Context for AI Coding Assistants:**  
+> Muabase is a serverless, real-time Wasm-in-database operating system built on `psibase` and memory-mapped Trie storage (`Triedent`).  
+> Frontend applications (Next.js, Vite, React Native) connect directly to `psinode` via GraphQL and actions without intermediate backend servers.  
+> Protocol logic is governed by hardcoded mathematical invariants of classical commercial jurisprudence (*Fiqh al-Mu‘amalat*).
+
+---
+
+## 1. Exact Wasm Service Slugs & Action Manifest
+
+AI agents must **never hallucinate** service names or action endpoints. Use these exact string literals:
+
+| Wasm Service Account | Canonical Key | Primary Actions / Endpoints | Description |
+| :--- | :--- | :--- | :--- |
+| `"tokens"` | `asset_pool`, `tangible_ratio` | `configureAssetPool`, `purchaseDigitalShares` | RWA asset pool creation, par-value floor (>= 51%), ROFR configuration. |
+| `"lease-eng"` | `usufruct`, `charity_sink` | `createLease`, `confirmCleanReturn`, `settleCancellation` | Usufruct leases (P2P rentals, supper clubs), zero-*riba* cancellation settling. |
+| `"staged-tx"` | `binary_bayyinah` | `recordAttestation` | Dual-witness Ricardian evidence digest verification ($H(M)$). |
+| `"evals"` | `evals` | `recordPairwiseVote`, `createJu'alahBounty`, `resolveJu'alahBounty` | Schulze Condorcet pairwise tournaments, objective bounties. (People are NEVER ranked). |
+| `"claimcouncil"` | `claim_council` | `submitDamageClaim`, `voteDamageClaim` | 3-peer rapid damage triage committee for mutual protection reserves. |
+| `"ext-vault"` | `external_vault` | `generateSplitIntent`, `generateInvestmentIntent` | Non-custodial 0-key multi-party payouts (Stripe Connect, EVM Safe, Taproot). |
+| `"creditclear"` | `credit_clear`, `wajahah_hawalah` | `executeBilateralNetting` | Zero-fee multilateral B2B invoice clearing & debt novation. |
+| `"tokenstream"` | `endowment_policy`, `mutual_shield` | `recordGrossRevenue`, `distributeCoopYield`, `allocateYieldStake` | Yield stabilization reserve math, Waqf principal preservation locks. |
+| `"branding"` | Dual-Locale Engine | `setNetworkName`, `getTerminologyMappings` | Dynamic switching between `"institutional"` and `"muamalat"` terms. |
+
+---
+
+## 2. Hardcoded Invariant Constraints & Unit Conventions
+
+When generating code, always adhere to these exact data scale and validation rules:
+
+1. **Basis Points (`bps`):**
+   - $100\% = 10000\text{ bps}$.
+   - $51\% = 5100\text{ bps}$.
+   - `tangibleRatioBps`: **Must be $\ge 5100$**. If $< 5100$, non-par trading reverts with `Bay' al-Dayn Violation`. Default to `10000` (100% tangible).
+   - `trust_score` / `AdalahScore`: $0$ to $10000$. A score of $7000$ represents $70.00\%$.
+2. **Token Amounts & Value Objects:**
+   - On-chain currency values are wrapped in `{ value: number }`.
+   - Token precision is typically 4 decimal places ($1.00\text{ USD} = 10000$).
+   - Never pass raw JavaScript floats (e.g., `45.5`) directly into `{ value: ... }`; convert to integer units: `Math.floor(amountUsd * 10000)`.
+3. **Fee Split Proportions:**
+   - Standard rental / curation split is **93% / 4% / 3%**:
+     - `9300 bps` $\rightarrow$ Asset Owner / Tastemaker
+     - `400 bps` $\rightarrow$ Mutual Protection Pool (`mutual_shield` / *Takaful*)
+     - `300 bps` $\rightarrow$ App SaaS Operator
+4. **Evidence Hashes (`evidenceHash` / `receiptDigestHash`):**
+   - Must be a 32-byte hexadecimal string prefixed with `0x` (66 characters total: `0x` + 64 hex chars).
+   - Generated via `crypto.subtle.digest('SHA-256', buffer)`.
+5. **Charity Sink Default:**
+   - `charitySinkAccount` is always `"waqf-sadaqah"`. Punitive late deterrences route 100% here. Creditors never retain late fees.
+
+---
+
+## 3. Dual-Locale Terminology Disambiguation
+
+**Crucial for AI Agents:** Institutional terms and Muamalat terms are **presentation labels** managed by `packages/user/Branding`. They are **NOT** the names of Wasm services or API endpoints!
+
+- ❌ **Incorrect:** `client.transact("ijarah", "rentItem", ...)` or `client.transact("rental_marketplace", "book", ...)`
+- ✅ **Correct:** `client.leaseEngine.createLease(...)` or `client.transact("lease-eng", "createLease", ...)`
+
+| Canonical Key (`key`) | Institutional Locale (`"institutional"`) | Jurisprudential Locale (`"muamalat"`) | Underlying Wasm Service |
+| :--- | :--- | :--- | :--- |
+| `asset_pool` | RWA Asset Series / Series LLC | *Sukuk al-Qirad / Musharakah* | `"tokens"` |
+| `usufruct` | Fixed Usufruct Lease / P2P Rental | *Ijarah al-A‘yan wa al-Manafi‘* | `"lease-eng"` |
+| `equity_lease` | Progressive Lease-to-Own / Equity Lease | *Musharakah Mutanaqisah* | `"lease-eng"` |
+| `mutual_shield` | Mutual Protection Reserve Pool | *Takaful (Tabarru‘ & Ta‘awun)* | `"mutualshield"` / `"tokenstream"` |
+| `claim_council` | Peer Triage Committee | *Majlis al-Tahkim & Shura* | `"claimcouncil"` |
+| `evals` | Objective Bounty & Claim Ranking | *Ju‘alah Halaqa* | `"evals"` |
+| `endowment_policy`| Trust Principal Preservation Lock | *Hifz Asl al-Waqf* | `"auth-delegate"` / `"tokenstream"` |
+| `priority_window` | Co-Owner Right of First Refusal | *Haqq al-Shuf‘ah* | `"tokens"` |
+| `charity_sink` | Public Endowment Charity Sink | *Masraf al-Sadaqah* | `"lease-eng"` (`charity_sink_account`) |
+| `credit_clear` | Multilateral Invoice Netting | *Muqassah* | `"creditclear"` |
+| `wajahah_hawalah` | Earned-Respect Liquidity Bridge | *Wajahah & Hawalah* | `"creditclear"` |
+| `trust_score` | Reliability & Audit Score | *‘Adalah (Probity / Reliability)*| `"credentials"` |
+| `domain_badge` | Domain Competence Credential | *Ikhtisas (Domain Specialization)*| `"credentials"` |
+| `tangible_ratio` | Tangible Asset Backing Floor (>= 51%)| *Nisbat al-‘Ayn al-Haqiqiyyah* | `"tokens"` (`tangible_ratio_bps`) |
+| `binary_bayyinah` | Dual-Witness Evidentiary Gate | *Bayyinah (Dual Proof / Attestation)*| `"staged-tx"` |
+| `external_vault` | Non-Custodial Multi-Chain Splits | *Amanah Ghayr Hiyaziyyah (Trustee Escrow)*| `"ext-vault"` |
+| `guild_pod` | Cooperative Pod & Review Circle | *Halaqat al-Tijarah / al-Shura* | `"guilds"` / `"subgroups"` |
+
+---
+
+## 4. Standard Headless SDK Patterns
+
+Always initialize `@muabase/headless-sdk` without backend middleware:
+
+```typescript
+import { createMuabaseClient, useMuabaseTable } from '@muabase/headless-sdk';
+
+export const client = createMuabaseClient({
+  endpoint: process.env.NEXT_PUBLIC_PSIBASE_RPC_URL || 'http://localhost:8080',
+  locale: 'institutional', // or 'muamalat'
+  account: 'alice',
+});
+```
+
+### Pattern 1: Asset Pool Registration
+```typescript
+await client.tokens.configureAssetPool({
+  tokenId: 1042,
+  legalWrapperHash: "0x" + "a".repeat(64),
+  maxHolders: 99,
+  minTrustScore: 7000,
+  tangibleRatioBps: 10000,  // >= 5100 invariant
+  priorityWindowSec: 86400, // 24hr ROFR window
+  custodianAccount: "custodian",
+  custodianFeeBps: 0,
+  charitySinkAccount: "waqf-sadaqah",
+});
+```
+
+### Pattern 2: Binary Bayyinah Evidence Attestation
+```typescript
+await client.stagedTx.recordAttestation({
+  service: "evaluation",
+  entityId: 3001,
+  evidenceHash: "0x" + "b".repeat(64), // SHA-256 of receipt or inspection photo
+  attester: client.account,
+  witnessQuorum: 2, // Dual-witness invariant
+  metadata: { ratingBps: 9200, timestamp: Math.floor(Date.now() / 1000) },
+});
+```
+
+### Pattern 3: Condorcet Pairwise Tournament Vote
+```typescript
+await client.evaluations.recordPairwiseVote({
+  winnerId: 3001,
+  loserId: 2042,
+  category: "food",
+  voter: client.account,
+});
+```
+
+### Pattern 4: Non-Custodial Multi-Party Split (93%/4%/3%)
+```typescript
+const lease = await client.leaseEngine.createLease({
+  lessor: "asset-owner",
+  tokenId: 1042,
+  durationSec: 4 * 86400,
+  grossPayment: { value: 1800000 },
+  paymentTokenId: 1,
+  preConditionEvidenceHash: "0x" + "c".repeat(64),
+  charitySinkAccount: "waqf-sadaqah",
+});
+
+await client.externalVault.generateSplitIntent({
+  leaseId: lease.leaseId,
+  railType: "stripe_connect",
+  grossAmountCents: 18000,
+  lenderAccount: "asset-owner",
+});
+```
+
+### Pattern 5: Reactive UI Subscription Hook
+```tsx
+const { data, loading, error } = useMuabaseTable({
+  client,
+  service: 'lease-eng',
+  table: 'UsufructLeaseTable',
+  query: '{ usufructLeaseTable { leaseId lessor lessee grossPayment status } }',
+  pollIntervalMs: 3000,
+});
+```

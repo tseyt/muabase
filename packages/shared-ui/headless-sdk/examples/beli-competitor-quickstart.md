@@ -55,7 +55,19 @@ export const client = createMuabaseClient({
 
 ---
 
-## 3. Register Verified Restaurants into the Guild Registry
+## Architectural Note: Mechanism vs. Policy
+
+> **You control the client stack; Muabase guarantees the invariants.**  
+> Notice that Muabase does not enforce a rigid, vertical-specific backend schema. Instead of bundling bespoke server logic, your client application maps its dining concepts directly onto Muabase's universal canonical primitives:
+> - **Restaurant Profiles:** Mapped to canonical `asset_pool` via `client.tokens.configureAssetPool`.
+> - **Proof-of-Visit Verification:** Mapped to canonical `binary_bayyinah` via `client.stagedTx.recordAttestation`.
+> - **Pairwise Tastemaker Rankings:** Mapped to canonical `evals` via `client.evaluations.recordPairwiseVote`.
+> - **Supper Club Escrow & 93% Splits:** Mapped to canonical `usufruct` via `client.leaseEngine.createLease` and `client.externalVault.generateSplitIntent`.
+> - **Zero-Riba Cancellation Guard:** Mapped to canonical `charity_sink` via `client.leaseEngine.settleCancellation`.
+
+---
+
+## 3. Register Verified Restaurants into the Registry Pool
 
 Restaurants are registered into the on-chain asset registry (`AssetPoolConfig`) with 100% tangible physical backing (`tangible_ratio_bps: 10000`) and minimum trust score gates to prevent spam:
 
@@ -70,14 +82,17 @@ export async function registerRestaurant(params: {
   city: string;
   priceTier: 1 | 2 | 3 | 4;
 }) {
-  return await client.dining.restaurants.register({
-    name: params.name,
-    cuisine: params.cuisine,
-    neighborhood: params.neighborhood,
-    city: params.city,
-    priceTier: params.priceTier,
-    tangibleRatioBps: 10000, // 100% physical tangible dining experience
-    minTrustScore: 6500,     // Minimum 65.00% reliability score to submit official scores
+  // Call Muabase canonical tokens service directly
+  return await client.tokens.configureAssetPool({
+    tokenId: 3001,
+    legalWrapperHash: "0x" + Buffer.from(params.name).toString("hex").padEnd(64, "0"),
+    maxHolders: 10000,
+    minTrustScore: 6500,     // Minimum 65.00% reliability score to submit official ratings
+    tangibleRatioBps: 10000, // 100% physical tangible dining experience (tangible_ratio >= 5100)
+    priorityWindowSec: 86400,// 24h Right of First Refusal window
+    custodianAccount: "restaurant-registry",
+    custodianFeeBps: 0,
+    charitySinkAccount: "waqf-sadaqah",
   });
 }
 ```
@@ -106,14 +121,19 @@ export async function logVerifiedDiningExperience(params: {
     .map(b => b.toString(16).padStart(2, '0'))
     .join('');
 
-  return await client.dining.restaurants.submitProofOfVisit({
-    restaurantId: params.restaurantId,
-    receiptDigestHash,
-    visitTimestamp: Math.floor(Date.now() / 1000),
-    overallRatingBps: params.overallRatingBps,
-    dishesOrdered: params.dishesOrdered,
-    notes: params.notes,
-    witnessAccounts: params.coDinerWitness ? [params.coDinerWitness] : [],
+  // Submit to canonical stagedTx service (Bayyinah Dual-Witness Gate)
+  return await client.stagedTx.recordAttestation({
+    service: "evaluation",
+    entityId: params.restaurantId,
+    evidenceHash: receiptDigestHash,
+    attester: client.account,
+    witnessQuorum: params.coDinerWitness ? 2 : 1,
+    metadata: {
+      overallRatingBps: params.overallRatingBps,
+      dishes: params.dishesOrdered,
+      notes: params.notes,
+      timestamp: Math.floor(Date.now() / 1000),
+    },
   });
 }
 ```
@@ -134,12 +154,13 @@ export async function submitHeadToHeadChoice(params: {
   category?: 'overall' | 'food' | 'vibe' | 'service';
   receiptDigestHash?: string;
 }) {
-  // Submits pairwise ballot to Wasm evaluation engine
-  return await client.dining.rankings.recordComparison({
-    winnerRestaurantId: params.winnerRestaurantId,
-    loserRestaurantId: params.loserRestaurantId,
+  // Submits pairwise ballot to canonical Wasm evaluations service (evals / Ju'alah Halaqa)
+  return await client.evaluations.recordPairwiseVote({
+    winnerId: params.winnerRestaurantId,
+    loserId: params.loserRestaurantId,
     category: params.category || 'overall',
-    receiptDigestHash: params.receiptDigestHash,
+    voter: client.account,
+    receiptHash: params.receiptDigestHash || null,
   });
 }
 ```
@@ -250,19 +271,32 @@ export async function reserveSupperClubSeats(params: {
   seats: number;
   pricePerSeatCents: number;
 }) {
-  const booking = await client.dining.supperClubs.book({
-    clubId: params.clubId,
-    seats: params.seats,
-    pricePerSeatCents: params.pricePerSeatCents,
-    rail: 'stripe_connect',
+  const totalAmountCents = params.seats * params.pricePerSeatCents;
+
+  // 1. Create dining usufruct lease directly on lease-eng Wasm service
+  const lease = await client.leaseEngine.createLease({
+    lessor: 'host-chef',
+    tokenId: params.clubId,
+    durationSec: 14400, // 4-hour dining usufruct
+    grossPayment: { value: totalAmountCents * 100 },
+    paymentTokenId: 1,  // USD stablecoin
+    charitySinkAccount: 'waqf-sadaqah',
   });
 
-  console.log(`Booking confirmed: #${booking.bookingId}`);
-  console.log(`Chef Payout (93%): $${(booking.splits.hostTakeHomeCents / 100).toFixed(2)}`);
-  console.log(`Mutual Shield Reserve (4%): $${(booking.splits.mutualShieldReserveCents / 100).toFixed(2)}`);
-  console.log(`Platform Fee (3%): $${(booking.splits.platformFeeCents / 100).toFixed(2)}`);
+  // 2. Dispatch non-custodial Stripe Connect multi-party split intent
+  const split = await client.externalVault.generateSplitIntent({
+    leaseId: lease.leaseId || 401,
+    railType: 'stripe_connect',
+    grossAmountCents: totalAmountCents,
+    lenderAccount: 'host-chef',
+  });
 
-  return booking;
+  console.log(`Booking confirmed: #${lease.leaseId}`);
+  console.log(`Chef Payout (93%): $${((totalAmountCents * 0.93) / 100).toFixed(2)}`);
+  console.log(`Mutual Shield Reserve (4%): $${((totalAmountCents * 0.04) / 100).toFixed(2)}`);
+  console.log(`Platform Fee (3%): $${((totalAmountCents * 0.03) / 100).toFixed(2)}`);
+
+  return { lease, split };
 }
 ```
 
@@ -285,10 +319,12 @@ export async function cancelDiningReservation(params: {
   actualKitchenCostCents: number; // Reimbursed to chef for food purchased
   punitiveLateFeeCents: number;   // Punitive penalty routed to charity sink
 }) {
-  return await client.dining.supperClubs.cancelWithEthicalDeterrence({
-    bookingId: params.bookingId,
-    actualKitchenCostCents: params.actualKitchenCostCents,
-    punitiveLateFeeCents: params.punitiveLateFeeCents,
+  // Settle via canonical leaseEngine service with zero-creditor enrichment
+  return await client.leaseEngine.settleCancellation({
+    leaseId: parseInt(params.bookingId, 10),
+    actualKitchenRestitution: { value: params.actualKitchenCostCents * 100 },
+    punitivePenalty: { value: params.punitiveLateFeeCents * 100 },
+    charitySinkAccount: 'waqf-sadaqah', // Community food pantry / Masraf al-Sadaqah
   });
 }
 ```
