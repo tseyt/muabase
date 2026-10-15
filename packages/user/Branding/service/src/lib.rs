@@ -116,6 +116,26 @@ mod tables {
                 institutional: "Tangible Asset Backing Ratio (>= 51%)".to_string(),
                 muamalat: "Nisbat al-‘Ayn al-Haqiqiyyah".to_string(),
             },
+            TerminologyMapping {
+                key: "binary_bayyinah".to_string(),
+                institutional: "Dual-Witness Evidentiary Gate".to_string(),
+                muamalat: "Bayyinah (Dual Proof / Attestation)".to_string(),
+            },
+            TerminologyMapping {
+                key: "external_vault".to_string(),
+                institutional: "Non-Custodial Multi-Chain Vault & Splits".to_string(),
+                muamalat: "Amanah Ghayr Hiyaziyyah (Trustee Escrow)".to_string(),
+            },
+            TerminologyMapping {
+                key: "wajahah_hawalah".to_string(),
+                institutional: "Earned-Respect Liquidity Bridge".to_string(),
+                muamalat: "Wajahah & Hawalah".to_string(),
+            },
+            TerminologyMapping {
+                key: "guild_pod".to_string(),
+                institutional: "Cooperative Pod & Review Circle".to_string(),
+                muamalat: "Halaqat al-Tijarah / al-Shura".to_string(),
+            },
         ]
     }
 }

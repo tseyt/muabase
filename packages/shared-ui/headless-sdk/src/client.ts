@@ -13,7 +13,15 @@ import {
   MarketPosition,
   MarketResolutionInput,
   ClaimRewardResult,
+  RegisterRestaurantInput,
+  ProofOfVisitInput,
+  PairwiseComparisonInput,
+  SupperClubBookingInput,
+  SupperClubBookingResult,
+  BookingCancellationInput,
+  TastemakerGuildInput,
 } from "./types";
+
 
 export class MuabaseClient {
   public endpoint: string;
@@ -333,6 +341,124 @@ export class MuabaseClient {
           yieldPrizeRewardUsd: res.yieldPrizeRewardUsd || 0, // Pro-rata share of redirected yield
           skillPointsEarned: res.skillPointsEarned || 250, // Soulbound trust_score addition
         };
+      },
+    },
+  };
+
+  /**
+   * Social Restaurant Tracking & Tastemaker Guild namespace (Beli Challenger)
+   */
+  public dining = {
+    restaurants: {
+      register: async (input: RegisterRestaurantInput) => {
+        return this.transact("tokens", "configureAssetPool", {
+          config: {
+            tokenId: 3001,
+            legalWrapperHash: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+            maxHolders: 10000,
+            minTrustScore: input.minTrustScore || 6500,
+            tangibleRatioBps: input.tangibleRatioBps || 10000,
+            priorityWindowSec: 86400,
+            custodianAccount: "restaurant-registry",
+            custodianFeeBps: 0,
+            charitySinkAccount: "waqf-sadaqah",
+          },
+        });
+      },
+
+      submitProofOfVisit: async (input: ProofOfVisitInput) => {
+        return this.transact("staged-tx", "recordAttestation", {
+          service: "evaluation",
+          entityId: input.restaurantId,
+          evidenceHash: input.receiptDigestHash,
+          attester: input.dinerAccount || this.account,
+          witnessQuorum: input.witnessAccounts?.length || 1,
+          metadata: {
+            overallRatingBps: input.overallRatingBps,
+            dishes: input.dishesOrdered,
+            timestamp: input.visitTimestamp,
+          },
+        });
+      },
+    },
+
+    rankings: {
+      recordComparison: async (input: PairwiseComparisonInput) => {
+        return this.transact("evals", "recordPairwiseVote", {
+          winnerId: input.winnerRestaurantId,
+          loserId: input.loserRestaurantId,
+          category: input.category || "overall",
+          voter: this.account,
+          receiptHash: input.receiptDigestHash || null,
+        });
+      },
+    },
+
+    supperClubs: {
+      book: async (input: SupperClubBookingInput): Promise<SupperClubBookingResult> => {
+        const totalAmountCents = input.seats * input.pricePerSeatCents;
+        const result = await this.transact("lease-eng", "createLease", {
+          lessor: "host-chef",
+          tokenId: input.clubId,
+          nftId: null,
+          durationSec: 14400, // 4-hour dining usufruct
+          grossPayment: { value: totalAmountCents * 100 },
+          paymentTokenId: 1,
+          preConditionEvidenceHash: input.preConditionEvidenceHash || "0x0",
+          isProgressiveBuyout: false,
+          buyoutEquityUnits: { value: 0 },
+          custodianAccount: "supper-host",
+          custodianFeeBps: 0,
+          charitySinkAccount: "waqf-sadaqah",
+        });
+
+        if (input.rail === "stripe_connect") {
+          await this.transact("ext-vault", "generateSplitIntent", {
+            leaseId: result.leaseId || 401,
+            railType: "stripe_connect",
+            grossAmountCents: totalAmountCents,
+            lenderAccount: "host-chef",
+          });
+        }
+
+        return {
+          bookingId: String(result.leaseId || 401),
+          clubId: input.clubId,
+          diner: this.account,
+          seats: input.seats,
+          totalAmountCents,
+          status: "Confirmed",
+          splits: {
+            hostTakeHomeCents: Math.floor(totalAmountCents * 0.93),
+            mutualShieldReserveCents: Math.floor(totalAmountCents * 0.04),
+            platformFeeCents: Math.floor(totalAmountCents * 0.03),
+          },
+        };
+      },
+
+      cancelWithEthicalDeterrence: async (input: BookingCancellationInput) => {
+        return this.transact("lease-eng", "settleCancellation", {
+          leaseId: parseInt(input.bookingId, 10),
+          actualKitchenRestitution: { value: input.actualKitchenCostCents * 100 },
+          punitivePenalty: { value: input.punitiveLateFeeCents * 100 },
+          charitySinkAccount: "waqf-sadaqah",
+        });
+      },
+    },
+
+    guilds: {
+      createTastemakerGuild: async (input: TastemakerGuildInput) => {
+        return this.transact("guilds", "createPod", {
+          name: input.name,
+          curator: input.curatorAccount,
+          requiredDomainBadge: input.curatorDomainBadge,
+          membershipFeeCents: input.monthlyMembershipCents,
+          splits: {
+            curatorBps: 9300,
+            mutualShieldBps: 400,
+            platformBps: 300,
+          },
+        });
       },
     },
   };

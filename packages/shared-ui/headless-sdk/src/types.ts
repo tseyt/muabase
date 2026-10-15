@@ -145,3 +145,69 @@ export interface ClaimRewardResult {
   yieldPrizeRewardUsd: number; // Pro-rata share of accrued yield
   skillPointsEarned: number; // Soulbound trust_score increment
 }
+
+// Social Restaurant Tracking & Tastemaker Curation Types (Beli Competitor)
+export interface RegisterRestaurantInput {
+  name: string;
+  cuisine: string;
+  neighborhood: string;
+  city: string;
+  priceTier: 1 | 2 | 3 | 4;
+  tangibleRatioBps?: number; // Defaults to 10000 (100% tangible physical dining)
+  minTrustScore?: number; // Minimum reliability score to contribute official ratings
+}
+
+export interface ProofOfVisitInput {
+  restaurantId: number;
+  dinerAccount?: string;
+  receiptDigestHash: string; // SHA-256 of bill / itemized POS check (Binary Bayyinah)
+  visitTimestamp: number;
+  overallRatingBps: number; // e.g. 8850 = 8.85 / 10.0
+  dishesOrdered: string[];
+  notes?: string;
+  witnessAccounts?: string[]; // Optional 2-witness quorum (trust_score + domain_badge)
+}
+
+export interface PairwiseComparisonInput {
+  winnerRestaurantId: number;
+  loserRestaurantId: number;
+  category?: "overall" | "food" | "vibe" | "service" | "value";
+  receiptDigestHash?: string;
+}
+
+export interface SupperClubBookingInput {
+  clubId: number;
+  seats: number;
+  pricePerSeatCents: number;
+  rail?: "stripe_connect" | "native_usdc" | "evm_safe";
+  preConditionEvidenceHash?: string;
+}
+
+export interface SupperClubBookingResult {
+  bookingId: string;
+  clubId: number;
+  diner: string;
+  seats: number;
+  totalAmountCents: number;
+  status: "Confirmed" | "Cancelled";
+  splits: {
+    hostTakeHomeCents: number;        // 93% to chef/host
+    mutualShieldReserveCents: number; // 4% to mutual protection reserve
+    platformFeeCents: number;         // 3% SaaS operator fee
+  };
+}
+
+export interface BookingCancellationInput {
+  bookingId: string;
+  actualKitchenCostCents: number; // Compensate restaurant for perishable ingredients prepared
+  punitiveLateFeeCents: number;   // Punitive deterrence hard-routed to charity sink
+}
+
+export interface TastemakerGuildInput {
+  name: string;
+  curatorAccount: string;
+  curatorDomainBadge: string; // e.g. "sommelier_l3", "michelin_inspector", "nyc_food_critic"
+  monthlyMembershipCents: number;
+  legalWrapperHash: string;
+}
+

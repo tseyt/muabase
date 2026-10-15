@@ -22,25 +22,32 @@
 ## Overview
 
 **Muabase** is a specialized fork of the `psibase` protocol engineered to serve as a high-performance, serverless operating system for:
-1. **Family Offices & Private Syndicates:** Managing multi-jurisdictional asset portfolios, private Series LLCs, and multi-generational generational trusts (*Awqaf*) with hardcoded capital-preservation policies.
-2. **Real-World Asset (RWA) Tokenization (Chintai Parity):** Compliant fractionalization of tangible physical assets (equipment, luxury fashion, commercial fleet, real estate) with native Ricardian contract bindings, transfer restrictions, and secondary market debt-protection floors.
-3. **High-Trust P2P Rental & Lending Guilds:** Headless commerce infrastructure outcompeting rent-extracting legacy platforms (e.g., peer-to-peer designer fashion rentals outcompeting apps like Pickle by delivering **93%+ take-home yield** to lenders vs. industry standard ~80%), featuring autonomous multi-party revenue splits, co-owned mutual damage pools, and peer triage.
-4. **B2B Trade Cooperatives & Merchant Guilds:** Multi-lateral invoice netting (*Muqassah*) and inter-chain trust graph credit routing (*Wajahah-Hawalah*) eliminating liquidity fragmentation and predatory working-capital financing.
+1. **Family Offices & Private Syndicates:** Managing multi-jurisdictional asset portfolios, private Series LLCs, and multi-generational generational trusts with hardcoded capital-preservation policies (`endowment_policy` / **Trust Principal Preservation Lock** / *Hifz Asl al-Waqf*).
+2. **Real-World Asset (RWA) Tokenization (Chintai Parity):** Compliant fractionalization of tangible physical assets (`asset_pool` / **RWA Asset Series & Series LLC** / *Sukuk al-Qirad & Musharakah*) with native Ricardian contract bindings, transfer restrictions, Right of First Refusal pre-emption (`priority_window` / **Co-Owner Right of First Refusal** / *Haqq al-Shuf‘ah*), and secondary market debt-protection floors (`tangible_ratio` / **Tangible Asset Backing Ratio >= 51%** / *Nisbat al-‘Ayn al-Haqiqiyyah*).
+3. **High-Trust P2P Rental & Lending Guilds:** Headless commerce infrastructure outcompeting rent-extracting legacy platforms (e.g., peer-to-peer designer fashion rentals outcompeting apps like Pickle by delivering **93%+ take-home yield** to lenders vs. industry standard ~80%) via fixed usufruct leases (`usufruct` / **Fixed Usufruct Lease** / *Ijarah al-A‘yan wa al-Manafi‘*), automated multi-party splits (`external_vault` / **Non-Custodial Multi-Chain Splits** / *Amanah Ghayr Hiyaziyyah*), co-owned mutual damage pools (`mutual_shield` / **Mutual Protection Reserve Pool** / *Takaful*), and 3-peer evidence triage (`claim_council` / **Peer Triage Committee** / *Majlis al-Tahkim*).
+4. **B2B Trade Cooperatives & Merchant Guilds:** Multi-lateral invoice netting (`credit_clear` / **Multilateral Invoice Netting** / *Muqassah*) and inter-chain trust graph credit routing (`wajahah_hawalah` / **Earned-Respect Liquidity Bridge** / *Wajahah & Hawalah*) eliminating liquidity fragmentation and predatory working-capital factoring.
+5. **Social Tastemaker & Dining Discovery Guilds:** Un-gameable social restaurant tracking and ranking apps outcompeting Web2 incumbents like Beli through cryptographic proof-of-visit (`binary_bayyinah` / **Dual-Witness Evidentiary Gate** / *Bayyinah* receipt hashing), **93%+ tastemaker monetization** (`guild_pod` / **Cooperative Pod & Review Circle** / *Halaqat al-Tijarah*), and Wasm-native Condorcet pairwise tournaments (`evals` / **Objective Bounty & Claim Ranking** / *Ju‘alah Halaqa*).
 
 All protocol logic executes directly in WebAssembly inside the `Triedent` memory-mapped transactional state storage, combining the developer ergonomics and microsecond latency of **SpacetimeDB** with high-throughput Byzantine fault-tolerant consensus.
 
 ---
 
-## Core Capabilities
+## Core Capabilities Matrix
 
-| Capability | Legacy Web2 / Web3 Stack | Muabase Native Architecture |
-| :--- | :--- | :--- |
-| **Execution Speed** | Layer 1/2 VM calls, external RPC nodes, indexing subgraphs (1-15s latency) | **Wasm-in-Database** running directly on `Triedent`. Sub-millisecond read/write speed with built-in GraphQL and reactive WebSocket event streams. |
-| **P2P Rental Economics** | Platforms extract 20%–35% take-rate with opaque dispute processes | **93%+ Lender Payout:** Transparent on-chain fee split (3% protocol/infrastructure, 4% mutual shield pool, 93% asset owner/syndicate). |
-| **Damage Protection** | High insurance markups, slow claim denials by centralized adjusters | **Mutual Protection Pool (*Takaful*):** User-contributed reserve pool with fast 3-peer evidence triage (*Tahkim*) and annual underwriting surplus rebates. |
-| **Asset Co-Ownership** | Fragmented legal entities, expensive administrative SPVs | **Fractional Co-Buying (`Tokens` + `Nft`):** Co-owners pool capital to acquire high-yield assets, auto-split rental yields pro-rata, and exercise automated Right of First Refusal (*Shuf‘ah*). |
-| **Custodial Risk** | Centralized hot wallets or platform bank accounts | **100% Non-Custodial (`ExternalVault`):** Native Bitcoin Taproot Miniscript PSBTs, EVM Safe, Solana Squads, and Stripe Connect multiparty direct splits. Operators hold **0 keys**. |
-| **Governance / Sybil** | Tradable speculative tokens, plutocratic token-weighted voting | **Proof-of-Amanah:** Non-transferable, soulbound audit credentials (`Adalah`) and domain competence credentials (`Ikhtisas`). Zero native speculative token. |
+| Capability | Canonical Key | Institutional Locale (`"institutional"`) | Jurisprudential Locale (`"muamalat"`) | Legacy Web2 / Web3 Stack | Muabase Native Advantage |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Execution Latency** | `psinode` / `Triedent` | **Wasm-in-Database Execution Engine** | *Mahattat al-Wasm al-Mubashirah* | 1–15s RPC latency, external indexers, centralized API middleware | **Sub-millisecond Wasm-in-Database** running directly on `Triedent`. Built-in GraphQL and reactive SSE event streams. |
+| **P2P Rental Economics** | `usufruct` | **Fixed Usufruct Lease / P2P Rental** | *Ijarah al-A‘yan wa al-Manafi‘* | Platforms extract 20%–35% take-rate with opaque dispute processes | **93%+ Lender Payout:** Transparent on-chain fee split (93% asset owner, 4% mutual shield pool, 3% SaaS operator). |
+| **Damage Protection** | `mutual_shield` | **Mutual Protection Reserve Pool** | *Takaful (Tabarru‘ & Ta‘awun)* | High insurance markups, slow claim denials by centralized adjusters | **Member-Owned Mutual Pool:** User-contributed reserve pool with fast 3-peer evidence triage and annual underwriting surplus rebates (*Faid*). |
+| **Dispute Resolution** | `claim_council` & `binary_bayyinah` | **Peer Triage Committee & Dual Witness Gate** | *Majlis al-Tahkim & Bayyinah* | Centralized claim adjusters, slow black-box ticket systems | **3-Peer Rapid Triage:** 2-witness quorum verifies cryptographic photo/receipt hashes before instant reserve disbursement. |
+| **Asset Co-Ownership** | `asset_pool` & `priority_window` | **RWA Series LLC & Co-Owner Pre-emption** | *Sukuk al-Qirad & Haqq al-Shuf‘ah* | Expensive legal SPVs, fragmented entities, investor dilution | **Fractional Co-Buying (`Tokens` + `Nft`):** Automated pro-rata rental yield distribution and 24h Right of First Refusal window. |
+| **Secondary Parity Floor** | `tangible_ratio` | **Tangible Asset Backing Ratio (>= 51%)** | *Nisbat al-‘Ayn al-Haqiqiyyah* | Naked debt speculation, unbacked tokens, discounted debt dumping | **Par-Value Trading Floor:** Secondary market trading halted if tangible physical backing drops below 51%, barring predatory debt trading (*Bay‘ al-Dayn*). |
+| **Objective Curation & Ranking** | `evals` | **Objective Bounty & Claim Ranking** | *Ju‘alah Halaqa* | Black-box algorithms, pay-to-play sponsored rankings, popularity contests | **Condorcet Tournaments:** Un-gameable pairwise ranking in Wasm. People are never ranked; only verified work, restaurants, and claims are evaluated. |
+| **Custodial & Regulatory Risk** | `external_vault` | **Non-Custodial Multi-Chain Vault & Splits** | *Amanah Ghayr Hiyaziyyah* | Centralized hot wallets, platform custody of user funds | **100% Non-Custodial:** Native Bitcoin Taproot Miniscript, EVM Safe, and Stripe Connect multiparty direct splits. Operators hold **0 keys**. Safe harbor under NYDFS BitLicense `23 NYCRR § 200.2(q)`. |
+| **Sybil Resistance & Identity** | `trust_score` & `domain_badge` | **Reliability Score & Domain Competence Credential** | *‘Adalah & Ikhtisas* | Tradable speculative tokens, plutocratic voting, bot review farms | **Proof-of-Amanah:** Soulbound, non-transferable reputation records tied to cryptographic keys. Zero native speculative token. |
+| **B2B Clearing & Credit** | `credit_clear` & `wajahah_hawalah` | **Multilateral Invoice Netting & Liquidity Bridge** | *Muqassah & Wajahah-Hawalah* | Fragmented banking rails, predatory factoring fees (2-5% per invoice) | **Automated Zero-Fee Netting:** Algorithmic debt cancellation and earned-trust liquidity routing without intermediate bank debt. |
+| **Endowment & Capital Preservation** | `endowment_policy` | **Trust Principal Preservation Lock** | *Hifz Asl al-Waqf* | Fragile corporate bylaws, risk of managerial principal drawdown | **Mathematical Capital Preservation:** Outward capital transfers from principal accounts are rejected at state transition; only productive yield (*Manfa‘ah*) flows. |
+| **Late Penalty Ethics** | `charity_sink` | **Public Endowment Charity Sink** | *Masraf al-Sadaqah* | Platforms and lenders profit from predatory late fees and borrower distress | **Zero-*Riba* Restitution:** Actual direct losses reimbursed to injured party; 100% of punitive deterrences hard-routed to a community charity sink vault. |
 
 ---
 
@@ -50,32 +57,34 @@ Muabase embeds classical jurisprudence constraints directly into state transitio
 
 ```mermaid
 flowchart TD
-    subgraph Rental_or_Lease ["Usufruct Lease Execution"]
-        Lessee["Lessee / Renter"] -->|Gross Lease Payment| LeaseEngine["packages/user/LeaseEngine"]
-        LeaseEngine -->|93% Pro-Rata Yield| Owners["Asset Co-Owners (Tokens)"]
-        LeaseEngine -->|4% Tabarru'| Shield["MutualShield (Takaful Pool)"]
+    subgraph Rental_or_Lease ["Usufruct Lease Execution (Ijarah al-Manafi' / usufruct)"]
+        Lessee["Lessee / Diner / Member"] -->|Gross Payment| LeaseEngine["packages/user/LeaseEngine"]
+        LeaseEngine -->|93% Pro-Rata Yield| Owners["Asset Co-Owners / Tastemaker (Tokens / guild_pod)"]
+        LeaseEngine -->|4% Tabarru' Contribution| Shield["MutualShield (Takaful Pool / mutual_shield)"]
         LeaseEngine -->|3% Platform Fee| Infra["Node Operator SaaS"]
     end
 
-    subgraph Late_Return_Detriment ["Late Penalty Enforcement"]
-        LateReturn["Late Return / Breach"] --> LeaseEngine
-        LeaseEngine -->|Actual Direct Damage| Reimbursement["Lessor / Repair Cost"]
-        LeaseEngine -->|100% Punitive Late Surcharge| CharitySink["Charity Sink Vault (Masraf al-Sadaqah)"]
+    subgraph Late_Return_Detriment ["Ethical Deterrence Routing (Zero-Riba / charity_sink)"]
+        LateReturn["Late Return / Cancellation"] --> LeaseEngine
+        LeaseEngine -->|Actual Direct Damage / Prep Cost| Reimbursement["Lessor / Chef Restitution"]
+        LeaseEngine -->|100% Punitive Late Surcharge| CharitySink["Charity Sink Vault (Masraf al-Sadaqah / charity_sink)"]
     end
 
-    subgraph Evidentiary_Gate ["Binary Bayyinah & Triage"]
-        Evidence["Photo / Invoice Proof Hash"] --> Quorum{"Witness Quorum >= 2\n(trust_score + domain_badge)"}
-        Quorum -->|Valid Attestation| ClaimCouncil["ClaimCouncil / evals"]
+    subgraph Evidentiary_Gate ["Binary Bayyinah & Triage (binary_bayyinah)"]
+        Evidence["Photo / Receipt Proof Hash (H(M))"] --> Quorum{"Witness Quorum >= 2\n(trust_score + domain_badge)"}
+        Quorum -->|Valid Bayyinah Attestation| ClaimCouncil["ClaimCouncil / evals"]
         ClaimCouncil -->|Approved Claim| Payout["Instant MutualShield Disbursement"]
     end
 ```
 
-1. **Zero-*Riba* Late-Fee Routing (`charity_sink`):** Creditors, lenders, and lessors can never profit from time-value late penalties. In `LeaseEngine` and `TokenStream`, punitive late deterrences are mathematically hard-routed to a designated `charity_sink` public endowment vault (*Masraf al-Sadaqah* / Wasm: `charity_sink_account`).
-2. **Elimination of Subjective People-Ranking:** `Fractals`, `FractalCore`, and `FractalTester` are deprecated from the active build. Humans are never subjected to popularity contests. `Evaluations` (`evals`), `Guilds`, and `Subgroups` exclusively rank objective, verified work items (`ClaimId`, `BountyId`, `DealProposalId`).
-3. **Binary *Bayyinah* (Dual-Witness Gate):** Prior to entering dispute triage or releasing escrow in `StagedTx`, at least 2 qualified witnesses (`witness_quorum >= 2`) holding verified `trust_score` (reliability / `AdalahScore`) and `domain_badge` (competence / `IkhtisasTag`) credentials must co-sign the Ricardian evidence hash.
-4. **Tangible Asset Floor (`tangible_ratio` / `tangible_ratio_bps >= 5100`):** Secondary market trading of RWA tokens above or below par value is strictly gated in `TokenSwap`. When tangible asset backing (*‘Ayn*) falls below 51%, secondary trading at non-par is halted to prevent naked debt speculation (*Bay‘ al-Dayn*).
-5. **Right of First Refusal (*Haqq al-Shuf‘ah*):** When fractional co-owners list their share of an asset, existing co-owners enjoy an automated `priority_window` (`rofr_window_sec`) exclusive purchase window before units can be acquired by external parties.
-6. **Immutable Endowment Guard (`endowment_policy`):** Accounts tagged as trust principal (*Waqf Asl*) reject outward capital consumption transfers via `endowment_policy` (`EndowmentGuard`); principal is restricted to approved productive investments, while 100% of generated yield flows into a dedicated distributable account (*Manfa‘ah*).
+1. **Zero-*Riba* Late-Fee Routing (`charity_sink` / Public Endowment Charity Sink / *Masraf al-Sadaqah*):** Creditors, lenders, lessors, and booking platforms can never profit from time-value late penalties or guest distress. In `LeaseEngine` and `TokenStream`, punitive late deterrences are mathematically hard-routed to a designated `charity_sink` public endowment vault (Wasm: `charity_sink_account`).
+2. **Elimination of Subjective People-Ranking (`evals` / Objective Bounty & Claim Ranking / *Ju‘alah Halaqa*):** `Fractals`, `FractalCore`, and `FractalTester` are deprecated from the active build. Humans are never subjected to popularity contests or vanity follower algorithms. `evals`, `Guilds`, and `Subgroups` exclusively rank objective, verified work items (`ClaimId`, `BountyId`, `RestaurantRankBallot`, `DealProposalId`) via Wasm-native Schulze Condorcet tournaments.
+3. **Binary *Bayyinah* Dual-Witness Gate (`binary_bayyinah` / Dual-Witness Evidentiary Gate / *Bayyinah*):** Prior to entering dispute triage or releasing escrow in `StagedTx`, at least 2 qualified witnesses (`witness_quorum >= 2`) holding verified `trust_score` (Reliability Score / `AdalahScore`) and `domain_badge` (Domain Competence Credential / `IkhtisasTag`) credentials must co-sign the Ricardian evidence digest.
+4. **Tangible Asset Floor (`tangible_ratio` / Tangible Asset Backing Ratio / *Nisbat al-‘Ayn al-Haqiqiyyah* >= 51%):** Secondary market trading of RWA tokens above or below par value is strictly gated in `TokenSwap`. When tangible asset backing (*‘Ayn*) falls below 51% (`tangible_ratio_bps < 5100`), secondary trading at non-par is halted to prevent naked debt speculation (*Bay‘ al-Dayn*).
+5. **Right of First Refusal (*Haqq al-Shuf‘ah* / `priority_window` / Co-Owner Pre-emption Window):** When fractional co-owners list an asset share for sale, existing co-owners enjoy an automated exclusive pre-emption window (`priority_window_sec`, default 86,400s / 24h) before units can be purchased by outside investors.
+6. **Immutable Endowment Guard (`endowment_policy` / Trust Principal Preservation Lock / *Hifz Asl al-Waqf*):** Accounts tagged as trust principal (*Waqf Asl*) reject outward capital consumption transfers via `endowment_policy` (`EndowmentGuard`); principal is locked to productive investments, while 100% of generated yield flows into a dedicated distributable account (*Manfa‘ah*).
+7. **Multilateral Invoice Netting & Earned-Trust Routing (`credit_clear` & `wajahah_hawalah` / Multilateral Invoice Netting & Liquidity Bridge / *Muqassah & Wajahah-Hawalah*):** Bilateral and cyclic multi-party B2B invoices are algorithmically netted without cash transfers, while trade credit routes across verified trust graphs without debt monetization.
+8. **Zero-Custody Trustee Escrow (`external_vault` / Non-Custodial Multi-Chain Splits / *Amanah Ghayr Hiyaziyyah*):** Protocol maintaining entities hold zero custody over fiat or digital assets. Escrow and payments resolve via client-side multisig (Bitcoin Taproot Miniscript, EVM Safe, Solana Squads) or automated Stripe Connect destination splits, qualifying under the NYDFS BitLicense pure software safe harbor (`23 NYCRR § 200.2(q)`).
 
 ---
 
@@ -83,21 +92,25 @@ flowchart TD
 
 Muabase provides an on-chain locale engine in `packages/user/Branding` so interfaces and developer tools can switch seamlessly between standard institutional terminology and classical jurisprudence terms:
 
-| Canonical Entity / Concept | Institutional Locale (`"institutional"`) | Jurisprudence Locale (`"muamalat"`) |
-| :--- | :--- | :--- |
-| `asset_pool` | Asset Token Series / Private LLC | *Sukuk al-Qirad / Musharakah* |
-| `usufruct` | Fixed Usufruct Lease / P2P Rental | *Ijarah al-A‘yan wa al-Manafi‘* |
-| `equity_lease` | Progressive Lease-to-Own / Equity Lease | *Musharakah Mutanaqisah* |
-| `mutual_shield` | Mutual Protection Reserve Pool | *Takaful (Tabarru‘ & Ta‘awun)* |
-| `claim_council` | Peer Triage & Audit Committee | *Majlis al-Tahkim & Shura* |
-| `evals` | Objective Bounty / Claim Ranking | *Ju‘alah Halaqa* |
-| `endowment_policy` | Trust Principal Preservation Guard | *Hifz Asl al-Waqf* |
-| `priority_window` | Co-Owner Right of First Refusal | *Haqq al-Shuf‘ah* |
-| `charity_sink` | Public Endowment Charity Sink | *Masraf al-Sadaqah* |
-| `credit_clear` | Multilateral Invoice Clearing | *Muqassah & Wajahah-Hawalah* |
-| `trust_score` | Reliability & Audit Score | *‘Adalah (Reliability)* |
-| `domain_badge` | Domain Competence Badge | *Ikhtisas (Specialization)* |
-| `tangible_ratio` | Real Tangible Asset Backing Ratio | *Nisbat al-‘Ayn al-Haqiqiyyah* |
+| Canonical Key (`key`) | Institutional Locale (`"institutional"`) | Jurisprudential Locale (`"muamalat"`) | Classical Legal Basis & Jurisprudential Invariant |
+| :--- | :--- | :--- | :--- |
+| `asset_pool` | RWA Asset Series / Series LLC | *Sukuk al-Qirad / Musharakah* | Fractional co-ownership of real physical assets (*A‘yan*) with shared profit and liability. |
+| `usufruct` | Fixed Usufruct Lease / P2P Rental | *Ijarah al-A‘yan wa al-Manafi‘* | Separation of asset ownership from temporary right-of-use (*Manfa‘ah*). |
+| `equity_lease` | Progressive Lease-to-Own / Equity Lease | *Musharakah Mutanaqisah* | Gradual transfer of fractional asset equity alongside decreasing rental installments. |
+| `mutual_shield` | Mutual Protection Reserve Pool | *Takaful (Tabarru‘ & Ta‘awun)* | Non-profit risk pooling based on gratuitous contribution (*Tabarru‘*) with pro-rata surplus return (*Faid*). |
+| `claim_council` | Peer Triage Committee | *Majlis al-Tahkim & Shura* | Impartial arbitration by qualified, reliable peers (*Hakam*) based on tangible evidence (*Bayyinah*). |
+| `evals` | Objective Bounty & Claim Ranking | *Ju‘alah Halaqa* | Performance-based compensation for verified work items, ranked via objective Condorcet criteria. |
+| `endowment_policy` | Trust Principal Preservation Lock | *Hifz Asl al-Waqf* | Strict preservation of principal corpus (*Asl*) while allowing only productive yield (*Manfa‘ah*) to flow. |
+| `priority_window` | Co-Owner Right of First Refusal | *Haqq al-Shuf‘ah* | Mandatory exclusive pre-emption window for existing fractional co-owners before external offering. |
+| `charity_sink` | Public Endowment Charity Sink | *Masraf al-Sadaqah* | Absolute zero-creditor-enrichment rule: punitive late fees are routed to charitable public utility. |
+| `credit_clear` | Multilateral Invoice Netting | *Muqassah* | Debt set-off between reciprocal trading partners to extinguish obligations without cash transfers. |
+| `wajahah_hawalah` | Earned-Respect Liquidity Bridge | *Wajahah & Hawalah* | Novation and debt assignment backed by commercial goodwill, reputation (*Wajahah*), and collateral. |
+| `trust_score` | Reliability & Audit Score | *‘Adalah (Probity / Reliability)* | Non-transferable track record of probity, contract fulfillment, and truthful witness testimony. |
+| `domain_badge` | Domain Competence Credential | *Ikhtisas (Domain Specialization)* | Soulbound domain capability verification (e.g. sommelier, textile inspector, real estate appraiser). |
+| `tangible_ratio` | Tangible Asset Backing Ratio (>= 51%) | *Nisbat al-‘Ayn al-Haqiqiyyah* | Mathematical floor enforcing >= 51% tangible asset/usufruct backing to prevent naked debt trading (`tangible_ratio_bps >= 5100`). |
+| `binary_bayyinah` | Dual-Witness Evidentiary Gate | *Bayyinah (Dual Proof / Attestation)* | 2-witness quorum verification of physical evidence digests (receipt hashes, condition photos) prior to escrow or claim release. |
+| `external_vault` | Non-Custodial Multi-Chain Splits | *Amanah Ghayr Hiyaziyyah (Trustee Escrow)* | 0-key client-side execution on Stripe Connect, EVM Safe, and Bitcoin Taproot Miniscript, eliminating platform custody liability. |
+| `guild_pod` | Cooperative Pod & Review Circle | *Halaqat al-Tijarah / al-Shura* | Autonomous 5-7 peer governance pods operating consensus without centralized managerial capture. |
 
 ---
 
@@ -127,38 +140,65 @@ import { createMuabaseClient } from "@muabase/headless-sdk";
 // Initialize client connecting to psinode Wasm database
 const client = createMuabaseClient({
   endpoint: "https://my-node.muabase.org",
-  locale: "institutional", // or "muamalat"
+  locale: "institutional", // or "muamalat" for classical jurisprudence terminology
 });
 
-// 1. List a luxury item or equipment for P2P rental
+// =========================================================================
+// Example A: P2P Luxury Rental Flow (Pickle Competitor)
+// =========================================================================
+
+// 1. List a luxury item or equipment into an asset_pool (Sukuk al-Qirad)
 const asset = await client.guild.assets.create({
   title: "Designer Dress / Camera Kit",
   dayRateUsd: 45.0,
   replacementValueUsd: 1200.0,
-  tangibleRatioBps: 10000, // 100% tangible (tangible_ratio)
-  priorityWindowSec: 86400, // 24hr co-owner priority (rofrWindowSec supported)
+  tangibleRatioBps: 10000,  // 100% tangible asset backing (tangible_ratio)
+  priorityWindowSec: 86400, // 24h co-owner priority window (Haqq al-Shuf'ah)
 });
 
-// 2. Execute instant checkout with multi-party split
+// 2. Execute instant checkout with autonomous 93%/4%/3% split
 const lease = await client.guild.leases.checkout({
   assetId: asset.id,
   durationDays: 4,
-  preConditionEvidenceHash: "0x3a4b...photos",
+  preConditionEvidenceHash: "0x3a4b...photos", // Binary Bayyinah digest
 });
-// Gross payment is automatically split:
-// 93% -> Owner, 4% -> Mutual Protection Pool, 3% -> SaaS Operator
+// Gross payment splits autonomously:
+// 93% -> Asset Owner, 4% -> Mutual Protection Pool (Takaful), 3% -> SaaS Operator
 
 // 3. Complete return with condition sign-off
 await client.guild.leases.confirmReturn({
   leaseId: lease.id,
   postConditionEvidenceHash: "0x9f1c...photos",
 });
+
+// =========================================================================
+// Example B: Social Restaurant Tracking & Tastemaker Curation (Beli Competitor)
+// =========================================================================
+
+// 1. Log verified dining experience with cryptographic proof-of-visit (Bayyinah)
+await client.dining.restaurants.submitProofOfVisit({
+  restaurantId: 3001,
+  receiptDigestHash: "0x8f2d...pos_receipt_sha256",
+  visitTimestamp: Math.floor(Date.now() / 1000),
+  overallRatingBps: 9200, // 9.20 / 10.0
+  dishesOrdered: ["Hand-rolled Cavatelli", "Dry-aged Ribeye"],
+});
+
+// 2. Submit pairwise comparison into Wasm Condorcet tournament (evals)
+await client.dining.rankings.recordComparison({
+  winnerRestaurantId: 3001,
+  loserRestaurantId: 2042,
+  category: "food",
+});
 ```
 
 ### Reference Implementation Guides
-- **[High-Trust P2P Rental Marketplace (Pickle Competitor)](packages/shared-ui/headless-sdk/examples/fashion-guild-quickstart.md):** 93% take-home yield, 4% mutual shield, 3% SaaS operator, zero-*riba* charity sink routing.
-- **[Real Estate & Solar Infrastructure Cooperative (MizanVest)](packages/shared-ui/headless-sdk/examples/mizanvest-quickstart.md):** Workforce housing & commercial solar syndication, Yield Stabilization Reserve (8–12% target payout), 100% tangible asset backing.
-- **[Positive-Sum Ethical Forecasting Protocol (Irfan.Markets)](packages/shared-ui/headless-sdk/examples/irfan-markets-quickstart.md):** 100% principal protection, Ju‘alah knowledge bounties from redirected yield, binary *Bayyinah* resolution gate.
+- **[High-Trust P2P Rental Marketplace (Pickle Competitor)](packages/shared-ui/headless-sdk/examples/fashion-guild-quickstart.md):** 93% take-home yield (`usufruct`), 4% mutual shield (`mutual_shield` / *Takaful*), 3% SaaS operator, zero-*riba* charity sink routing (`charity_sink` / *Masraf al-Sadaqah*).
+- **[Un-Gameable Social Restaurant Ranking & Tastemaker App (Beli Competitor)](packages/shared-ui/headless-sdk/examples/beli-competitor-quickstart.md):** 93% tastemaker take-home, cryptographic proof-of-visit (`binary_bayyinah` / *Bayyinah* receipt hashing), Wasm-native Condorcet pairwise tournaments (`evals` / *Ju‘alah Halaqa*), non-custodial supper club escrow (`external_vault` / *Amanah Ghayr Hiyaziyyah*), and zero-*riba* food rescue sink (`charity_sink`).
+- **[Real Estate & Solar Infrastructure Cooperative (MizanVest)](packages/shared-ui/headless-sdk/examples/mizanvest-quickstart.md):** Workforce housing & commercial solar syndication (`asset_pool` / *Musharakah*), Yield Stabilization Reserve (8–12% target payout), 100% tangible asset backing (`tangible_ratio` / *Nisbat al-‘Ayn*), and endowment principal lock (`endowment_policy` / *Hifz Asl al-Waqf*).
+- **[Positive-Sum Ethical Forecasting Protocol (Irfan.Markets)](packages/shared-ui/headless-sdk/examples/irfan-markets-quickstart.md):** 100% principal protection, Ju‘alah knowledge bounties from redirected yield (`evals` / *Ju‘alah*), binary *Bayyinah* resolution gate (`binary_bayyinah`), and zero-house extraction charity sink (`charity_sink`).
+
+
 
 ---
 
