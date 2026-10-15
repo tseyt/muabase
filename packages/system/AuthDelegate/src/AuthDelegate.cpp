@@ -41,7 +41,7 @@ namespace SystemService
          }
       }
 
-      auto owner = getOwner(sender);
+      auto owner = checkOwner(sender);
 
       auto _ = recurse();
       return authServiceOf(owner).checkAuthSys(flags, owner, std::move(action), std::move(claims));
@@ -49,25 +49,24 @@ namespace SystemService
 
    void AuthDelegate::canAuthUserSys(psibase::AccountNumber user)
    {
-      // Asserts if no owner is set for the user
-      getOwner(user);
+      checkOwner(user);
    }
 
    std::vector<AccountNumber> AuthDelegate::getDlgsSys(psibase::AccountNumber sender)
    {
-      return {getOwner(sender)};
+      return {checkOwner(sender)};
    }
 
    bool AuthDelegate::isAuthSys(psibase::AccountNumber              sender,
                                 std::vector<psibase::AccountNumber> authorizers)
    {
-      return std::ranges::contains(authorizers, getOwner(sender));
+      return std::ranges::contains(authorizers, checkOwner(sender));
    }
 
    bool AuthDelegate::isRejectSys(psibase::AccountNumber              sender,
                                   std::vector<psibase::AccountNumber> rejecters)
    {
-      return std::ranges::contains(rejecters, getOwner(sender));
+      return std::ranges::contains(rejecters, checkOwner(sender));
    }
 
    void AuthDelegate::setOwner(psibase::AccountNumber owner)
@@ -85,11 +84,18 @@ namespace SystemService
       table.put(AuthDelegateRecord{.account = getSender(), .owner = owner});
    }
 
-   psibase::AccountNumber AuthDelegate::getOwner(psibase::AccountNumber account)
+   std::optional<psibase::AccountNumber> AuthDelegate::getOwner(psibase::AccountNumber account)
    {
-      auto row = open<AuthDelegateTable>(KvMode::read).getIndex<0>().get(account);
-      check(row.has_value(), "account does not have an owning account");
-      return row->owner;
+      if (auto row = open<AuthDelegateTable>(KvMode::read).getIndex<0>().get(account))
+         return row->owner;
+      return std::nullopt;
+   }
+
+   psibase::AccountNumber AuthDelegate::checkOwner(psibase::AccountNumber account)
+   {
+      auto owner = getOwner(account);
+      check(owner.has_value(), "account does not have an owning account");
+      return *owner;
    }
 
    Actor<AuthInterface> AuthDelegate::authServiceOf(psibase::AccountNumber account)
@@ -129,7 +135,7 @@ namespace SystemService
                                          std::vector<AccountNumber> approved_investments)
    {
       auto sender = getSender();
-      check(sender == account || sender == getOwner(account), "Unauthorized to set endowment policy");
+      check(sender == account || getOwner(account) == sender, "Unauthorized to set endowment policy");
       auto endTable = open<EndowmentPolicyTable>();
       endTable.put(EndowmentPolicyRecord{
          .account = account,
