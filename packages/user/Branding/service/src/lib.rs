@@ -57,7 +57,7 @@ mod tables {
                 muamalat: "Sukuk al-Qirad / Musharakah".to_string(),
             },
             TerminologyMapping {
-                key: "usufruct".to_string(),
+                key: "lease".to_string(),
                 institutional: "Fixed Usufruct Lease / P2P Rental".to_string(),
                 muamalat: "Ijarah al-A‘yan wa al-Manafi‘".to_string(),
             },
@@ -117,7 +117,7 @@ mod tables {
                 muamalat: "Nisbat al-‘Ayn al-Haqiqiyyah".to_string(),
             },
             TerminologyMapping {
-                key: "binary_bayyinah".to_string(),
+                key: "evidence_gate".to_string(),
                 institutional: "Dual-Witness Evidentiary Gate".to_string(),
                 muamalat: "Bayyinah (Dual Proof / Attestation)".to_string(),
             },
@@ -127,7 +127,7 @@ mod tables {
                 muamalat: "Amanah Ghayr Hiyaziyyah (Trustee Escrow)".to_string(),
             },
             TerminologyMapping {
-                key: "wajahah_hawalah".to_string(),
+                key: "liquidity_bridge".to_string(),
                 institutional: "Earned-Respect Liquidity Bridge".to_string(),
                 muamalat: "Wajahah & Hawalah".to_string(),
             },
@@ -225,7 +225,7 @@ mod service {
         async fn translate_term(&self, term: String) -> String {
             let lookup_term = match term.as_str() {
                 "rwa_series" | "rwa" => "asset_pool",
-                "usufruct_lease_fixed" | "lease" | "rental" | "fixed_lease" => "usufruct",
+                "usufruct_lease_fixed" | "usufruct" | "rental" | "fixed_lease" | "lease" => "lease",
                 "usufruct_lease_progressive" | "lease_to_own" | "rent_to_own" | "equity_usufruct" => "equity_lease",
                 "evaluations" => "evals",
                 "rofr_window" | "rofr" | "rofr_window_sec" => "priority_window",
@@ -234,6 +234,8 @@ mod service {
                 "charity_sink_account" => "charity_sink",
                 "tangible_ratio_bps" => "tangible_ratio",
                 "endowment_guard" => "endowment_policy",
+                "binary_bayyinah" | "dual_witness_gate" | "bayyinah" => "evidence_gate",
+                "wajahah_hawalah" | "hawalah" | "wajahah" => "liquidity_bridge",
                 _ => term.as_str(),
             };
             let current_locale = LocaleTable::read().get_index_pk().get(&()).unwrap_or_default().locale;
