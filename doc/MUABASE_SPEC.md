@@ -26,7 +26,7 @@ To accommodate both traditional commercial syndicates (Manhattan family offices,
 | Canonical Code Identifier | Institutional Locale (`"institutional"`) | Jurisprudential Locale (`"muamalat"`) | Classical Legal Basis & Jurisprudential Invariant |
 | :--- | :--- | :--- | :--- |
 | `asset_pool` | Asset Token Series / Private LLC | *Sukuk al-Qirad / Musharakah* | Fractional co-ownership of real physical assets (*A'yan*) with shared profit and liability. |
-| `usufruct` | Fixed Usufruct Lease / P2P Rental | *Ijarah al-A‘yan wa al-Manafi‘* | Separation of asset ownership from temporary right-of-use (*Manfa‘ah*). |
+| `lease` | Fixed Lease / P2P Rental | *Ijarah al-A‘yan wa al-Manafi‘* | Separation of asset ownership from temporary right-of-use (*Manfa‘ah*). |
 | `equity_lease` | Progressive Lease-to-Own / Equity Lease | *Musharakah Mutanaqisah* | Gradual transfer of fractional asset equity alongside decreasing rental installments. |
 | `mutual_shield` | Mutual Protection Reserve Pool | *Takaful (Tabarru‘ & Ta‘awun)* | Non-profit risk pooling based on gratuitous contribution (*Tabarru‘*) with pro-rata surplus return. |
 | `claim_council` | Peer Triage Committee | *Majlis al-Tahkim & Shura* | Impartial arbitration by qualified, reliable peers (*Hakam*) based on tangible evidence (*Bayyinah*). |
@@ -35,11 +35,11 @@ To accommodate both traditional commercial syndicates (Manhattan family offices,
 | `priority_window` | Co-Owner Right of First Refusal | *Haqq al-Shuf‘ah* | Mandatory exclusive pre-emption window for existing fractional co-owners before external offering. |
 | `charity_sink` | Public Endowment Charity Sink | *Masraf al-Sadaqah* | Absolute zero-creditor-enrichment rule: punitive late fees are routed to charitable public utility. |
 | `credit_clear` | Multilateral Invoice Netting | *Muqassah* | Debt set-off between reciprocal trading partners to extinguish obligations without cash transfers. |
-| `Wajahah-Hawalah` | Earned-Respect Liquidity Bridge | *Wajahah & Hawalah* | Novation and debt assignment backed by commercial goodwill, reputation (*Wajahah*), and collateral. |
+| `liquidity_bridge` | Earned-Respect Liquidity Bridge | *Wajahah & Hawalah* | Novation and debt assignment backed by commercial goodwill, reputation (*Wajahah*), and collateral. |
 | `trust_score` | Reliability & Audit Score | *‘Adalah* | Non-transferable track record of probity, contract fulfillment, and truthful witness testimony. |
 | `domain_badge` | Domain Competence Credential | *Ikhtisas* | Soulbound domain capability verification (e.g. textile inspection, real estate appraisal). |
 | `tangible_ratio` | Tangible Asset Backing Ratio | *Nisbat al-‘Ayn al-Haqiqiyyah* | Mathematical floor enforcing >= 51% tangible asset/usufruct backing to prevent naked debt trading (Wasm: `tangible_ratio_bps`). |
-| `binary_bayyinah` | Dual-Witness Evidentiary Gate | *Bayyinah (Dual Proof / Attestation)* | 2-witness quorum verification of physical evidence digests (receipt hashes, condition photos) prior to escrow or claim release. |
+| `evidence_gate` | Dual-Witness Evidentiary Gate | *Bayyinah (Dual Proof / Attestation)* | 2-witness quorum verification of physical evidence digests (receipt hashes, condition photos) prior to escrow or claim release. |
 | `external_vault` | Non-Custodial Multi-Chain Splits | *Amanah Ghayr Hiyaziyyah (Trustee Escrow)* | 0-key client-side execution on Stripe Connect, EVM Safe, and Bitcoin Taproot Miniscript, eliminating platform custody liability. |
 | `guild_pod` | Cooperative Pod & Review Circle | *Halaqat al-Tijarah / al-Shura* | Autonomous 5-7 peer governance pods operating consensus without centralized managerial capture. |
 
@@ -266,9 +266,9 @@ sequenceDiagram
 - `packages/user/Tokens`: `asset_pool` (`RwaSeriesConfig`) metadata, investor count limits, 51% `tangible_ratio` floor enforcement.
 - `packages/user/Nft`: Physical item tokenization, custody tracking, condition hashes.
 - `packages/user/TokenSwap`: Zero-debt-speculation trading rules, Shuf'ah (`priority_window` / `rofr_window_sec`) exclusive windows.
-- `packages/user/LeaseEngine`: General-purpose short-term `usufruct` rental & progressive `equity_lease` with zero-riba `charity_sink` penalty routing.
+- `packages/user/LeaseEngine`: General-purpose short-term `lease` rental & progressive `equity_lease` with non-profiteering `charity_sink` penalty routing.
 - `packages/user/MutualShield`: `mutual_shield` protection reserve pool with annual surplus rebates.
 - `packages/user/ClaimCouncil`: Rapid 3-peer damage triage (`claim_council`) and `evals` Condorcet bounty ranking.
-- `packages/user/CreditClear`: Multilateral B2B invoice clearing (`credit_clear`) and `Wajahah-Hawalah` trust limits.
+- `packages/user/CreditClear`: Multilateral B2B invoice clearing (`credit_clear`) and `liquidity_bridge` trust limits.
 - `packages/user/ExternalVault`: Non-custodial Bitcoin Taproot, EVM Safe, Solana Squads, and Stripe Connect split payloads.
 - `packages/shared-ui/headless-sdk`: Reactive TypeScript SDK for frontend developers (`AssetPoolConfig`, `UsufructLease`, `MuabaseClient`).

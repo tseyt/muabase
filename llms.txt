@@ -14,12 +14,12 @@ AI agents must **never hallucinate** service names or action endpoints. Use thes
 | Wasm Service Account | Canonical Key | Primary Actions / Endpoints | Description |
 | :--- | :--- | :--- | :--- |
 | `"tokens"` | `asset_pool`, `tangible_ratio` | `configureAssetPool`, `purchaseDigitalShares` | RWA asset pool creation, par-value floor (>= 51%), ROFR configuration. |
-| `"lease-eng"` | `usufruct`, `charity_sink` | `createLease`, `confirmCleanReturn`, `settleCancellation` | Usufruct leases (P2P rentals, supper clubs), zero-*riba* cancellation settling. |
-| `"staged-tx"` | `binary_bayyinah` | `recordAttestation` | Dual-witness Ricardian evidence digest verification ($H(M)$). |
+| `"lease-eng"` | `lease`, `charity_sink` | `createLease`, `confirmCleanReturn`, `settleCancellation` | Usufruct leases (P2P rentals, supper clubs), zero-*riba* cancellation settling. |
+| `"staged-tx"` | `evidence_gate` | `recordAttestation` | Dual-witness Ricardian evidence digest verification ($H(M)$). |
 | `"evals"` | `evals` | `recordPairwiseVote`, `createJu'alahBounty`, `resolveJu'alahBounty` | Schulze Condorcet pairwise tournaments, objective bounties. (People are NEVER ranked). |
 | `"claimcouncil"` | `claim_council` | `submitDamageClaim`, `voteDamageClaim` | 3-peer rapid damage triage committee for mutual protection reserves. |
 | `"ext-vault"` | `external_vault` | `generateSplitIntent`, `generateInvestmentIntent` | Non-custodial 0-key multi-party payouts (Stripe Connect, EVM Safe, Taproot). |
-| `"creditclear"` | `credit_clear`, `wajahah_hawalah` | `executeBilateralNetting` | Zero-fee multilateral B2B invoice clearing & debt novation. |
+| `"creditclear"` | `credit_clear`, `liquidity_bridge` | `executeBilateralNetting` | Zero-fee multilateral B2B invoice clearing & debt novation. |
 | `"tokenstream"` | `endowment_policy`, `mutual_shield` | `recordGrossRevenue`, `distributeCoopYield`, `allocateYieldStake` | Yield stabilization reserve math, Waqf principal preservation locks. |
 | `"branding"` | Dual-Locale Engine | `setNetworkName`, `getTerminologyMappings` | Dynamic switching between `"institutional"` and `"muamalat"` terms. |
 
@@ -61,7 +61,7 @@ When generating code, always adhere to these exact data scale and validation rul
 | Canonical Key (`key`) | Institutional Locale (`"institutional"`) | Jurisprudential Locale (`"muamalat"`) | Underlying Wasm Service |
 | :--- | :--- | :--- | :--- |
 | `asset_pool` | RWA Asset Series / Series LLC | *Sukuk al-Qirad / Musharakah* | `"tokens"` |
-| `usufruct` | Fixed Usufruct Lease / P2P Rental | *Ijarah al-A‘yan wa al-Manafi‘* | `"lease-eng"` |
+| `lease` | Fixed Lease / P2P Rental | *Ijarah al-A‘yan wa al-Manafi‘* | `"lease-eng"` |
 | `equity_lease` | Progressive Lease-to-Own / Equity Lease | *Musharakah Mutanaqisah* | `"lease-eng"` |
 | `mutual_shield` | Mutual Protection Reserve Pool | *Takaful (Tabarru‘ & Ta‘awun)* | `"mutualshield"` / `"tokenstream"` |
 | `claim_council` | Peer Triage Committee | *Majlis al-Tahkim & Shura* | `"claimcouncil"` |
@@ -70,11 +70,11 @@ When generating code, always adhere to these exact data scale and validation rul
 | `priority_window` | Co-Owner Right of First Refusal | *Haqq al-Shuf‘ah* | `"tokens"` |
 | `charity_sink` | Public Endowment Charity Sink | *Masraf al-Sadaqah* | `"lease-eng"` (`charity_sink_account`) |
 | `credit_clear` | Multilateral Invoice Netting | *Muqassah* | `"creditclear"` |
-| `wajahah_hawalah` | Earned-Respect Liquidity Bridge | *Wajahah & Hawalah* | `"creditclear"` |
+| `liquidity_bridge` | Earned-Respect Liquidity Bridge | *Wajahah & Hawalah* | `"creditclear"` |
 | `trust_score` | Reliability & Audit Score | *‘Adalah (Probity / Reliability)*| `"credentials"` |
 | `domain_badge` | Domain Competence Credential | *Ikhtisas (Domain Specialization)*| `"credentials"` |
 | `tangible_ratio` | Tangible Asset Backing Floor (>= 51%)| *Nisbat al-‘Ayn al-Haqiqiyyah* | `"tokens"` (`tangible_ratio_bps`) |
-| `binary_bayyinah` | Dual-Witness Evidentiary Gate | *Bayyinah (Dual Proof / Attestation)*| `"staged-tx"` |
+| `evidence_gate` | Dual-Witness Evidentiary Gate | *Bayyinah (Dual Proof / Attestation)*| `"staged-tx"` |
 | `external_vault` | Non-Custodial Multi-Chain Splits | *Amanah Ghayr Hiyaziyyah (Trustee Escrow)*| `"ext-vault"` |
 | `guild_pod` | Cooperative Pod & Review Circle | *Halaqat al-Tijarah / al-Shura* | `"guilds"` / `"subgroups"` |
 

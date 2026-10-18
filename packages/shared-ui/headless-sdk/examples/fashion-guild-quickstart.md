@@ -66,7 +66,7 @@ export async function listDesignerGarment(params: {
 
 ## 4. Real-Time Guild Catalog Hook
 
-Use `useMuabaseTable` to subscribe to active rental inventory (`usufruct`). Data updates reactively via Server-Sent Events (SSE) directly from memory-mapped Trie storage (`Triedent`):
+Use `useMuabaseTable` to subscribe to active rental inventory (`lease`). Data updates reactively via Server-Sent Events (SSE) directly from memory-mapped Trie storage (`Triedent`):
 
 ```tsx
 // components/ItemCatalog.tsx
@@ -110,7 +110,7 @@ export function ItemCatalog() {
 
 ## 5. One-Click Checkout with 93%/4%/3% Split
 
-Borrowers book an active `usufruct` lease with client-side photographic condition attestation:
+Borrowers book an active `lease` with client-side photographic condition attestation:
 
 ```typescript
 // actions/checkout.ts
@@ -243,7 +243,7 @@ export function LocaleToggle() {
 | Invariant | Canonical Key | Contract / Wasm Mechanism | Regulatory / Jurisprudential Reference |
 | :--- | :--- | :--- | :--- |
 | **Zero-*Riba*** | `charity_sink` | 100% of late fees routed to `charity_sink_account` | Qur'an 2:278–279; AAOIFI Shariah Std 8 (Ijarah) |
-| **93% Payout** | `usufruct` | `9300 bps` / `400 bps` / `300 bps` fixed split | Disintermediation of Web2 rent-extraction |
+| **93% Payout** | `lease` | `9300 bps` / `400 bps` / `300 bps` fixed split | Disintermediation of Web2 rent-extraction |
 | **Non-Custodial** | `ExternalVault` | 0-key client-side multisig (Taproot / Safe / Stripe) | NYC BitLicense `23 NYCRR § 200.2(q)` Safe Harbor |
 | **Binary *Bayyinah*** | `claim_council` / `evals` | 2-witness quorum (`trust_score` + `domain_badge`) | Qur'an 2:282; AAOIFI Shariah Std 5 (Guarantees) |
 | **Tangible Asset Floor** | `tangible_ratio` | Non-par trading blocked if `tangible_ratio_bps < 5100` | AAOIFI Shariah Std 21 (Sukuk); Bay‘ al-Dayn |

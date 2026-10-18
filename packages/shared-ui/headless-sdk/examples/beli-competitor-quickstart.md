@@ -60,9 +60,9 @@ export const client = createMuabaseClient({
 > **You control the client stack; Muabase guarantees the invariants.**  
 > Notice that Muabase does not enforce a rigid, vertical-specific backend schema. Instead of bundling bespoke server logic, your client application maps its dining concepts directly onto Muabase's universal canonical primitives:
 > - **Restaurant Profiles:** Mapped to canonical `asset_pool` via `client.tokens.configureAssetPool`.
-> - **Proof-of-Visit Verification:** Mapped to canonical `binary_bayyinah` via `client.stagedTx.recordAttestation`.
+> - **Proof-of-Visit Verification:** Mapped to canonical `evidence_gate` via `client.stagedTx.recordAttestation`.
 > - **Pairwise Tastemaker Rankings:** Mapped to canonical `evals` via `client.evaluations.recordPairwiseVote`.
-> - **Supper Club Escrow & 93% Splits:** Mapped to canonical `usufruct` via `client.leaseEngine.createLease` and `client.externalVault.generateSplitIntent`.
+> - **Supper Club Escrow & 93% Splits:** Mapped to canonical `lease` via `client.leaseEngine.createLease` and `client.externalVault.generateSplitIntent`.
 > - **Zero-Riba Cancellation Guard:** Mapped to canonical `charity_sink` via `client.leaseEngine.settleCancellation`.
 
 ---
@@ -370,7 +370,7 @@ export function LocaleToggle() {
 | Canonical Concept | Consumer / Institutional Locale (`"institutional"`) | Jurisprudential Locale (`"muamalat"`) |
 | :--- | :--- | :--- |
 | `asset_pool` | Restaurant Registry & Dining Guild | *Sukuk al-Qirad / Musharakah* |
-| `usufruct` | Table Booking / Supper Club Lease | *Ijarah al-Manafi‘* |
+| `lease` | Table Booking / Supper Club Lease | *Ijarah al-Manafi‘* |
 | `mutual_shield` | Dining Protection Reserve Pool | *Takaful (Tabarru‘ & Ta‘awun)* |
 | `claim_council` | Dining Dispute & Review Committee | *Majlis al-Tahkim & Shura* |
 | `evals` | Pairwise Condorcet Restaurant Ranking | *Ju‘alah Halaqa* |
