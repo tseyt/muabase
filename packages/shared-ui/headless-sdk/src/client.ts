@@ -1,6 +1,7 @@
 import {
   MuabaseConfig,
   TerminologyLocale,
+  AssetPoolConfig,
   CreateAssetInput,
   CheckoutLeaseInput,
   DamageClaimInput,
@@ -166,10 +167,16 @@ export class MuabaseClient {
     }) => {
       return this.transact("evals", "recordPairwiseVote", args);
     },
-    createJu'alahBounty: async (args: Record<string, any>) => {
+    "createJu'alahBounty": async (args: Record<string, any>) => {
       return this.transact("evals", "createJu'alahBounty", args);
     },
-    resolveJu'alahBounty: async (args: Record<string, any>) => {
+    createJualahBounty: async (args: Record<string, any>) => {
+      return this.transact("evals", "createJu'alahBounty", args);
+    },
+    "resolveJu'alahBounty": async (args: Record<string, any>) => {
+      return this.transact("evals", "resolveJu'alahBounty", args);
+    },
+    resolveJualahBounty: async (args: Record<string, any>) => {
       return this.transact("evals", "resolveJu'alahBounty", args);
     },
   };
@@ -221,7 +228,10 @@ export class MuabaseClient {
     allocateYieldStake: async (args: Record<string, any>) => {
       return this.transact("tokenstream", "allocateYieldStake", args);
     },
-    claimJu'alahReward: async (args: Record<string, any>) => {
+    "claimJu'alahReward": async (args: Record<string, any>) => {
+      return this.transact("tokenstream", "claimJu'alahReward", args);
+    },
+    claimJualahReward: async (args: Record<string, any>) => {
       return this.transact("tokenstream", "claimJu'alahReward", args);
     },
   };
