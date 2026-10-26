@@ -2189,57 +2189,6 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@psibase/fractal-core-ui@workspace:user/FractalCore/ui":
-  version: 0.0.0-use.local
-  resolution: "@psibase/fractal-core-ui@workspace:user/FractalCore/ui"
-  dependencies:
-    "@tanstack/react-form": "npm:^1.11.1"
-    "@tanstack/react-pacer": "npm:0.16.1"
-    "@tanstack/react-query": "npm:^5.90.6"
-    "@types/humanize-duration": "npm:^3.27.4"
-    "@types/node": "npm:^22.15.0"
-    "@types/react": "npm:^19.1.0"
-    "@types/react-dom": "npm:^19.1.0"
-    dayjs: "npm:^1.11.13"
-    eslint: "npm:^9.15.0"
-    humanize-duration: "npm:^3.32.2"
-    lucide-react: "npm:^0.475.0"
-    react: "npm:^19.1.0"
-    react-confetti-explosion: "npm:^3.0.3"
-    react-dom: "npm:^19.1.0"
-    react-easy-sort: "npm:^1.8.0"
-    react-router-dom: "npm:^6.26.1"
-    typescript: "npm:^5.7.3"
-    usehooks-ts: "npm:^3.1.1"
-    vite: "npm:^5.4.1"
-    zod: "npm:^3.24.2"
-  languageName: unknown
-  linkType: soft
-
-"@psibase/fractals-ui@workspace:user/Fractals/ui":
-  version: 0.0.0-use.local
-  resolution: "@psibase/fractals-ui@workspace:user/Fractals/ui"
-  dependencies:
-    "@dicebear/collection": "npm:^9.2.2"
-    "@dicebear/core": "npm:^9.2.2"
-    "@tanstack/react-form": "npm:^1.11.1"
-    "@tanstack/react-query": "npm:^5.90.6"
-    "@types/node": "npm:^22.15.0"
-    "@types/react": "npm:^19.1.0"
-    "@types/react-dom": "npm:^19.1.0"
-    "@uidotdev/usehooks": "npm:^2.4.1"
-    dayjs: "npm:^1.11.13"
-    eslint: "npm:^9.15.0"
-    lucide-react: "npm:^0.475.0"
-    react: "npm:^19.1.0"
-    react-dom: "npm:^19.1.0"
-    react-router-dom: "npm:^6.26.1"
-    typescript: "npm:^5.7.3"
-    vite: "npm:^5.4.1"
-    zod: "npm:^3.24.2"
-  languageName: unknown
-  linkType: soft
-
 "@psibase/homepage-ui@workspace:user/Homepage/ui":
   version: 0.0.0-use.local
   resolution: "@psibase/homepage-ui@workspace:user/Homepage/ui"
@@ -2357,6 +2306,30 @@ __metadata:
     react-dom: "npm:^18.2.0"
     typescript: "npm:^5.7.3"
     vite: "npm:^5.4.1"
+  languageName: unknown
+  linkType: soft
+
+"@psibase/studio-ui@workspace:user/Studio/ui":
+  version: 0.0.0-use.local
+  resolution: "@psibase/studio-ui@workspace:user/Studio/ui"
+  dependencies:
+    "@psibase/common-lib": "workspace:*"
+    "@tanstack/react-query": "npm:^5.90.6"
+    "@tanstack/react-table": "npm:^8.20.4"
+    "@types/node": "npm:^22.15.0"
+    "@types/react": "npm:^19.1.0"
+    "@types/react-dom": "npm:^19.1.0"
+    clsx: "npm:^2.1.1"
+    eslint: "npm:^9.15.0"
+    lucide-react: "npm:^0.562.0"
+    react: "npm:^19.1.0"
+    react-dom: "npm:^19.1.0"
+    react-router-dom: "npm:^6.23.1"
+    sonner: "npm:2.0.5"
+    tailwind-merge: "npm:^3.3.1"
+    typescript: "npm:^5.7.3"
+    vite: "npm:^5.4.1"
+    zod: "npm:^3.25.67"
   languageName: unknown
   linkType: soft
 
@@ -5348,13 +5321,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@tanstack/devtools-event-client@npm:^0.2.2":
-  version: 0.2.5
-  resolution: "@tanstack/devtools-event-client@npm:0.2.5"
-  checksum: 10c0/3fb7a171d63bc27fb683bbdb274ac9bb00cee01b70fe74d2a8d62f49243468991182d622901dba8b4aa79a26783ba03e55c7498eba78bd52795e926125c1be59
-  languageName: node
-  linkType: hard
-
 "@tanstack/devtools-event-client@npm:^0.3.2":
   version: 0.3.5
   resolution: "@tanstack/devtools-event-client@npm:0.3.5"
@@ -5389,16 +5355,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@tanstack/pacer@npm:0.15.1":
-  version: 0.15.1
-  resolution: "@tanstack/pacer@npm:0.15.1"
-  dependencies:
-    "@tanstack/devtools-event-client": "npm:^0.2.2"
-    "@tanstack/store": "npm:^0.7.2"
-  checksum: 10c0/1034c9bd8961f946db348258d7f115daaeb6bca762d754106b752bcfbfcbfda6c8bcbded32729d12d90260c8ade8abfeb8a31a600908308e7da1d3a18bcf8300
-  languageName: node
-  linkType: hard
-
 "@tanstack/pacer@npm:0.15.4":
   version: 0.15.4
   resolution: "@tanstack/pacer@npm:0.15.4"
@@ -5416,7 +5372,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@tanstack/react-form@npm:^1.11.1, @tanstack/react-form@npm:^1.19.3":
+"@tanstack/react-form@npm:^1.19.3":
   version: 1.33.0
   resolution: "@tanstack/react-form@npm:1.33.0"
   dependencies:
@@ -5428,19 +5384,6 @@ __metadata:
     "@tanstack/react-start":
       optional: true
   checksum: 10c0/c4856d057e51a0d37002cd2c334e50c0d6213fb814685d6f20beb5546b643879623648e82a7b84224ccd988245ab8ca6a228497d3fa608b245d5b90de8255fdc
-  languageName: node
-  linkType: hard
-
-"@tanstack/react-pacer@npm:0.16.1":
-  version: 0.16.1
-  resolution: "@tanstack/react-pacer@npm:0.16.1"
-  dependencies:
-    "@tanstack/pacer": "npm:0.15.1"
-    "@tanstack/react-store": "npm:^0.7.3"
-  peerDependencies:
-    react: ">=16.8"
-    react-dom: ">=16.8"
-  checksum: 10c0/48c378d61dbb78aa2f3abf12e222da666ab66a567223d975304805059676b22e7e397e08461364a822cebe187dec8d83dbfb6cc1625d1614b952dcce2f9569ac
   languageName: node
   linkType: hard
 
@@ -5481,7 +5424,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@tanstack/react-store@npm:^0.7.3, @tanstack/react-store@npm:^0.7.5":
+"@tanstack/react-store@npm:^0.7.5":
   version: 0.7.7
   resolution: "@tanstack/react-store@npm:0.7.7"
   dependencies:
@@ -5513,7 +5456,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@tanstack/store@npm:0.7.7, @tanstack/store@npm:^0.7.2, @tanstack/store@npm:^0.7.5":
+"@tanstack/store@npm:0.7.7, @tanstack/store@npm:^0.7.5":
   version: 0.7.7
   resolution: "@tanstack/store@npm:0.7.7"
   checksum: 10c0/bf90fa957bd97336d7dbc0d7b87379b5fe4baea030efef8a93fe4e49ac1c8bc929247d1a9f84b16a1642e386b67fe53be14df8d5415efdf85f83733ccdf8877a
@@ -12406,16 +12349,6 @@ __metadata:
     react: ^18.x
     react-dom: ^18.x
   checksum: 10c0/28f96b2f6dae73a8ed4e5e4b2df588bbb8ae761b162e1ef34f614e27ee0d9d577917313285bf4fa3aa839eb2a3692bec03e580363ec8d7eaf34340d8461a9ad3
-  languageName: node
-  linkType: hard
-
-"react-confetti-explosion@npm:^3.0.3":
-  version: 3.0.3
-  resolution: "react-confetti-explosion@npm:3.0.3"
-  peerDependencies:
-    react: ">=16.8.0"
-    react-dom: ">=16.8.0"
-  checksum: 10c0/19d5c8df436d0e06c13f1f553c17f2ebc888dc0f389ed13de98356ea07cb71af352f9baa66ead00c30af9ec40f546152440af8774564167f3680af5444485c84
   languageName: node
   linkType: hard
 

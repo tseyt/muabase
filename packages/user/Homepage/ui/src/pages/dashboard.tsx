@@ -4,6 +4,7 @@ import {
     Book,
     BookUser,
     Coins,
+    Database,
     Mail,
     MoveRight,
     Store,
@@ -35,6 +36,13 @@ export const AppSchema = z
 type App = z.infer<typeof AppSchema>;
 
 const apps: App[] = [
+    {
+        title: "Muabase Studio",
+        description:
+            "SpacetimeDB & Supabase-style console for real-time Triedent tables, Wasm reducers, commercial invariants, and headless SDK generation.",
+        icon: <Database className="h-6 w-6" />,
+        href: siblingUrl(null, "studio", null),
+    },
     {
         title: "Wallet",
         description: "Send tokens and manage balances.",
