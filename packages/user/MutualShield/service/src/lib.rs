@@ -1,5 +1,6 @@
 #![allow(non_snake_case)]
 
+#[psibase::service_tables]
 pub mod tables {
     use async_graphql::SimpleObject;
     use psibase::services::tokens::{Quantity, TID};
@@ -69,16 +70,16 @@ pub mod tables {
     }
 }
 
-#[psibase::service(name = "mutualshield", tables = "tables")]
+#[psibase::service(name = "mut-shield", tables = "tables")]
 pub mod service {
     use crate::tables::*;
     use async_graphql::Object;
     use psibase::services::events;
-    use psibase::services::tokens::{Quantity, TID, Wrapper as Tokens};
+    use psibase::services::tokens::{Quantity, Wrapper as Tokens};
     use psibase::services::transact::Wrapper as Transact;
     use psibase::*;
 
-    pub const CLAIM_COUNCIL: AccountNumber = account!("claimcouncil");
+    pub const CLAIM_COUNCIL: AccountNumber = account!("claim-coun");
 
     #[action]
     fn init() {
@@ -203,9 +204,8 @@ pub mod service {
         let total_in = pool.total_contributions.value;
         let total_out = pool.total_claims_paid.value;
 
-        if total_in > total_out {
-            let surplus = total_in - total_out;
-            let distributable = (surplus as u128 * pool.surplus_rebate_bps as u128 / 10000) as i64;
+        let distributable = compute_distributable_surplus(total_in, total_out, pool.surplus_rebate_bps);
+        if distributable > 0 {
             pool.reserve_balance = pool.reserve_balance - distributable.into();
 
             Wrapper::emit().history().surplusDistributed(pool_id, epoch_id, distributable.into());
@@ -216,6 +216,19 @@ pub mod service {
         pool.total_contributions = 0.into();
         pool.total_claims_paid = 0.into();
         ShieldPoolTable::new().put(&pool).unwrap();
+    }
+
+    pub fn compute_distributable_surplus(
+        total_in: u64,
+        total_out: u64,
+        surplus_rebate_bps: u16,
+    ) -> u64 {
+        if total_in > total_out {
+            let surplus = total_in - total_out;
+            (surplus as u128 * surplus_rebate_bps as u128 / 10000) as u64
+        } else {
+            0
+        }
     }
 
     #[event(history)]
@@ -248,5 +261,22 @@ pub mod service {
         _user: Option<AccountNumber>,
     ) -> Option<HttpReply> {
         None.or_else(|| serve_graphql(&request, Query))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::service::compute_distributable_surplus;
+
+    #[test]
+    fn test_surplus_distribution_when_contributions_exceed_claims() {
+        // 10,000 in, 4,000 out -> 6,000 surplus * 50% (5000 bps) = 3,000 distributable
+        assert_eq!(compute_distributable_surplus(10_000, 4_000, 5000), 3_000);
+    }
+
+    #[test]
+    fn test_surplus_distribution_zero_when_claims_equal_or_exceed_contributions() {
+        assert_eq!(compute_distributable_surplus(5_000, 5_000, 5000), 0);
+        assert_eq!(compute_distributable_surplus(4_000, 6_000, 5000), 0);
     }
 }

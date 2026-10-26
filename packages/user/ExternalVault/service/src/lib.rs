@@ -1,8 +1,9 @@
 #![allow(non_snake_case)]
 
+#[psibase::service_tables]
 pub mod tables {
     use async_graphql::SimpleObject;
-    use psibase::{AccountNumber, Pack, ToSchema, Unpack};
+    use psibase::{AccountNumber, Pack, Table, ToSchema, Unpack};
     use serde::{Deserialize, Serialize};
 
     #[table(name = "InitTable", index = 0)]
@@ -147,9 +148,8 @@ pub mod service {
         assert!(gross_amount_cents > 0, "Gross amount must be positive");
 
         // Mathematical Split: 93% Lender, 4% MutualShield, 3% Node Host SaaS
-        let lender_amount_cents = (gross_amount_cents * 9300) / 10000;
-        let shield_amount_cents = (gross_amount_cents * 400) / 10000;
-        let saas_amount_cents = gross_amount_cents - (lender_amount_cents + shield_amount_cents);
+        let (lender_amount_cents, shield_amount_cents, saas_amount_cents) =
+            compute_split_amounts(gross_amount_cents);
 
         let lender_config = VaultConfigTable::read().get_index_pk().get(&lender_account);
         let stripe_acct = lender_config
@@ -269,6 +269,13 @@ pub mod service {
         }
     }
 
+    pub fn compute_split_amounts(gross_amount_cents: u64) -> (u64, u64, u64) {
+        let lender_amount_cents = (gross_amount_cents * 9300) / 10000;
+        let shield_amount_cents = (gross_amount_cents * 400) / 10000;
+        let saas_amount_cents = gross_amount_cents - (lender_amount_cents + shield_amount_cents);
+        (lender_amount_cents, shield_amount_cents, saas_amount_cents)
+    }
+
     #[action]
     #[allow(non_snake_case)]
     fn serveSys(
@@ -277,5 +284,21 @@ pub mod service {
         _user: Option<AccountNumber>,
     ) -> Option<HttpReply> {
         None.or_else(|| serve_graphql(&request, Query))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::service::compute_split_amounts;
+
+    #[test]
+    fn test_split_amounts_exact_conservation() {
+        let (lender, shield, saas) = compute_split_amounts(10_000);
+        assert_eq!((lender, shield, saas), (9_300, 400, 300));
+        assert_eq!(lender + shield + saas, 10_000);
+
+        // Prime/unaligned cent value conserves exact total without rounding loss
+        let (l, sh, s) = compute_split_amounts(1_001);
+        assert_eq!(l + sh + s, 1_001);
     }
 }

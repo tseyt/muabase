@@ -608,6 +608,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "claim-council"
+version = "0.29.0"
+dependencies = [
+ "async-graphql",
+ "claim-council-pkg",
+ "psibase",
+ "psibase-user-workspace-hack",
+ "psibase_macros",
+ "psibase_service",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "claim-council-pkg"
+version = "0.29.0"
+dependencies = [
+ "claim-council",
+ "psibase",
+]
+
+[[package]]
 name = "clap"
 version = "4.5.48"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -774,6 +796,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "credit-clear"
+version = "0.29.0"
+dependencies = [
+ "async-graphql",
+ "credit-clear-pkg",
+ "psibase",
+ "psibase-user-workspace-hack",
+ "psibase_macros",
+ "psibase_service",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "credit-clear-pkg"
+version = "0.29.0"
+dependencies = [
+ "credit-clear",
+ "psibase",
+]
+
+[[package]]
 name = "critical-section"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -913,20 +957,6 @@ dependencies = [
  "darling_core 0.20.11",
  "quote",
  "syn 2.0.106",
-]
-
-[[package]]
-name = "de-facto"
-version = "0.29.0"
-dependencies = [
- "async-graphql",
- "fractals",
- "psibase",
- "psibase-user-workspace-hack",
- "psibase_macros",
- "psibase_service",
- "serde",
- "serde_json",
 ]
 
 [[package]]
@@ -1161,6 +1191,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "external-vault"
+version = "0.29.0"
+dependencies = [
+ "async-graphql",
+ "external-vault-pkg",
+ "psibase",
+ "psibase-user-workspace-hack",
+ "psibase_macros",
+ "psibase_service",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "external-vault-pkg"
+version = "0.29.0"
+dependencies = [
+ "external-vault",
+ "psibase",
+]
+
+[[package]]
 name = "fast_chemail"
 version = "0.9.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1254,25 +1306,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "frac-tester"
-version = "0.29.0"
-dependencies = [
- "frac-tester-pkg",
- "psibase",
- "psibase-user-workspace-hack",
- "psibase_service",
- "serde",
-]
-
-[[package]]
-name = "frac-tester-pkg"
-version = "0.29.0"
-dependencies = [
- "frac-tester",
- "psibase-user-workspace-hack",
-]
-
-[[package]]
 name = "fracpack"
 version = "0.29.0"
 dependencies = [
@@ -1284,66 +1317,6 @@ dependencies = [
  "serde",
  "serde-aux",
  "serde_json",
-]
-
-[[package]]
-name = "fractal-gen"
-version = "0.29.0"
-dependencies = [
- "fractal-gen-pkg",
- "psibase",
- "psibase-user-workspace-hack",
- "psibase_service",
- "serde",
-]
-
-[[package]]
-name = "fractal-gen-pkg"
-version = "0.29.0"
-dependencies = [
- "fractal-gen",
- "psibase-user-workspace-hack",
-]
-
-[[package]]
-name = "fractals"
-version = "0.29.0"
-dependencies = [
- "async-graphql",
- "evaluations",
- "fractals-pkg",
- "psibase",
- "psibase-user-workspace-hack",
- "psibase_macros",
- "psibase_service",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "fractals-pkg"
-version = "0.29.0"
-dependencies = [
- "de-facto",
- "fractals",
- "fractals-plugin",
- "psibase-user-workspace-hack",
- "r-fractals",
-]
-
-[[package]]
-name = "fractals-plugin"
-version = "0.29.0"
-dependencies = [
- "fractals",
- "fractals-pkg",
- "psibase",
- "psibase-user-workspace-hack",
- "psibase_plugin",
- "serde",
- "serde_json",
- "thiserror 2.0.18",
- "wit-bindgen-rt",
 ]
 
 [[package]]
@@ -2121,6 +2094,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
 
 [[package]]
+name = "lease-engine"
+version = "0.29.0"
+dependencies = [
+ "async-graphql",
+ "lease-engine-pkg",
+ "psibase",
+ "psibase-user-workspace-hack",
+ "psibase_macros",
+ "psibase_service",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "lease-engine-pkg"
+version = "0.29.0"
+dependencies = [
+ "lease-engine",
+ "psibase",
+]
+
+[[package]]
 name = "leb128"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2293,6 +2288,28 @@ dependencies = [
  "mime",
  "spin",
  "version_check",
+]
+
+[[package]]
+name = "mutual-shield"
+version = "0.29.0"
+dependencies = [
+ "async-graphql",
+ "mutual-shield-pkg",
+ "psibase",
+ "psibase-user-workspace-hack",
+ "psibase_macros",
+ "psibase_service",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "mutual-shield-pkg"
+version = "0.29.0"
+dependencies = [
+ "mutual-shield",
+ "psibase",
 ]
 
 [[package]]
@@ -2968,19 +2985,6 @@ dependencies = [
  "psibase_service",
  "serde",
  "serde-aux",
- "serde_json",
-]
-
-[[package]]
-name = "r-fractals"
-version = "0.29.0"
-dependencies = [
- "async-graphql",
- "fractals",
- "psibase",
- "psibase-user-workspace-hack",
- "psibase_service",
- "serde",
  "serde_json",
 ]
 

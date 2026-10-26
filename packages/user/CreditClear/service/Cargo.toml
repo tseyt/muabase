@@ -7,7 +7,7 @@ publish.workspace = true
 
 [package.metadata.psibase]
 postinstall = [
-    { sender = "creditclear", service = "tokens", method = "setUserConf", data = { index = 0, enabled = false } },
+    { sender = "cred-clear", service = "tokens", method = "setUserConf", data = { index = 0, enabled = false } },
 ]
 
 [dependencies]

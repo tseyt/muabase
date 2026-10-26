@@ -1,9 +1,10 @@
 #![allow(non_snake_case)]
 
+#[psibase::service_tables]
 pub mod tables {
     use async_graphql::SimpleObject;
     use psibase::services::tokens::Quantity;
-    use psibase::{AccountNumber, Checksum256, Pack, ToSchema, Unpack};
+    use psibase::{AccountNumber, Checksum256, Pack, Table, ToSchema, Unpack};
     use serde::{Deserialize, Serialize};
 
     pub const CLAIM_STATUS_PENDING: u8 = 0;
@@ -88,7 +89,7 @@ pub mod tables {
     }
 }
 
-#[psibase::service(name = "claimcouncil", tables = "tables")]
+#[psibase::service(name = "claim-coun", tables = "tables")]
 pub mod service {
     use crate::tables::*;
     use async_graphql::Object;
@@ -99,7 +100,7 @@ pub mod service {
     /// trust_score deduction (bps) applied to a respondent found at fault by the triage quorum
     const FAULT_TRUST_PENALTY_BPS: u32 = 500;
 
-    pub const MUTUAL_SHIELD: AccountNumber = account!("mutualshield");
+    pub const MUTUAL_SHIELD: AccountNumber = account!("mut-shield");
 
     #[action]
     fn init() {
@@ -202,11 +203,8 @@ pub mod service {
             // their actual current score rather than overwriting it with a fixed value.
             let credentials = psibase::services::credentials::Wrapper::call();
             let current = credentials.trustScoreOf(claim.respondent);
-            credentials.updateTrustScore(
-                claim.respondent,
-                current.saturating_sub(FAULT_TRUST_PENALTY_BPS),
-                false,
-            );
+            let penalized = compute_fault_penalized_score(current);
+            credentials.updateTrustScore(claim.respondent, penalized, false);
 
             Wrapper::emit().history().claimResolved(claim_id, true, claim.approved_amount);
         } else if claim.rejections.len() >= 2 {
@@ -293,5 +291,26 @@ pub mod service {
         _user: Option<AccountNumber>,
     ) -> Option<HttpReply> {
         None.or_else(|| serve_graphql(&request, Query))
+    }
+
+    pub fn compute_fault_penalized_score(current_score: u32) -> u32 {
+        current_score.saturating_sub(FAULT_TRUST_PENALTY_BPS)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::service::compute_fault_penalized_score;
+
+    #[test]
+    fn test_fault_penalty_decrements_relative_to_current_score() {
+        assert_eq!(compute_fault_penalized_score(9000), 8500);
+        assert_eq!(compute_fault_penalized_score(7500), 7000);
+    }
+
+    #[test]
+    fn test_fault_penalty_saturates_at_zero() {
+        assert_eq!(compute_fault_penalized_score(300), 0);
+        assert_eq!(compute_fault_penalized_score(0), 0);
     }
 }

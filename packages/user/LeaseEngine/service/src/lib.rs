@@ -1,9 +1,10 @@
 #![allow(non_snake_case)]
 
+#[psibase::service_tables]
 pub mod tables {
     use async_graphql::SimpleObject;
     use psibase::services::tokens::{Quantity, TID};
-    use psibase::{AccountNumber, Checksum256, Pack, TimePointSec, ToSchema, Unpack};
+    use psibase::{AccountNumber, Checksum256, Pack, Table, TimePointSec, ToSchema, Unpack};
     use serde::{Deserialize, Serialize};
 
     pub const STATUS_CREATED: u8 = 0;
@@ -193,13 +194,16 @@ pub mod service {
             .expect("Lease DNE");
 
         let gross = lease.gross_payment.value as u128;
-        let protocol_fee = (gross * lease.protocol_saas_fee_bps as u128 / 10000) as i64;
-        let shield_fee = (gross * lease.mutual_shield_fee_bps as u128 / 10000) as i64;
-        let custodian_fee = (gross * lease.custodian_fee_bps as u128 / 10000) as i64;
+        let protocol_fee = (gross * lease.protocol_saas_fee_bps as u128 / 10000) as u64;
+        let shield_fee = (gross * lease.mutual_shield_fee_bps as u128 / 10000) as u64;
+        let custodian_fee = (gross * lease.custodian_fee_bps as u128 / 10000) as u64;
 
         let total_deductions = protocol_fee + shield_fee + custodian_fee;
-        let net_owner_yield = (gross as i64) - total_deductions;
-        assert!(net_owner_yield > 0, "Net yield calculation invalid");
+        assert!(
+            (gross as u64) > total_deductions,
+            "Net yield calculation invalid"
+        );
+        let net_owner_yield = (gross as u64) - total_deductions;
 
         let tokens = Tokens::call();
 
@@ -208,12 +212,12 @@ pub mod service {
 
         // Route SaaS fee (3%)
         if protocol_fee > 0 {
-            tokens.credit(lease.payment_token_id, account!("psinode-saas"), protocol_fee.into(), "Protocol SaaS fee".into());
+            tokens.credit(lease.payment_token_id, account!("psi-saas"), protocol_fee.into(), "Protocol SaaS fee".into());
         }
 
         // Route MutualShield pool contribution (4% Tabarru')
         if shield_fee > 0 {
-            tokens.credit(lease.payment_token_id, account!("mutualshield"), shield_fee.into(), "MutualShield contribution".into());
+            tokens.credit(lease.payment_token_id, account!("mut-shield"), shield_fee.into(), "MutualShield contribution".into());
         }
 
         // Route Custodian maintenance fee if configured
@@ -337,3 +341,6 @@ pub mod service {
         None.or_else(|| serve_graphql(&request, Query))
     }
 }
+
+#[cfg(test)]
+mod tests;

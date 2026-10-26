@@ -1,9 +1,10 @@
 #![allow(non_snake_case)]
 
+#[psibase::service_tables]
 pub mod tables {
     use async_graphql::SimpleObject;
     use psibase::services::tokens::{Quantity, TID};
-    use psibase::{AccountNumber, Checksum256, Pack, TimePointSec, ToSchema, Unpack};
+    use psibase::{AccountNumber, Checksum256, Pack, Table, TimePointSec, ToSchema, Unpack};
     use serde::{Deserialize, Serialize};
 
     #[table(name = "InitTable", index = 0)]
@@ -84,12 +85,12 @@ pub mod tables {
     }
 }
 
-#[psibase::service(name = "creditclear", tables = "tables")]
+#[psibase::service(name = "cred-clear", tables = "tables")]
 pub mod service {
     use crate::tables::*;
     use async_graphql::Object;
     use psibase::services::events;
-    use psibase::services::tokens::{Quantity, TID, Wrapper as Tokens};
+    use psibase::services::tokens::{Quantity, TID};
     use psibase::services::transact::Wrapper as Transact;
     use psibase::*;
 
@@ -163,28 +164,11 @@ pub mod service {
         disputed_volume: Quantity,
         waqf_reserve: Quantity,
     ) -> Quantity {
-        let alpha_bps: u64 = 2500; // alpha = 0.25 (25%)
-        let beta_bps: u64 = 10000; // beta = 1.0 (100%)
-
-        let v_settled = settled_volume_90d.value as u128;
-        let v_disputed = disputed_volume.value as u128;
-
-        // Compute dispute discount factor: (1 - D_A)^2
-        // D_A = min(v_disputed / max(1, v_settled), 1)
-        let dispute_ratio_ppm = if v_settled > 0 {
-            std::cmp::min(1_000_000, (v_disputed * 1_000_000) / v_settled)
-        } else {
-            1_000_000
-        };
-
-        let trust_factor_ppm = 1_000_000 - dispute_ratio_ppm;
-        // (1 - D_A)^2
-        let trust_decay_ppm = (trust_factor_ppm * trust_factor_ppm) / 1_000_000;
-
-        let volume_capacity = (v_settled * alpha_bps as u128 / 10000) * trust_decay_ppm / 1_000_000;
-        let reserve_capacity = (waqf_reserve.value as u128 * beta_bps as u128) / 10000;
-
-        let credit_limit: i64 = std::cmp::min(volume_capacity, reserve_capacity) as i64;
+        let credit_limit: u64 = calculate_wajahah_limit(
+            settled_volume_90d.value,
+            disputed_volume.value,
+            waqf_reserve.value,
+        );
 
         let table = WajahahCreditTable::new();
         let record = WajahahCreditLimit {
@@ -201,6 +185,35 @@ pub mod service {
 
         Wrapper::emit().history().creditLimitUpdated(node_a, node_b, credit_limit.into());
         credit_limit.into()
+    }
+
+    pub fn calculate_wajahah_limit(
+        settled_volume_90d: u64,
+        disputed_volume: u64,
+        waqf_reserve: u64,
+    ) -> u64 {
+        let alpha_bps: u64 = 2500; // alpha = 0.25 (25%)
+        let beta_bps: u64 = 10000; // beta = 1.0 (100%)
+
+        let v_settled = settled_volume_90d as u128;
+        let v_disputed = disputed_volume as u128;
+
+        // Compute dispute discount factor: (1 - D_A)^2
+        // D_A = min(v_disputed / max(1, v_settled), 1)
+        let dispute_ratio_ppm = if v_settled > 0 {
+            std::cmp::min(1_000_000, (v_disputed * 1_000_000) / v_settled)
+        } else {
+            1_000_000
+        };
+
+        let trust_factor_ppm = 1_000_000 - dispute_ratio_ppm;
+        // (1 - D_A)^2
+        let trust_decay_ppm = (trust_factor_ppm * trust_factor_ppm) / 1_000_000;
+
+        let volume_capacity = (v_settled * alpha_bps as u128 / 10000) * trust_decay_ppm / 1_000_000;
+        let reserve_capacity = (waqf_reserve as u128 * beta_bps as u128) / 10000;
+
+        std::cmp::min(volume_capacity, reserve_capacity) as u64
     }
 
     /// Executes bilateral/multilateral set-off (Muqassah), cancelling reciprocal debt obligations
@@ -269,5 +282,27 @@ pub mod service {
         _user: Option<AccountNumber>,
     ) -> Option<HttpReply> {
         None.or_else(|| serve_graphql(&request, Query))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::service::calculate_wajahah_limit;
+
+    #[test]
+    fn test_wajahah_limit_zero_disputes_capped_by_volume_or_reserve() {
+        // 100,000 settled, 0 disputed -> 25% = 25,000 volume capacity; reserve = 50,000 -> limit = 25,000
+        assert_eq!(calculate_wajahah_limit(100_000, 0, 50_000), 25_000);
+        // Capped by waqf reserve when reserve < volume capacity
+        assert_eq!(calculate_wajahah_limit(100_000, 0, 10_000), 10_000);
+    }
+
+    #[test]
+    fn test_wajahah_limit_quadratic_dispute_decay() {
+        // 100,000 settled, 20,000 disputed -> D_A = 0.2 -> (1 - 0.2)^2 = 0.64
+        // Volume capacity = 25,000 * 0.64 = 16,000
+        assert_eq!(calculate_wajahah_limit(100_000, 20_000, 50_000), 16_000);
+        // 100% disputed -> limit collapses to 0
+        assert_eq!(calculate_wajahah_limit(100_000, 100_000, 50_000), 0);
     }
 }

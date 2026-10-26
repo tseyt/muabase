@@ -1,18 +1,18 @@
 #[cfg(test)]
 mod tests {
+    use psibase::account;
     use psibase::services::tokens::Quantity;
-    use psibase::AccountNumber;
 
     #[test]
     fn test_multi_party_lease_split_93_percent() {
-        let gross_amount: i64 = 100_0000; // $100.0000
+        let gross_amount: u64 = 100_0000; // $100.0000
         let protocol_saas_bps: u16 = 300;   // 3%
         let mutual_shield_bps: u16 = 400;   // 4%
         let custodian_bps: u16 = 0;         // 0%
 
-        let protocol_fee = (gross_amount as u128 * protocol_saas_bps as u128 / 10000) as i64;
-        let shield_fee = (gross_amount as u128 * mutual_shield_bps as u128 / 10000) as i64;
-        let custodian_fee = (gross_amount as u128 * custodian_bps as u128 / 10000) as i64;
+        let protocol_fee = (gross_amount as u128 * protocol_saas_bps as u128 / 10000) as u64;
+        let shield_fee = (gross_amount as u128 * mutual_shield_bps as u128 / 10000) as u64;
+        let custodian_fee = (gross_amount as u128 * custodian_bps as u128 / 10000) as u64;
 
         let total_deductions = protocol_fee + shield_fee + custodian_fee;
         let net_owner_yield = gross_amount - total_deductions;
@@ -26,8 +26,8 @@ mod tests {
 
     #[test]
     fn test_progressive_equity_buyout_computation() {
-        let total_asset_shares: i64 = 1000;
-        let monthly_installments: i64 = 20;
+        let total_asset_shares: u64 = 1000;
+        let monthly_installments: u64 = 20;
         let equity_per_installment = total_asset_shares / monthly_installments;
 
         assert_eq!(equity_per_installment, 50, "50 shares acquired per installment");
@@ -37,8 +37,8 @@ mod tests {
 
     #[test]
     fn test_zero_riba_late_fee_charity_sink_invariant() {
-        let lessor = AccountNumber::from("closet-owner");
-        let charity_sink = AccountNumber::from("waqf-charity");
+        let lessor = account!("lessor-1");
+        let charity_sink = account!("waqf-sink");
         let direct_damage_cost: Quantity = 25_0000.into(); // $25.00 direct repair / courier cost
         let punitive_late_penalty: Quantity = 50_0000.into(); // $50.00 punitive delay penalty
 
@@ -46,9 +46,9 @@ mod tests {
         assert_ne!(lessor, charity_sink, "Lessor cannot be the charity sink");
 
         // Simulate ledger balances
-        let mut lessor_received_direct: i64 = 0;
-        let mut lessor_received_penalty: i64 = 0;
-        let mut charity_sink_received: i64 = 0;
+        let mut lessor_received_direct: u64 = 0;
+        let lessor_received_penalty: u64 = 0;
+        let mut charity_sink_received: u64 = 0;
 
         // Process late return
         lessor_received_direct += direct_damage_cost.value;
@@ -64,8 +64,8 @@ mod tests {
     #[test]
     #[should_panic(expected = "Riba Violation")]
     fn test_riba_violation_triggers_panic_if_lessor_is_sink() {
-        let lessor = AccountNumber::from("greedy-lender");
-        let charity_sink = AccountNumber::from("greedy-lender"); // Invalid: attempt to self-route
+        let lessor = account!("lessor-1");
+        let charity_sink = account!("lessor-1"); // Invalid: attempt to self-route
 
         if lessor == charity_sink {
             panic!("Riba Violation: Creditor/lessor can never receive late penalties");
