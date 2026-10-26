@@ -40,7 +40,46 @@ pub mod service {
 
     /// Minimum `trust_score` (bps) a witness needs to attest. Matches the documented
     /// adjudicator floor used by Guilds / ClaimCouncil evaluators (80.00%).
-    const MIN_WITNESS_TRUST_SCORE: u32 = 8000;
+    pub const MIN_WITNESS_TRUST_SCORE: u32 = 8000;
+
+    pub fn validate_witness_eligibility(
+        witness: AccountNumber,
+        proposer: AccountNumber,
+        parties: &[AccountNumber],
+        required_domain: Option<&str>,
+        domain_badge: &str,
+        has_active_badge: bool,
+        trust_score: u32,
+    ) {
+        assert!(
+            witness != proposer,
+            "Proposer cannot witness their own staged tx"
+        );
+        assert!(
+            !parties.contains(&witness),
+            "A party to the staged tx cannot act as its witness"
+        );
+
+        if let Some(required) = required_domain {
+            assert!(
+                domain_badge == required,
+                "Witness must attest with the required domain badge: {}",
+                required
+            );
+        }
+
+        assert!(
+            has_active_badge,
+            "Witness does not hold an active domain badge: {}",
+            domain_badge
+        );
+        assert!(
+            trust_score >= MIN_WITNESS_TRUST_SCORE,
+            "Witness trust_score {} is below the required {}",
+            trust_score,
+            MIN_WITNESS_TRUST_SCORE
+        );
+    }
 
     fn debug_print(msg: &str) {
         if ENABLE_PRINT {
@@ -135,32 +174,24 @@ pub mod service {
         assert!(staged_tx.required_witnesses > 0, "This staged tx does not require witnesses");
         let witness = get_sender();
 
-        assert!(witness != staged_tx.proposer, "Proposer cannot witness their own staged tx");
-        assert!(
-            !staged_tx.action_list.actions.iter().any(|a| a.sender == witness),
-            "A party to the staged tx cannot act as its witness"
-        );
-
-        if let Some(required) = &staged_tx.required_domain {
-            assert!(
-                &domain_badge == required,
-                "Witness must attest with the required domain badge: {}",
-                required
-            );
-        }
-
         let credentials = Credentials::call();
-        assert!(
-            credentials.hasDomainBadge(witness, domain_badge.clone()),
-            "Witness does not hold an active domain badge: {}",
-            domain_badge
-        );
+        let has_badge = credentials.hasDomainBadge(witness, domain_badge.clone());
         let trust_score = credentials.trustScoreOf(witness);
-        assert!(
-            trust_score >= MIN_WITNESS_TRUST_SCORE,
-            "Witness trust_score {} is below the required {}",
+        let parties: Vec<AccountNumber> = staged_tx
+            .action_list
+            .actions
+            .iter()
+            .map(|a| a.sender)
+            .collect();
+
+        validate_witness_eligibility(
+            witness,
+            staged_tx.proposer,
+            &parties,
+            staged_tx.required_domain.as_deref(),
+            &domain_badge,
+            has_badge,
             trust_score,
-            MIN_WITNESS_TRUST_SCORE
         );
 
         let table = WitnessAttestationTable::new();

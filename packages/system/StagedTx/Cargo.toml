@@ -26,6 +26,8 @@ crate-type = ["rlib"]
 [dependencies]
 staged-tx = { path = "service", version = "0.29.0" }
 r-staged-tx = { path = "query-service", version = "0.29.0" }
-staged-tx-plugin = { path = "plugin", version = "0.29.0" }
 psibase-system-workspace-hack.workspace = true
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+staged-tx-plugin = { path = "plugin", version = "0.29.0" }
 

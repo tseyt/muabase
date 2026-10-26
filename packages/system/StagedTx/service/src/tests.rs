@@ -1,6 +1,6 @@
 #![allow(non_snake_case)]
 
-#[cfg(test)]
+#[cfg(all(test, target_family = "wasm"))]
 mod tests {
     use crate::Wrapper;
     use psibase::fracpack::Pack;
@@ -281,5 +281,111 @@ mod tests {
         assert!(tx.approve(eliza)?);
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod unit_tests {
+    use psibase::account;
+
+    #[test]
+    fn test_witness_eligibility_requires_valid_score_and_badge() {
+        let proposer = account!("alice");
+        let lessee = account!("bob");
+        let witness = account!("nour");
+
+        crate::service::validate_witness_eligibility(
+            witness,
+            proposer,
+            &[proposer, lessee],
+            Some("master_appraiser"),
+            "master_appraiser",
+            true,
+            9500,
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "Witness trust_score 7999 is below the required 8000")]
+    fn test_witness_rejected_when_trust_score_below_threshold() {
+        let proposer = account!("alice");
+        let witness = account!("nour");
+
+        crate::service::validate_witness_eligibility(
+            witness,
+            proposer,
+            &[proposer],
+            None,
+            "master_appraiser",
+            true,
+            7999,
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "Witness does not hold an active domain badge: master_appraiser")]
+    fn test_witness_rejected_without_active_domain_badge() {
+        let proposer = account!("alice");
+        let witness = account!("nour");
+
+        crate::service::validate_witness_eligibility(
+            witness,
+            proposer,
+            &[proposer],
+            None,
+            "master_appraiser",
+            false,
+            9500,
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "Witness must attest with the required domain badge: master_appraiser")]
+    fn test_witness_rejected_when_domain_badge_mismatches_required_domain() {
+        let proposer = account!("alice");
+        let witness = account!("nour");
+
+        crate::service::validate_witness_eligibility(
+            witness,
+            proposer,
+            &[proposer],
+            Some("master_appraiser"),
+            "sommelier_l3",
+            true,
+            9500,
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "Proposer cannot witness their own staged tx")]
+    fn test_proposer_cannot_witness_own_staged_tx() {
+        let proposer = account!("alice");
+
+        crate::service::validate_witness_eligibility(
+            proposer,
+            proposer,
+            &[],
+            None,
+            "master_appraiser",
+            true,
+            9900,
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "A party to the staged tx cannot act as its witness")]
+    fn test_party_to_staged_tx_cannot_act_as_witness() {
+        let proposer = account!("alice");
+        let party = account!("bob");
+
+        crate::service::validate_witness_eligibility(
+            party,
+            proposer,
+            &[party],
+            None,
+            "master_appraiser",
+            true,
+            9900,
+        );
     }
 }
