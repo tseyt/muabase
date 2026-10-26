@@ -1,0 +1,138 @@
+/* Modern Web Guidance: responsive-table */
+.studio-table-wrapper {
+    overflow: auto;
+    max-inline-size: 100%;
+    max-block-size: min(560px, 75vh);
+    container-type: inline-size;
+}
+
+.studio-table-wrapper table {
+    border-collapse: separate;
+    border-spacing: 0;
+    width: 100%;
+}
+
+.studio-table-wrapper thead {
+    position: sticky;
+    inset-block-start: 0;
+    z-index: 2;
+}
+
+.studio-table-wrapper tbody th {
+    position: sticky;
+    inset-inline-start: 0;
+    z-index: 1;
+    background-color: var(--card);
+}
+
+@container (width < 600px) {
+    .studio-table-wrapper table,
+    .studio-table-wrapper thead,
+    .studio-table-wrapper tbody,
+    .studio-table-wrapper tr,
+    .studio-table-wrapper th,
+    .studio-table-wrapper td {
+        display: block;
+    }
+
+    .studio-table-wrapper thead {
+        /* MANDATORY: Hide column header from layout and screen readers. */
+        display: none;
+    }
+
+    .studio-table-wrapper tr {
+        margin-block-end: 1rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        overflow: hidden;
+    }
+
+    .studio-table-wrapper tbody th {
+        position: sticky;
+        inset-block-start: 0;
+        z-index: 2;
+        background-color: var(--muted);
+    }
+
+    .studio-table-wrapper td:nth-child(2)::before {
+        content: var(--label-2, "Col 2") ": ";
+        font-weight: 600;
+        color: var(--muted-foreground);
+    }
+    .studio-table-wrapper td:nth-child(3)::before {
+        content: var(--label-3, "Col 3") ": ";
+        font-weight: 600;
+        color: var(--muted-foreground);
+    }
+    .studio-table-wrapper td:nth-child(4)::before {
+        content: var(--label-4, "Col 4") ": ";
+        font-weight: 600;
+        color: var(--muted-foreground);
+    }
+    .studio-table-wrapper td:nth-child(5)::before {
+        content: var(--label-5, "Col 5") ": ";
+        font-weight: 600;
+        color: var(--muted-foreground);
+    }
+    .studio-table-wrapper td:nth-child(6)::before {
+        content: var(--label-6, "Col 6") ": ";
+        font-weight: 600;
+        color: var(--muted-foreground);
+    }
+    .studio-table-wrapper td:nth-child(7)::before {
+        content: var(--label-7, "Col 7") ": ";
+        font-weight: 600;
+        color: var(--muted-foreground);
+    }
+}
+
+/* Modern Web Guidance: interactions-in-complex-layouts */
+.studio-containment-panel {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 320px auto 520px;
+}
+
+@supports not (content-visibility: auto) {
+    .studio-containment-panel {
+        contain: layout style paint;
+    }
+}
+
+/* Modern Web Guidance: validate-input-after-interaction */
+.studio-field .studio-hint {
+    display: block;
+    color: var(--muted-foreground);
+    font-size: 0.75rem;
+    margin-bottom: 0.25rem;
+}
+
+.studio-field .studio-error-msg {
+    display: none;
+    color: var(--destructive);
+    font-size: 0.75rem;
+    margin-top: 0.25rem;
+}
+
+.studio-field input:user-invalid,
+.studio-field input.user-invalid-fallback {
+    border-color: var(--destructive);
+    background-color: oklch(0.577 0.245 27.325 / 0.12);
+}
+
+.studio-field input:user-invalid + .studio-error-msg,
+.studio-field input.user-invalid-fallback + .studio-error-msg {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.studio-field:has(input:user-invalid) .studio-hint,
+.studio-field:has(input.user-invalid-fallback) .studio-hint {
+    color: var(--destructive);
+    font-weight: 600;
+}
+
+.studio-field input:user-valid,
+.studio-field input.user-valid-fallback {
+    border-color: oklch(0.696 0.17 162.48);
+}
