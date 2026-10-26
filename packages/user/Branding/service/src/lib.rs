@@ -1,10 +1,10 @@
 #[psibase::service_tables]
-mod tables {
+pub mod tables {
     use async_graphql::SimpleObject;
     use psibase::{Pack, ToSchema, Unpack};
     use serde::{Deserialize, Serialize};
 
-    #[table(name = "NetworkNameTable")]
+    #[table(name = "NetworkNameTable", index = 0)]
     #[derive(Pack, Unpack, ToSchema, SimpleObject, Serialize, Deserialize, Debug)]
     pub struct NetworkName {
         pub name: String,
@@ -23,7 +23,7 @@ mod tables {
         }
     }
 
-    #[table(name = "LocaleTable")]
+    #[table(name = "LocaleTable", index = 1)]
     #[derive(Pack, Unpack, ToSchema, SimpleObject, Serialize, Deserialize, Debug, Clone)]
     pub struct TerminologyLocale {
         pub locale: String,

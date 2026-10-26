@@ -2,10 +2,10 @@ mod helpers;
 pub mod tables;
 
 #[psibase::service(name = "token-swap", tables = "tables::tables")]
+#[allow(non_snake_case)]
 pub mod service {
     use crate::tables::tables::{
-        InitRow, ListingIdRow, Pool, PriorityListing, PriorityListingTable, Reserve, RofrListing,
-        RofrListingTable,
+        InitRow, ListingIdRow, Pool, PriorityListing, PriorityListingTable, Reserve,
     };
     use psibase::services::events;
     use psibase::{
@@ -222,12 +222,7 @@ pub mod service {
 
         // Tangible asset floor enforcement (Bay' al-Dayn Prevention):
         // If tangible_ratio_bps < 5100, price cannot deviate from par value (1_000_000 ppm = 1.0)
-        if tangible_ratio_bps < 5100 {
-            assert_eq!(
-                unit_price_ppm, 1_000_000,
-                "Bay' al-Dayn Violation: Assets with < 51% tangible backing can only trade at exact par value"
-            );
-        }
+        validate_tangible_floor_pricing(tangible_ratio_bps, unit_price_ppm);
 
         // Debit tokens to escrow
         psibase::services::tokens::Wrapper::call().debit(
@@ -269,7 +264,7 @@ pub mod service {
         rofr_window_sec: u32,
         tangible_ratio_bps: u16,
     ) -> u64 {
-        Self::listAssetWithPriority(
+        listAssetWithPriority(
             token_id,
             amount,
             unit_price_ppm,
@@ -303,7 +298,7 @@ pub mod service {
         // If within the priority_until window, buyer MUST already hold a positive balance of this token
         if now < listing.priority_until {
             let balance = psibase::services::tokens::Wrapper::call()
-                .getBalance(buyer, listing.token_id);
+                .getBalance(listing.token_id, buyer);
             assert!(
                 balance.value > 0,
                 "Haqq al-Shuf'ah Violation: Co-owner exclusive purchase window active until {:?}",
@@ -329,7 +324,7 @@ pub mod service {
     /// Backwards-compatible alias for fillPriorityListing
     #[action]
     fn fillRwaListing(listing_id: u64, fill_amount: Quantity) {
-        Self::fillPriorityListing(listing_id, fill_amount);
+        fillPriorityListing(listing_id, fill_amount);
     }
 
     /// Fetches an asset listing
@@ -338,10 +333,33 @@ pub mod service {
         PriorityListingTable::read().get_index_pk().get(&listing_id)
     }
 
+    pub fn validate_tangible_floor_pricing(tangible_ratio_bps: u16, unit_price_ppm: u64) {
+        if tangible_ratio_bps < 5100 {
+            assert_eq!(
+                unit_price_ppm, 1_000_000,
+                "Bay' al-Dayn Violation: Assets with < 51% tangible backing can only trade at exact par value"
+            );
+        }
+    }
+
+    pub fn validate_shufah_priority(
+        now_sec: i64,
+        priority_until_sec: i64,
+        buyer_existing_balance: u64,
+    ) {
+        if now_sec < priority_until_sec {
+            assert!(
+                buyer_existing_balance > 0,
+                "Haqq al-Shuf'ah Violation: Co-owner exclusive purchase window active until {}",
+                priority_until_sec
+            );
+        }
+    }
+
     /// Backwards-compatible alias for getPriorityListing
     #[action]
     fn getRwaListing(listing_id: u64) -> Option<PriorityListing> {
-        Self::getPriorityListing(listing_id)
+        getPriorityListing(listing_id)
     }
 
     #[event(history)]

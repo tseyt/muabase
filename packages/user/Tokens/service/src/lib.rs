@@ -392,12 +392,7 @@ pub mod service {
         if let Some(pool) = AssetPoolConfig::get(token_id) {
             if pool.min_trust_score > 0 {
                 let score = psibase::services::credentials::Wrapper::call().trustScoreOf(debitor);
-                assert!(
-                    score >= pool.min_trust_score,
-                    "Receiver trust_score {} is below the asset pool minimum {}",
-                    score,
-                    pool.min_trust_score
-                );
+                enforce_asset_pool_trust_gate(pool.min_trust_score, score);
             }
             if pool.max_holders > 0 {
                 let has_bal = BalanceTable::read()
@@ -447,13 +442,13 @@ pub mod service {
             config.min_trust_score <= 10000,
             "min_trust_score must be within 0..=10000 bps"
         );
-        AssetPoolConfigTable::new().put(&config).unwrap();
+        AssetPoolConfigTable::read_write().put(&config).unwrap();
     }
 
     /// Backwards-compatible alias for configureAssetPool
     #[action]
     fn configureRwaSeries(config: AssetPoolConfig) {
-        Self::configureAssetPool(config);
+        configureAssetPool(config);
     }
 
     /// Fetches Asset Pool configuration
@@ -465,7 +460,18 @@ pub mod service {
     /// Backwards-compatible alias for getAssetPool
     #[action]
     fn getRwaConfig(token_id: TID) -> Option<AssetPoolConfig> {
-        Self::getAssetPool(token_id)
+        getAssetPool(token_id)
+    }
+
+    pub fn enforce_asset_pool_trust_gate(min_trust_score: u32, receiver_score: u32) {
+        if min_trust_score > 0 {
+            assert!(
+                receiver_score >= min_trust_score,
+                "Receiver trust_score {} is below the asset pool minimum {}",
+                receiver_score,
+                min_trust_score
+            );
+        }
     }
 
     /// Uncredit tokens that were credited into a shared balance

@@ -24,5 +24,7 @@ crate-type = ["rlib"]
 
 [dependencies]
 branding = { path = "service", version = "0.29.0" }
-branding-plugin = { path = "plugin", version = "0.29.0" }
 psibase-user-workspace-hack.workspace = true
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+branding-plugin = { path = "plugin", version = "0.29.0" }

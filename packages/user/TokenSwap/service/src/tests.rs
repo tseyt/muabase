@@ -1,6 +1,6 @@
 #![allow(non_snake_case)]
 
-#[cfg(test)]
+#[cfg(all(test, target_family = "wasm"))]
 mod tests {
     use crate::Wrapper;
     use psibase::services::nft::NID;
@@ -414,5 +414,34 @@ mod tests {
         swap_and_assert(&chain, alice, vec![pool_id], token_b, 1000, 1, token_a, 999);
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod unit_tests {
+    #[test]
+    fn test_tangible_floor_pricing_allows_premium_or_discount_above_51_percent() {
+        crate::service::validate_tangible_floor_pricing(5100, 1_250_000);
+        crate::service::validate_tangible_floor_pricing(8000, 900_000);
+        crate::service::validate_tangible_floor_pricing(3000, 1_000_000);
+    }
+
+    #[test]
+    #[should_panic(expected = "Bay' al-Dayn Violation")]
+    fn test_tangible_floor_pricing_rejects_non_par_below_51_percent() {
+        crate::service::validate_tangible_floor_pricing(5099, 950_000);
+    }
+
+    #[test]
+    fn test_shufah_priority_allows_co_owner_during_window_and_anyone_after() {
+        crate::service::validate_shufah_priority(100, 200, 10);
+        crate::service::validate_shufah_priority(200, 200, 0);
+        crate::service::validate_shufah_priority(250, 200, 0);
+    }
+
+    #[test]
+    #[should_panic(expected = "Haqq al-Shuf'ah Violation")]
+    fn test_shufah_priority_rejects_outsider_during_priority_window() {
+        crate::service::validate_shufah_priority(150, 200, 0);
     }
 }

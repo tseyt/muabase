@@ -5,7 +5,9 @@ pub mod tables {
     use psibase::services::accounts::Wrapper as Accounts;
     use psibase::services::nft::{Wrapper as Nfts, NID};
     use psibase::services::tokens::{Decimal, Precision, Quantity};
-    use psibase::{abort_message, get_sender, AccountNumber, Memo, ServiceWrapper, TableRecord};
+    use psibase::{
+        abort_message, get_sender, AccountNumber, Checksum256, Memo, ServiceWrapper, TableRecord,
+    };
     use psibase::{define_flags, Flags};
     use psibase::{Pack, Table, ToSchema, Unpack};
     use serde::{Deserialize, Serialize};
@@ -300,6 +302,11 @@ pub mod tables {
         #[primary_key]
         fn pk(&self) -> (AccountNumber, TID) {
             (self.account, self.token_id)
+        }
+
+        #[secondary_key(1)]
+        fn by_token(&self) -> (TID, AccountNumber) {
+            (self.token_id, self.account)
         }
 
         fn new(account: AccountNumber, token_id: TID) -> Self {

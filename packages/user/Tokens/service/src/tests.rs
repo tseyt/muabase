@@ -1,6 +1,6 @@
 #![allow(non_snake_case)]
 
-#[cfg(test)]
+#[cfg(all(test, target_family = "wasm"))]
 mod tests {
     use crate::helpers::to_fixed;
     use crate::Wrapper;
@@ -552,5 +552,21 @@ mod tests {
         assert_eq!(3_0000, savings_balance_2);
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod unit_tests {
+    #[test]
+    fn test_asset_pool_trust_gate_allows_qualified_receiver() {
+        crate::service::enforce_asset_pool_trust_gate(7000, 7000);
+        crate::service::enforce_asset_pool_trust_gate(7000, 9500);
+        crate::service::enforce_asset_pool_trust_gate(0, 0);
+    }
+
+    #[test]
+    #[should_panic(expected = "Receiver trust_score 5500 is below the asset pool minimum 7000")]
+    fn test_asset_pool_trust_gate_rejects_unqualified_receiver() {
+        crate::service::enforce_asset_pool_trust_gate(7000, 5500);
     }
 }

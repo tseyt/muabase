@@ -213,17 +213,12 @@ pub mod tables {
                 .expect("Receiver DNE");
 
             if let Some(asset) = NftAssetConfig::get(nft_id) {
-                if asset.min_trust_score > 0 {
-                    assert!(asset.min_trust_score <= 10000, "Invalid trust score threshold");
-                    let score = psibase::services::credentials::Wrapper::call()
-                        .trustScoreOf(debitor);
-                    assert!(
-                        score >= asset.min_trust_score,
-                        "Receiver trust_score {} is below the asset minimum {}",
-                        score,
-                        asset.min_trust_score
-                    );
-                }
+                let score = if asset.min_trust_score > 0 {
+                    psibase::services::credentials::Wrapper::call().trustScoreOf(debitor)
+                } else {
+                    0
+                };
+                super::service::enforce_nft_trust_gate(asset.min_trust_score, score);
             }
 
             let new_instance = Self::new(nft_id, creditor, debitor);
@@ -388,6 +383,7 @@ pub mod service {
     use crate::tables::*;
     use psibase::{
         get_sender, services::events, AccountNumber, EventDb, Memo, MethodNumber, ServiceWrapper,
+        Table,
     };
 
     pub type NID = u32;
@@ -506,7 +502,11 @@ pub mod service {
             config.tangible_ratio_bps >= 5100,
             "Tangible backing ratio must be >= 5100 bps (51% tangible backing)"
         );
-        NftRwaConfigTable::new().put(&config).unwrap();
+        assert!(
+            config.min_trust_score <= 10000,
+            "min_trust_score must be within 0..=10000 bps"
+        );
+        NftRwaConfigTable::read_write().put(&config).unwrap();
     }
 
     /// Fetches RWA NFT configuration
@@ -523,5 +523,35 @@ pub mod service {
         counter_party: AccountNumber,
         memo: Memo,
     ) {
+    }
+
+    pub fn enforce_nft_trust_gate(min_trust_score: u32, receiver_score: u32) {
+        if min_trust_score > 0 {
+            assert!(min_trust_score <= 10000, "Invalid trust score threshold");
+            assert!(
+                receiver_score >= min_trust_score,
+                "Receiver trust_score {} is below the asset minimum {}",
+                receiver_score,
+                min_trust_score
+            );
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::service::enforce_nft_trust_gate;
+
+    #[test]
+    fn test_nft_trust_gate_allows_qualified_receiver() {
+        enforce_nft_trust_gate(7500, 7500);
+        enforce_nft_trust_gate(7500, 9200);
+        enforce_nft_trust_gate(0, 0);
+    }
+
+    #[test]
+    #[should_panic(expected = "Receiver trust_score 6500 is below the asset minimum 7500")]
+    fn test_nft_trust_gate_rejects_unqualified_receiver() {
+        enforce_nft_trust_gate(7500, 6500);
     }
 }
