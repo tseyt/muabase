@@ -96,6 +96,9 @@ pub mod service {
     use psibase::services::tokens::Quantity;
     use psibase::*;
 
+    /// trust_score deduction (bps) applied to a respondent found at fault by the triage quorum
+    const FAULT_TRUST_PENALTY_BPS: u32 = 500;
+
     pub const MUTUAL_SHIELD: AccountNumber = account!("mutualshield");
 
     #[action]
@@ -195,8 +198,15 @@ pub mod service {
             // Credit the claimant directly through MutualShield
             claim.status = CLAIM_STATUS_DISBURSED;
 
-            // Update respondent trust_score in Credentials (penalize fault)
-            // psibase::services::credential::Wrapper::call().updateTrustScore(claim.respondent, 7500, false);
+            // Update respondent trust_score in Credentials (penalize fault) relative to
+            // their actual current score rather than overwriting it with a fixed value.
+            let credentials = psibase::services::credentials::Wrapper::call();
+            let current = credentials.trustScoreOf(claim.respondent);
+            credentials.updateTrustScore(
+                claim.respondent,
+                current.saturating_sub(FAULT_TRUST_PENALTY_BPS),
+                false,
+            );
 
             Wrapper::emit().history().claimResolved(claim_id, true, claim.approved_amount);
         } else if claim.rejections.len() >= 2 {

@@ -30,10 +30,17 @@ pub mod service {
     use crate::policy::StagedTxPolicy;
     use fracpack::Pack;
     use psibase::services::transact::ServiceMethod;
-    use psibase::services::{events::Wrapper as Events, transact::Wrapper as Transact};
+    use psibase::services::{
+        credentials::Wrapper as Credentials, events::Wrapper as Events,
+        transact::Wrapper as Transact,
+    };
     use psibase::*;
 
     const ENABLE_PRINT: bool = false;
+
+    /// Minimum `trust_score` (bps) a witness needs to attest. Matches the documented
+    /// adjudicator floor used by Guilds / ClaimCouncil evaluators (80.00%).
+    const MIN_WITNESS_TRUST_SCORE: u32 = 8000;
 
     fn debug_print(msg: &str) {
         if ENABLE_PRINT {
@@ -85,14 +92,25 @@ pub mod service {
     }
 
     /// Proposes a new staged transaction with Ricardian legal hash and witness quorum
+    ///
+    /// * `required_witnesses`: Number of qualified witnesses that must attest before execution
+    /// * `required_domain`: Domain badge every witness must hold (`None` = any active badge)
     #[action]
+    #[allow(non_snake_case)]
     fn proposeRicardian(
         actions: Vec<Action>,
         auto_exec: bool,
         ricardian_hash: Option<Checksum256>,
         required_witnesses: u8,
+        required_domain: Option<String>,
     ) -> u32 {
-        let new_tx = StagedTx::add_with_ricardian(actions, auto_exec, ricardian_hash, required_witnesses);
+        let new_tx = StagedTx::add_with_ricardian(
+            actions,
+            auto_exec,
+            ricardian_hash,
+            required_witnesses,
+            required_domain,
+        );
 
         emit_update(new_tx.txid.clone(), StagedTxEvent::PROPOSED);
 
@@ -102,12 +120,48 @@ pub mod service {
         new_tx.id
     }
 
-    /// Attests to a staged transaction as a qualified witness with trust_score and domain_badge credentials
+    /// Attests to a staged transaction as a qualified witness.
+    ///
+    /// The witness's `trust_score` and `domain_badge` are read from the credential
+    /// service (never supplied by the caller) and snapshotted into the attestation.
+    /// The witness must:
+    /// * not be the proposer or a party to the staged actions,
+    /// * hold a trust score of at least `MIN_WITNESS_TRUST_SCORE`, and
+    /// * hold an active `domain_badge`, matching `required_domain` if one was set.
     #[action]
+    #[allow(non_snake_case)]
     fn attestWitness(id: u32, txid: Checksum256, domain_badge: String) {
         let staged_tx = StagedTx::get(id, txid);
         assert!(staged_tx.required_witnesses > 0, "This staged tx does not require witnesses");
         let witness = get_sender();
+
+        assert!(witness != staged_tx.proposer, "Proposer cannot witness their own staged tx");
+        assert!(
+            !staged_tx.action_list.actions.iter().any(|a| a.sender == witness),
+            "A party to the staged tx cannot act as its witness"
+        );
+
+        if let Some(required) = &staged_tx.required_domain {
+            assert!(
+                &domain_badge == required,
+                "Witness must attest with the required domain badge: {}",
+                required
+            );
+        }
+
+        let credentials = Credentials::call();
+        assert!(
+            credentials.hasDomainBadge(witness, domain_badge.clone()),
+            "Witness does not hold an active domain badge: {}",
+            domain_badge
+        );
+        let trust_score = credentials.trustScoreOf(witness);
+        assert!(
+            trust_score >= MIN_WITNESS_TRUST_SCORE,
+            "Witness trust_score {} is below the required {}",
+            trust_score,
+            MIN_WITNESS_TRUST_SCORE
+        );
 
         let table = WitnessAttestationTable::new();
         assert!(
@@ -118,7 +172,7 @@ pub mod service {
         let attestation = WitnessAttestation {
             id,
             witness,
-            trust_score: 10000,
+            trust_score,
             domain_badge,
             timestamp: Transact::call().currentBlock().time,
         };

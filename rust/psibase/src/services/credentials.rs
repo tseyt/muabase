@@ -1,6 +1,23 @@
 use crate::{self as psibase, account, AccountNumber};
+use fracpack::{Pack, ToSchema, Unpack};
+use serde::{Deserialize, Serialize};
 
 pub const CREDENTIAL_SENDER: AccountNumber = account!("cred-sys");
+
+/// Upper bound for `trust_score` values (basis points, 10000 = 100.00%)
+pub const MAX_TRUST_SCORE: u32 = 10000;
+
+/// Soulbound reliability record (`trust_score` / Adalah) as stored by the credential service
+#[derive(Debug, Clone, Pack, Unpack, Serialize, Deserialize, ToSchema)]
+#[fracpack(fracpack_mod = "fracpack")]
+pub struct TrustScoreRecord {
+    pub account: AccountNumber,
+    pub score: u32,
+    pub total_audits: u32,
+    pub successful_audits: u32,
+    pub disputes_involved: u32,
+    pub last_updated: crate::TimePointSec,
+}
 
 #[crate::service(name = "credential", dispatch = false, psibase_mod = "crate")]
 #[allow(unused_variables)]
@@ -103,6 +120,85 @@ pub mod service {
     /// Can only be called by the credential's issuer.
     #[action]
     fn consume(id: u32) {
+        unimplemented!()
+    }
+
+    /// Updates or initializes a soulbound trust score (Adalah) reliability record.
+    /// The caller is the reporter and may not report on itself.
+    #[action]
+    #[allow(non_snake_case)]
+    fn updateTrustScore(account: AccountNumber, score: u32, is_success: bool) {
+        unimplemented!()
+    }
+
+    /// Backwards-compatible alias for updateTrustScore
+    #[action]
+    #[allow(non_snake_case)]
+    fn updateAdalahScore(account: AccountNumber, score: u32, is_success: bool) {
+        unimplemented!()
+    }
+
+    /// Fetches the trust score reliability record for an account
+    #[action]
+    #[allow(non_snake_case)]
+    fn getTrustScore(account: AccountNumber) -> Option<super::TrustScoreRecord> {
+        unimplemented!()
+    }
+
+    /// Backwards-compatible alias for getTrustScore
+    #[action]
+    #[allow(non_snake_case)]
+    fn getAdalahRecord(account: AccountNumber) -> Option<super::TrustScoreRecord> {
+        unimplemented!()
+    }
+
+    /// Returns the account's current trust score, or 0 if it has no record
+    #[action]
+    #[allow(non_snake_case)]
+    fn trustScoreOf(account: AccountNumber) -> u32 {
+        unimplemented!()
+    }
+
+    /// Issues a non-transferable domain competence badge (Ikhtisas).
+    /// The caller is the issuer and may not issue a badge to itself.
+    #[action]
+    #[allow(non_snake_case)]
+    fn issueDomainBadge(account: AccountNumber, domain: String, cert_hash: crate::Checksum256) {
+        unimplemented!()
+    }
+
+    /// Backwards-compatible alias for issueDomainBadge
+    #[action]
+    #[allow(non_snake_case)]
+    fn issueIkhtisasTag(account: AccountNumber, domain: String, cert_hash: crate::Checksum256) {
+        unimplemented!()
+    }
+
+    /// Revokes a domain competence badge
+    #[action]
+    #[allow(non_snake_case)]
+    fn revokeDomainBadge(account: AccountNumber, domain: String) {
+        unimplemented!()
+    }
+
+    /// Backwards-compatible alias for revokeDomainBadge
+    #[action]
+    #[allow(non_snake_case)]
+    fn revokeIkhtisasTag(account: AccountNumber, domain: String) {
+        unimplemented!()
+    }
+
+    /// Checks whether an account holds an active domain badge
+    #[action]
+    #[allow(non_snake_case)]
+    fn hasDomainBadge(account: AccountNumber, domain: String) -> bool {
+        unimplemented!()
+    }
+
+    /// Backwards-compatible alias for hasDomainBadge
+    #[action]
+    #[allow(non_snake_case)]
+    fn hasIkhtisas(account: AccountNumber, domain: String) -> bool {
         unimplemented!()
     }
 }

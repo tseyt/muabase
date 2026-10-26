@@ -50,6 +50,10 @@ pub mod tables {
 
         /// Required number of Adalah witnesses before execution (default 2 for Shahidayn)
         pub required_witnesses: u8,
+
+        /// Domain badge (Ikhtisas) every witness must hold, e.g. "master_appraiser".
+        /// `None` accepts any active domain badge.
+        pub required_domain: Option<String>,
     }
     impl StagedTx {
         #[primary_key]
@@ -162,7 +166,7 @@ pub mod impls {
 
     impl StagedTx {
         pub fn add(actions: Vec<Action>, auto_exec: bool) -> Self {
-            Self::add_with_ricardian(actions, auto_exec, None, 0)
+            Self::add_with_ricardian(actions, auto_exec, None, 0, None)
         }
 
         pub fn add_with_ricardian(
@@ -170,6 +174,7 @@ pub mod impls {
             auto_exec: bool,
             ricardian_hash: Option<Checksum256>,
             required_witnesses: u8,
+            required_domain: Option<String>,
         ) -> Self {
             assert!(
                 actions.len() > 0,
@@ -202,6 +207,7 @@ pub mod impls {
                 auto_exec,
                 ricardian_hash,
                 required_witnesses,
+                required_domain,
             };
 
             StagedTxTable::new().put(&new_tx).unwrap();

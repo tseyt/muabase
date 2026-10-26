@@ -215,6 +215,14 @@ pub mod tables {
             if let Some(asset) = NftAssetConfig::get(nft_id) {
                 if asset.min_trust_score > 0 {
                     assert!(asset.min_trust_score <= 10000, "Invalid trust score threshold");
+                    let score = psibase::services::credentials::Wrapper::call()
+                        .trustScoreOf(debitor);
+                    assert!(
+                        score >= asset.min_trust_score,
+                        "Receiver trust_score {} is below the asset minimum {}",
+                        score,
+                        asset.min_trust_score
+                    );
                 }
             }
 

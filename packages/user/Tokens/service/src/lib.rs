@@ -390,6 +390,15 @@ pub mod service {
         let creditor = get_sender();
 
         if let Some(pool) = AssetPoolConfig::get(token_id) {
+            if pool.min_trust_score > 0 {
+                let score = psibase::services::credentials::Wrapper::call().trustScoreOf(debitor);
+                assert!(
+                    score >= pool.min_trust_score,
+                    "Receiver trust_score {} is below the asset pool minimum {}",
+                    score,
+                    pool.min_trust_score
+                );
+            }
             if pool.max_holders > 0 {
                 let has_bal = BalanceTable::read()
                     .get_index_pk()
@@ -433,6 +442,10 @@ pub mod service {
         assert!(
             config.tangible_ratio_bps >= 5100,
             "Tangible ratio must be >= 5100 bps (51% tangible backing required)"
+        );
+        assert!(
+            config.min_trust_score <= 10000,
+            "min_trust_score must be within 0..=10000 bps"
         );
         AssetPoolConfigTable::new().put(&config).unwrap();
     }

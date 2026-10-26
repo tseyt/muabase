@@ -230,10 +230,14 @@ pub mod service {
     #[action]
     #[allow(non_snake_case)]
     fn updateTrustScore(account: AccountNumber, score: u32, is_success: bool) {
+        // A soulbound reputation is only meaningful if it is attested by someone else
+        assert!(get_sender() != account, "Cannot report on your own trust score");
+        assert!(score <= 10000, "trust_score must be within 0..=10000 bps");
+
         let table = TrustScoreTable::read_write();
         let mut record = table.get_index_pk().get(&account).unwrap_or(TrustScoreRecord {
             account,
-            score: 10000,
+            score: 0,
             total_audits: 0,
             successful_audits: 0,
             disputes_involved: 0,
@@ -256,7 +260,7 @@ pub mod service {
     #[action]
     #[allow(non_snake_case)]
     fn updateAdalahScore(account: AccountNumber, score: u32, is_success: bool) {
-        Self::updateTrustScore(account, score, is_success);
+        updateTrustScore(account, score, is_success);
     }
 
     /// Fetches the trust score reliability record for an account
@@ -270,13 +274,27 @@ pub mod service {
     #[action]
     #[allow(non_snake_case)]
     fn getAdalahRecord(account: AccountNumber) -> Option<TrustScoreRecord> {
-        Self::getTrustScore(account)
+        getTrustScore(account)
+    }
+
+    /// Returns the account's current trust score, or 0 if it has no record.
+    /// Accounts with no audit history are untrusted by default.
+    #[action]
+    #[allow(non_snake_case)]
+    fn trustScoreOf(account: AccountNumber) -> u32 {
+        TrustScoreTable::read()
+            .get_index_pk()
+            .get(&account)
+            .map(|r| r.score)
+            .unwrap_or(0)
     }
 
     /// Issues a non-transferable domain competence badge (Ikhtisas)
     #[action]
     #[allow(non_snake_case)]
     fn issueDomainBadge(account: AccountNumber, domain: String, cert_hash: Checksum256) {
+        assert!(get_sender() != account, "Cannot issue a domain badge to yourself");
+        assert!(!domain.is_empty(), "Domain must not be empty");
         let table = DomainBadgeTable::read_write();
         let record = DomainBadgeRecord {
             account,
@@ -293,7 +311,7 @@ pub mod service {
     #[action]
     #[allow(non_snake_case)]
     fn issueIkhtisasTag(account: AccountNumber, domain: String, cert_hash: Checksum256) {
-        Self::issueDomainBadge(account, domain, cert_hash);
+        issueDomainBadge(account, domain, cert_hash);
     }
 
     /// Revokes a domain competence badge
@@ -315,7 +333,7 @@ pub mod service {
     #[action]
     #[allow(non_snake_case)]
     fn revokeIkhtisasTag(account: AccountNumber, domain: String) {
-        Self::revokeDomainBadge(account, domain);
+        revokeDomainBadge(account, domain);
     }
 
     /// Checks whether an account holds an active domain badge
@@ -333,6 +351,6 @@ pub mod service {
     #[action]
     #[allow(non_snake_case)]
     fn hasIkhtisas(account: AccountNumber, domain: String) -> bool {
-        Self::hasDomainBadge(account, domain)
+        hasDomainBadge(account, domain)
     }
 }
