@@ -63,7 +63,7 @@ namespace triedent
              });
          _gc_thread = std::thread{[this]
                                   {
-                                     set_current_thread_name("swap");
+                                     set_current_thread_name("gc");
                                      _gc.run(&_done);
                                   }};
       }

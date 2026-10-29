@@ -1983,10 +1983,10 @@ namespace triedent
             return result;
          }
          // collect children in a temporary buffer
-         object_id   children_buf[n];
-         object_id*  positions[sizeof...(children)];
-         object_id** pos = positions;
-         object_id*  out = children_buf;
+         std::array<object_id, 64> children_buf;
+         object_id*                positions[sizeof...(children)];
+         object_id**               pos = positions;
+         object_id*                out = children_buf.data();
          ((out = *pos++ = std::ranges::copy(children.children(), out).out), ...);
          // clone children (once we start this, children.children() is not safe to use)
          if (always_clone_value)
@@ -2006,12 +2006,12 @@ namespace triedent
                val = bump_refcount_or_copy(session.ring(), l, val);
             }
          }
-         out = children_buf;
+         out = children_buf.data();
          pos = positions;
          ((detail::do_clone_children(session, l, children, std::span{out, *pos}), out = *pos++),
           ...);
 
-         return inner_node::make(session.ring(), l, key, val, branches, children_buf)
+         return inner_node::make(session.ring(), l, key, val, branches, children_buf.data())
              .first.get_id();
       }
 

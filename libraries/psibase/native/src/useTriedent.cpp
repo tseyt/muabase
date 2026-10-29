@@ -508,8 +508,8 @@ namespace psibase
       IndependentChangeSet            subjectiveChanges;
       std::vector<SocketChange>       socketChanges;
       std::vector<SubjectiveRevision> subjectiveRevisions;
-      std::size_t                     subjectiveLimit;
-      DatabaseCallbacks::Flags        callbackFlags = {};
+      std::size_t                     subjectiveLimit = 0;
+      DatabaseCallbacks::Flags        callbackFlags   = {};
 
       auto db(auto& revision, DbId db) -> decltype((revision.roots[(int)db]))
       {

@@ -2,7 +2,9 @@
 #include <triedent/cache_allocator.hpp>
 #include <triedent/debug.hpp>
 
+#include <array>
 #include <cstring>
+#include <vector>
 
 namespace triedent
 {
@@ -143,10 +145,18 @@ namespace triedent
          if (key_offset != std::uint32_t(-1))
             key = key.substr(key_offset);
          assert(value_size <= 0xffffff - key.size() - sizeof(value_node));
-         uint32_t          alloc_size = sizeof(value_node) + key.size() + value_size;
-         const std::size_t n          = val.size() / sizeof(object_id);
-         object_id         roots[n + 1];  // add 1 to avoid zero-size VLA
-         std::memcpy(&roots, val.data(), val.size());
+         uint32_t                  alloc_size = sizeof(value_node) + key.size() + value_size;
+         const std::size_t         n          = val.size() / sizeof(object_id);
+         std::array<object_id, 64> stack_roots;
+         std::vector<object_id>    heap_roots;
+         object_id*                roots = stack_roots.data();
+         if (n > stack_roots.size())
+         {
+            heap_roots.resize(n);
+            roots = heap_roots.data();
+         }
+         if (value_size != 0)
+            std::memcpy(roots, val.data(), value_size);
          // copy_node or alloc invalidates key and val
          for (std::size_t i = 0; i < n; ++i)
          {
@@ -159,7 +169,7 @@ namespace triedent
                auto ptr = get(a, session, id);
                key      = ptr->key().substr(key_offset);
             }
-            val = {reinterpret_cast<const char*>(&roots[0]), value_size};
+            val = {reinterpret_cast<const char*>(roots), value_size};
          }
          if constexpr (debug_nodes)
             std::cout << r.first.get_id().id << ": construct value_node: type=" << (int)type
@@ -288,16 +298,17 @@ namespace triedent
          key = key.substr(key_offset);
       const std::size_t n          = std::popcount(branches);
       uint32_t          alloc_size = sizeof(inner_node) + key.size() + n * sizeof(object_id);
-      object_id         children[n + 1];
+      std::array<object_id, 64> children;
       if (in->_present_bits == branches)
       {
-         std::memcpy(&children[0], in->children(), n * sizeof(object_id));
+         if (n != 0)
+            std::memcpy(children.data(), in->children(), n * sizeof(object_id));
       }
       else
       {
          auto       remaining_branches = branches;
          auto       in_branches        = in->_present_bits;
-         object_id* child_iter         = children;
+         object_id* child_iter         = children.data();
          while (remaining_branches)
          {
             auto fb     = std::countr_zero(remaining_branches);
@@ -323,8 +334,8 @@ namespace triedent
       auto newid = p.first.get_id();
       if constexpr (debug_nodes)
          std::cout << newid.id << ": construct inner_node" << std::endl;
-      return std::make_pair(std::move(p.first),
-                            new (p.second) inner_node(newid, key, value, branches, children));
+      return std::make_pair(std::move(p.first), new (p.second) inner_node(
+                                                    newid, key, value, branches, children.data()));
    }
 
    inline std::pair<location_lock, inner_node*> inner_node::make(

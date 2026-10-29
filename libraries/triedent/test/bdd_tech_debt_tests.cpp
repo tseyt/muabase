@@ -358,6 +358,72 @@ SCENARIO("ring_allocator aligns unaligned ring capacity to prevent wrap-around h
    }
 }
 
+SCENARIO("node cloning and range splicing handle >64 roots and multi-branch nodes without VLAs")
+{
+   GIVEN("a triedent database storing a roots vector larger than 64 entries and spliced ranges")
+   {
+      scoped_temp_dir  dir{"triedent_no_vla"};
+      database::config cfg{
+          .hot_bytes  = 256 * 1024,
+          .warm_bytes = 256 * 1024,
+          .cool_bytes = 256 * 1024,
+          .cold_bytes = 256 * 1024,
+      };
+      auto db = std::make_shared<database>(dir.path, cfg, open_mode::create);
+      auto ws = db->start_write_session();
+
+      auto as_span = [](std::string_view sv)
+      { return std::span<const char>{sv.data(), sv.size()}; };
+
+      std::vector<shared_root> subroots;
+      for (int i = 0; i < 80; ++i)
+      {
+         shared_root sr;
+         auto        k = "sub_" + std::to_string(i);
+         auto        v = "val_" + std::to_string(i);
+         ws->upsert(sr, as_span(k), as_span(v));
+         subroots.push_back(std::move(sr));
+      }
+
+      WHEN("a >64-entry roots value is upserted, cloned across shared snapshots, and range-spliced")
+      {
+         shared_root r1;
+         ws->upsert(r1, as_span("all_roots"), std::span<const shared_root>{subroots});
+         auto r2 = r1;  // shared refcount=2 forces inner/value clone when mutating overlapping key
+         ws->upsert(r2, as_span("all"), as_span("parent_prefix"));
+
+         shared_root r_left;
+         ws->upsert(r_left, as_span("k_a"), as_span("1"));
+         ws->upsert(r_left, as_span("k_m"), as_span("left_m"));
+         ws->upsert(r_left, as_span("k_z"), as_span("left_z"));
+         shared_root r_right;
+         ws->upsert(r_right, as_span("k_m"), as_span("right_m"));
+         ws->upsert(r_right, as_span("k_z"), as_span("right_z"));
+         ws->splice(r_left, r_right, as_span("k_f"), as_span("k_t"));
+
+         THEN("all 80 roots survive cloning intact and spliced range reflects right-tree middle")
+         {
+            std::vector<shared_root> fetched;
+            REQUIRE(ws->get(r2, as_span("all_roots"), nullptr, &fetched));
+            REQUIRE(fetched.size() == 80);
+
+            auto get_str = [&](const shared_root& root, std::string_view k) -> std::string
+            {
+               auto res = ws->get(root, as_span(k));
+               REQUIRE(res.has_value());
+               return std::string(res->begin(), res->end());
+            };
+
+            REQUIRE(get_str(fetched[0], "sub_0") == "val_0");
+            REQUIRE(get_str(fetched[79], "sub_79") == "val_79");
+            REQUIRE(get_str(r_left, "k_a") == "1");
+            REQUIRE(get_str(r_left, "k_m") == "right_m");
+            REQUIRE(get_str(r_left, "k_z") == "left_z");
+         }
+      }
+   }
+}
+
 int main()
 {
    return bdd_lite::run_all("Triedent Tech-Debt Regression Suite");
