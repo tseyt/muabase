@@ -136,6 +136,7 @@ pub mod tables {
     pub type AdalahTable = TrustScoreTable;
 
     /// Soulbound (non-transferable) domain competence credential (domain_badge / Ikhtisas)
+    /// paired with domain-scoped execution accuracy (precision_score / Dabt)
     #[table(name = "DomainBadgeTable", index = 4)]
     #[derive(Pack, Unpack, ToSchema, Serialize, Deserialize, Debug, Clone)]
     pub struct DomainBadgeRecord {
@@ -145,6 +146,9 @@ pub mod tables {
         pub issued_at: TimePointSec,
         pub cert_hash: Checksum256,
         pub active: bool,
+        pub precision_score: u32,   // 0 - 10,000 bps (Dabt: domain-specific execution accuracy)
+        pub accurate_deliveries: u32,
+        pub regressions_recorded: u32,
     }
     impl DomainBadgeRecord {
         #[primary_key]

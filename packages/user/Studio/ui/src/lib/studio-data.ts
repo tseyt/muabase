@@ -114,6 +114,14 @@ export const CANONICAL_TERMINOLOGY: TerminologyMapping[] = [
             "Soulbound specialization credential (e.g., master_appraiser, sommelier_l3, solar_auditor).",
     },
     {
+        key: "precision_score",
+        institutional: "Domain Precision & Accuracy Score",
+        muamalat: "Dabt (Exactness & Retention Accuracy)",
+        service: "credentials",
+        description:
+            "Domain-scoped technical exactness and defect-free execution score in basis points (0–10,000 bps).",
+    },
+    {
         key: "tangible_ratio",
         institutional: "Tangible Asset Backing Ratio (>= 51%)",
         muamalat: "Nisbat al-‘Ayn al-Haqiqiyyah",

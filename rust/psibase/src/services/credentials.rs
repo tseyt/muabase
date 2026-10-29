@@ -201,6 +201,39 @@ pub mod service {
     fn hasIkhtisas(account: AccountNumber, domain: String) -> bool {
         unimplemented!()
     }
+
+    /// Updates the domain-scoped execution accuracy score (precision_score / Dabt) on an active badge
+    #[action]
+    #[allow(non_snake_case)]
+    fn updatePrecisionScore(
+        account: AccountNumber,
+        domain: String,
+        score: u32,
+        is_accurate: bool,
+    ) {
+        unimplemented!()
+    }
+
+    /// Backwards-compatible Muamalat alias for updatePrecisionScore (Dabt)
+    #[action]
+    #[allow(non_snake_case)]
+    fn updateDabtScore(account: AccountNumber, domain: String, score: u32, is_accurate: bool) {
+        unimplemented!()
+    }
+
+    /// Returns the account's current domain-scoped precision_score (Dabt), or 0 if inactive/missing
+    #[action]
+    #[allow(non_snake_case)]
+    fn precisionScoreOf(account: AccountNumber, domain: String) -> u32 {
+        unimplemented!()
+    }
+
+    /// Backwards-compatible Muamalat alias for precisionScoreOf (Dabt)
+    #[action]
+    #[allow(non_snake_case)]
+    fn dabtScoreOf(account: AccountNumber, domain: String) -> u32 {
+        unimplemented!()
+    }
 }
 
 #[test]

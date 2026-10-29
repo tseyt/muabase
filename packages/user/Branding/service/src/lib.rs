@@ -112,6 +112,11 @@ pub mod tables {
                 muamalat: "Ikhtisas (Domain Specialization)".to_string(),
             },
             TerminologyMapping {
+                key: "precision_score".to_string(),
+                institutional: "Domain Precision & Accuracy Score".to_string(),
+                muamalat: "Dabt (Exactness & Retention Accuracy)".to_string(),
+            },
+            TerminologyMapping {
                 key: "tangible_ratio".to_string(),
                 institutional: "Tangible Asset Backing Ratio (>= 51%)".to_string(),
                 muamalat: "Nisbat al-‘Ayn al-Haqiqiyyah".to_string(),
@@ -231,6 +236,7 @@ mod service {
                 "rofr_window" | "rofr" | "rofr_window_sec" => "priority_window",
                 "adalah_score" => "trust_score",
                 "ikhtisas_tag" => "domain_badge",
+                "dabt_score" | "dabt" | "domain_precision" => "precision_score",
                 "charity_sink_account" => "charity_sink",
                 "tangible_ratio_bps" => "tangible_ratio",
                 "endowment_guard" => "endowment_policy",

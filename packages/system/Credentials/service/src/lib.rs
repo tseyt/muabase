@@ -15,6 +15,9 @@ pub mod service {
 
     const VSERVER: AccountNumber = VirtualServer::SERVICE;
 
+    /// Initial `precision_score` (Dabt, in bps) assigned when a domain badge is first issued.
+    pub const DEFAULT_INITIAL_PRECISION_SCORE: u32 = 8500;
+
     #[action]
     fn init() {
         InitRow::init();
@@ -285,6 +288,9 @@ pub mod service {
             issued_at: now(),
             cert_hash,
             active: true,
+            precision_score: DEFAULT_INITIAL_PRECISION_SCORE,
+            accurate_deliveries: 0,
+            regressions_recorded: 0,
         };
         table.put(&record).unwrap();
     }
@@ -294,6 +300,50 @@ pub mod service {
     #[allow(non_snake_case)]
     fn issueIkhtisasTag(account: AccountNumber, domain: String, cert_hash: Checksum256) {
         issueDomainBadge(account, domain, cert_hash);
+    }
+
+    /// Updates the domain-scoped execution accuracy score (precision_score / Dabt) on an active badge
+    #[action]
+    #[allow(non_snake_case)]
+    fn updatePrecisionScore(
+        account: AccountNumber,
+        domain: String,
+        score: u32,
+        is_accurate: bool,
+    ) {
+        let table = DomainBadgeTable::read_write();
+        let existing = table
+            .get_index_pk()
+            .get(&(account, domain.clone()))
+            .expect("Domain badge DNE");
+        let updated = apply_precision_score_update(get_sender(), existing, score, is_accurate);
+        table.put(&updated).unwrap();
+    }
+
+    /// Backwards-compatible Muamalat alias for updatePrecisionScore (Dabt)
+    #[action]
+    #[allow(non_snake_case)]
+    fn updateDabtScore(account: AccountNumber, domain: String, score: u32, is_accurate: bool) {
+        updatePrecisionScore(account, domain, score, is_accurate);
+    }
+
+    /// Returns the account's current domain-scoped precision_score (Dabt), or 0 if inactive/missing
+    #[action]
+    #[allow(non_snake_case)]
+    fn precisionScoreOf(account: AccountNumber, domain: String) -> u32 {
+        DomainBadgeTable::read()
+            .get_index_pk()
+            .get(&(account, domain))
+            .filter(|r| r.active)
+            .map(|r| r.precision_score)
+            .unwrap_or(0)
+    }
+
+    /// Backwards-compatible Muamalat alias for precisionScoreOf (Dabt)
+    #[action]
+    #[allow(non_snake_case)]
+    fn dabtScoreOf(account: AccountNumber, domain: String) -> u32 {
+        precisionScoreOf(account, domain)
     }
 
     /// Revokes a domain competence badge
@@ -377,14 +427,44 @@ pub mod service {
         assert!(sender != account, "Cannot issue a domain badge to yourself");
         assert!(!domain.is_empty(), "Domain must not be empty");
     }
+
+    pub fn apply_precision_score_update(
+        sender: AccountNumber,
+        mut record: DomainBadgeRecord,
+        score: u32,
+        is_accurate: bool,
+    ) -> DomainBadgeRecord {
+        assert!(
+            sender != record.account,
+            "Cannot report on your own precision score"
+        );
+        assert!(
+            record.active,
+            "Cannot update precision_score on an inactive domain badge"
+        );
+        assert!(
+            score <= 10000,
+            "precision_score must be within 0..=10000 bps"
+        );
+
+        if is_accurate {
+            record.accurate_deliveries += 1;
+        } else {
+            record.regressions_recorded += 1;
+        }
+        record.precision_score = score;
+        record
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::service::{
-        apply_trust_score_update, validate_domain_badge_issuance, validate_trust_score_update,
+        apply_precision_score_update, apply_trust_score_update, validate_domain_badge_issuance,
+        validate_trust_score_update, DEFAULT_INITIAL_PRECISION_SCORE,
     };
-    use psibase::{account, TimePointSec};
+    use crate::tables::tables::DomainBadgeRecord;
+    use psibase::{account, Checksum256, TimePointSec};
 
     #[test]
     fn test_new_account_trust_score_initializes_from_zero_and_tracks_audits() {
@@ -439,5 +519,50 @@ mod tests {
         let alice = account!("alice");
         let guild = account!("guild");
         validate_domain_badge_issuance(guild, alice, "");
+    }
+
+    #[test]
+    fn test_domain_badge_precision_score_tracks_accurate_deliveries_and_regressions() {
+        let alice = account!("alice");
+        let verifier = account!("verifier");
+        let badge = DomainBadgeRecord {
+            account: alice,
+            domain: "rust_consensus".to_string(),
+            issuer: verifier,
+            issued_at: TimePointSec { seconds: 100 },
+            cert_hash: Checksum256::default(),
+            active: true,
+            precision_score: DEFAULT_INITIAL_PRECISION_SCORE,
+            accurate_deliveries: 0,
+            regressions_recorded: 0,
+        };
+
+        let after_pass = apply_precision_score_update(verifier, badge, 9200, true);
+        assert_eq!(after_pass.precision_score, 9200);
+        assert_eq!(after_pass.accurate_deliveries, 1);
+        assert_eq!(after_pass.regressions_recorded, 0);
+
+        let after_regression = apply_precision_score_update(verifier, after_pass, 7600, false);
+        assert_eq!(after_regression.precision_score, 7600);
+        assert_eq!(after_regression.accurate_deliveries, 1);
+        assert_eq!(after_regression.regressions_recorded, 1);
+    }
+
+    #[test]
+    #[should_panic(expected = "Cannot report on your own precision score")]
+    fn test_self_reporting_precision_score_is_rejected() {
+        let alice = account!("alice");
+        let badge = DomainBadgeRecord {
+            account: alice,
+            domain: "rust_consensus".to_string(),
+            issuer: account!("guild"),
+            issued_at: TimePointSec { seconds: 100 },
+            cert_hash: Checksum256::default(),
+            active: true,
+            precision_score: DEFAULT_INITIAL_PRECISION_SCORE,
+            accurate_deliveries: 0,
+            regressions_recorded: 0,
+        };
+        let _ = apply_precision_score_update(alice, badge, 9900, true);
     }
 }
