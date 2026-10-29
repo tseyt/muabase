@@ -21,6 +21,7 @@ pub mod guilds;
 pub mod http_server;
 #[allow(non_snake_case)]
 pub mod invite;
+pub mod mutual_shield;
 #[allow(non_snake_case)]
 pub mod nft;
 pub mod packages;

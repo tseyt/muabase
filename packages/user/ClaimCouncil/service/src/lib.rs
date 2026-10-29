@@ -171,32 +171,22 @@ pub mod service {
     #[action]
     pub fn voteDamageClaim(claim_id: u64, approve: bool, approved_payout: Quantity) {
         let voter = get_sender();
-        let mut claim = DamageClaimTable::read()
+        let claim = DamageClaimTable::read()
             .get_index_pk()
             .get(&claim_id)
             .expect("Claim DNE");
 
-        assert_eq!(claim.status, CLAIM_STATUS_PENDING, "Claim already resolved");
-        assert_ne!(voter, claim.claimant, "Claimant cannot vote on own claim");
-        assert_ne!(voter, claim.respondent, "Respondent cannot vote on own claim");
-        assert!(!claim.approvals.contains(&voter) && !claim.rejections.contains(&voter), "Already voted");
+        let mut claim = apply_damage_claim_vote(claim, voter, approve, approved_payout);
 
-        if approve {
-            claim.approvals.push(voter);
-            if claim.approved_amount.value == 0 || approved_payout.value < claim.approved_amount.value {
-                claim.approved_amount = approved_payout;
-            }
-        } else {
-            claim.rejections.push(voter);
-        }
-
-        // 2-of-3 Quorum Evaluation
-        if claim.approvals.len() >= 2 {
-            claim.status = CLAIM_STATUS_APPROVED;
-
-            // Trigger instant payout via MutualShield
-            // psibase::services::mutual_shield::Wrapper::call_as(SERVICE)...
-            // Credit the claimant directly through MutualShield
+        if claim.status == CLAIM_STATUS_APPROVED {
+            // Trigger instant payout via MutualShield (mut-shield verifies sender == claim-coun)
+            psibase::services::mutual_shield::Wrapper::call().disbursePayout(
+                claim.claim_id,
+                claim.pool_id,
+                claim.claimant,
+                claim.approved_amount,
+                claim.post_condition_evidence_hash.clone(),
+            );
             claim.status = CLAIM_STATUS_DISBURSED;
 
             // Update respondent trust_score in Credentials (penalize fault) relative to
@@ -207,8 +197,7 @@ pub mod service {
             credentials.updateTrustScore(claim.respondent, penalized, false);
 
             Wrapper::emit().history().claimResolved(claim_id, true, claim.approved_amount);
-        } else if claim.rejections.len() >= 2 {
-            claim.status = CLAIM_STATUS_REJECTED;
+        } else if claim.status == CLAIM_STATUS_REJECTED {
             Wrapper::emit().history().claimResolved(claim_id, false, 0.into());
         }
 
@@ -296,11 +285,49 @@ pub mod service {
     pub fn compute_fault_penalized_score(current_score: u32) -> u32 {
         current_score.saturating_sub(FAULT_TRUST_PENALTY_BPS)
     }
+
+    pub fn apply_damage_claim_vote(
+        mut claim: DamageClaim,
+        voter: AccountNumber,
+        approve: bool,
+        approved_payout: Quantity,
+    ) -> DamageClaim {
+        assert_eq!(claim.status, CLAIM_STATUS_PENDING, "Claim already resolved");
+        assert_ne!(voter, claim.claimant, "Claimant cannot vote on own claim");
+        assert_ne!(voter, claim.respondent, "Respondent cannot vote on own claim");
+        assert!(
+            !claim.approvals.contains(&voter) && !claim.rejections.contains(&voter),
+            "Already voted"
+        );
+
+        if approve {
+            claim.approvals.push(voter);
+            if claim.approved_amount.value == 0
+                || approved_payout.value < claim.approved_amount.value
+            {
+                claim.approved_amount = approved_payout;
+            }
+        } else {
+            claim.rejections.push(voter);
+        }
+
+        if claim.approvals.len() >= 2 {
+            claim.status = CLAIM_STATUS_APPROVED;
+        } else if claim.rejections.len() >= 2 {
+            claim.status = CLAIM_STATUS_REJECTED;
+        }
+
+        claim
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::service::compute_fault_penalized_score;
+    use super::service::{apply_damage_claim_vote, compute_fault_penalized_score};
+    use crate::tables::{
+        DamageClaim, CLAIM_STATUS_APPROVED, CLAIM_STATUS_PENDING,
+    };
+    use psibase::{account, Checksum256};
 
     #[test]
     fn test_fault_penalty_decrements_relative_to_current_score() {
@@ -312,5 +339,55 @@ mod tests {
     fn test_fault_penalty_saturates_at_zero() {
         assert_eq!(compute_fault_penalized_score(300), 0);
         assert_eq!(compute_fault_penalized_score(0), 0);
+    }
+
+    #[test]
+    fn test_two_of_three_approvals_clamp_payout_to_minimum_and_approve_claim() {
+        let claim = DamageClaim {
+            claim_id: 1,
+            lease_id: 101,
+            claimant: account!("alice"),
+            respondent: account!("bob"),
+            pool_id: 1,
+            claimed_amount: 50_000.into(),
+            approved_amount: 0.into(),
+            pre_condition_evidence_hash: Checksum256::default(),
+            post_condition_evidence_hash: Checksum256::default(),
+            repair_quote_hash: Checksum256::default(),
+            status: CLAIM_STATUS_PENDING,
+            approvals: Vec::new(),
+            rejections: Vec::new(),
+        };
+
+        let after_first = apply_damage_claim_vote(claim, account!("peer1"), true, 45_000.into());
+        assert_eq!(after_first.status, CLAIM_STATUS_PENDING);
+        assert_eq!(after_first.approved_amount.value, 45_000);
+
+        let after_second =
+            apply_damage_claim_vote(after_first, account!("peer2"), true, 40_000.into());
+        assert_eq!(after_second.status, CLAIM_STATUS_APPROVED);
+        assert_eq!(after_second.approved_amount.value, 40_000);
+    }
+
+    #[test]
+    #[should_panic(expected = "Respondent cannot vote on own claim")]
+    fn test_respondent_cannot_vote_on_own_damage_claim() {
+        let claim = DamageClaim {
+            claim_id: 2,
+            lease_id: 102,
+            claimant: account!("alice"),
+            respondent: account!("bob"),
+            pool_id: 1,
+            claimed_amount: 10_000.into(),
+            approved_amount: 0.into(),
+            pre_condition_evidence_hash: Checksum256::default(),
+            post_condition_evidence_hash: Checksum256::default(),
+            repair_quote_hash: Checksum256::default(),
+            status: CLAIM_STATUS_PENDING,
+            approvals: Vec::new(),
+            rejections: Vec::new(),
+        };
+
+        let _ = apply_damage_claim_vote(claim, account!("bob"), false, 0.into());
     }
 }
