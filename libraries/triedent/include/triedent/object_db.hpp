@@ -191,6 +191,7 @@ namespace triedent
       bool gc_retain(object_id id);
       void gc_start();
       void gc_finish();
+      void gc_finish(auto&& on_reclaim);
 
       bool                  pinned() const { return _region.pinned(); }
       std::span<const char> span() const
@@ -378,19 +379,34 @@ namespace triedent
 
    inline void object_db::gc_finish()
    {
+      gc_finish([](object_info) {});
+   }
+
+   inline void object_db::gc_finish(auto&& on_reclaim)
+   {
       auto h = this->header();
       assert(h->flags.load() & running_gc_flag);
-      // rebuild the free list with low ids at the top
-      auto* last_free = &h->first_free;
-      for (auto& o : std::span{h->objects + 1, h->max_allocated.id})
+      // Rebuild the free list with low IDs at the head:
+      // - first_free stores the unshifted head ID (0 when empty)
+      // - each free slot objects[id] stores create_next_ptr(next_free_id) (ref_count == 0)
+      uint64_t next_free = 0;
+      for (uint64_t id = h->max_allocated.id; id >= 1; --id)
       {
-         auto i = o.load();
+         auto& o = h->objects[id];
+         auto  i = o.load();
          if ((i & ref_count_mask) > 1)
+         {
             o.store(i - 1);
+         }
          else
-            last_free->store(create_next_ptr(&o - h->objects));
+         {
+            if ((i & ref_count_mask) == 1)
+               on_reclaim(object_info{i});
+            o.store(create_next_ptr(next_free));
+            next_free = id;
+         }
       }
-      last_free->store(0);
+      h->first_free.store(next_free);
 
       h->flags.store((h->flags.load() & ~running_gc_flag));
    }

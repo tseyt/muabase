@@ -16,6 +16,11 @@ target_include_directories(triedent-tests PUBLIC ${Boost_INCLUDE_DIRS})
 set_target_properties(triedent-tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${ROOT_BINARY_DIR})
 native_test(triedent-tests)
 
+add_executable(triedent-bdd-tests bdd_tech_debt_tests.cpp)
+target_link_libraries(triedent-bdd-tests PUBLIC triedent)
+set_target_properties(triedent-bdd-tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${ROOT_BINARY_DIR})
+native_test(triedent-bdd-tests)
+
 add_executable(triedent-tests-bigdb big.cpp)
 target_link_libraries(triedent-tests-bigdb PUBLIC Boost::program_options triedent)
 target_include_directories(triedent-tests-bigdb PUBLIC ${Boost_INCLUDE_DIRS})

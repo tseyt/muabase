@@ -81,7 +81,15 @@ namespace triedent
 
       bool gc_retain(object_id i) { return _obj_ids.gc_retain(i); }
       void gc_start() { _obj_ids.gc_start(); }
-      void gc_finish() { _obj_ids.gc_finish(); }
+      void gc_finish()
+      {
+         _obj_ids.gc_finish(
+             [this](object_info reclaimed)
+             {
+                if (reclaimed.cache == cold_cache)
+                   cold().deallocate(reclaimed);
+             });
+      }
 
       void validate(id i) { _obj_ids.validate(i); }
 
