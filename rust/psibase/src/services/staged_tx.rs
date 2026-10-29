@@ -22,6 +22,10 @@ mod service {
         pub proposer: AccountNumber,
         pub action_list: ActionList,
         pub auto_exec: bool,
+        pub ricardian_hash: Option<Checksum256>,
+        pub required_witnesses: u8,
+        pub required_domain: Option<String>,
+        pub parent_txid: Option<Checksum256>,
     }
 
     /// Initialize the service
@@ -37,6 +41,37 @@ mod service {
     /// * `auto_exec`: Enables automatic execution as soon as the transaction has enough approvals
     #[action]
     fn propose(actions: Vec<Action>, auto_exec: bool) -> u32 {
+        unimplemented!()
+    }
+
+    /// Proposes a new staged transaction with Ricardian legal hash and witness quorum
+    #[action]
+    fn proposeRicardian(
+        actions: Vec<Action>,
+        auto_exec: bool,
+        ricardian_hash: Option<Checksum256>,
+        required_witnesses: u8,
+        required_domain: Option<String>,
+    ) -> u32 {
+        unimplemented!()
+    }
+
+    /// Proposes a new staged transaction linked to a parent staged transaction txid
+    #[action]
+    fn proposeChainedRicardian(
+        actions: Vec<Action>,
+        auto_exec: bool,
+        ricardian_hash: Option<Checksum256>,
+        required_witnesses: u8,
+        required_domain: Option<String>,
+        parent_txid: Option<Checksum256>,
+    ) -> u32 {
+        unimplemented!()
+    }
+
+    /// Attests to a staged transaction as a qualified witness
+    #[action]
+    fn attestWitness(id: u32, txid: Checksum256, domain_badge: String) {
         unimplemented!()
     }
 

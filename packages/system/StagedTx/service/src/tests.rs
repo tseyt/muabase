@@ -286,7 +286,9 @@ mod tests {
 
 #[cfg(test)]
 mod unit_tests {
-    use psibase::account;
+    use crate::db::impls::build_executed_attestation;
+    use crate::db::tables::{ActionList, StagedTx, WitnessAttestation};
+    use psibase::{account, Checksum256, TimePointUSec};
 
     #[test]
     fn test_witness_eligibility_requires_valid_score_and_badge() {
@@ -302,6 +304,7 @@ mod unit_tests {
             "master_appraiser",
             true,
             9500,
+            9100,
         );
     }
 
@@ -318,6 +321,25 @@ mod unit_tests {
             None,
             "master_appraiser",
             true,
+            7999,
+            9100,
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "Witness precision_score 7999 is below the required 8000")]
+    fn test_witness_rejected_when_precision_score_below_threshold() {
+        let proposer = account!("alice");
+        let witness = account!("nour");
+
+        crate::service::validate_witness_eligibility(
+            witness,
+            proposer,
+            &[proposer],
+            Some("master_appraiser"),
+            "master_appraiser",
+            true,
+            9500,
             7999,
         );
     }
@@ -336,6 +358,7 @@ mod unit_tests {
             "master_appraiser",
             false,
             9500,
+            9100,
         );
     }
 
@@ -353,6 +376,7 @@ mod unit_tests {
             "sommelier_l3",
             true,
             9500,
+            9100,
         );
     }
 
@@ -369,6 +393,7 @@ mod unit_tests {
             "master_appraiser",
             true,
             9900,
+            9500,
         );
     }
 
@@ -386,6 +411,54 @@ mod unit_tests {
             "master_appraiser",
             true,
             9900,
+            9500,
         );
+    }
+
+    #[test]
+    fn test_executed_attestation_archives_provenance_and_parent_txid_on_execution() {
+        let proposer = account!("alice");
+        let witness = account!("nour");
+        let parent_txid = Checksum256::from([0x11; 32]);
+        let txid = Checksum256::from([0x22; 32]);
+        let ricardian_hash = Checksum256::from([0x33; 32]);
+
+        let staged_tx = StagedTx {
+            id: 42,
+            txid: txid.clone(),
+            propose_block: 10,
+            propose_date: TimePointUSec { microseconds: 1_000_000 },
+            proposer,
+            action_list: ActionList { actions: vec![] },
+            auto_exec: true,
+            ricardian_hash: Some(ricardian_hash.clone()),
+            required_witnesses: 2,
+            required_domain: Some("rust_consensus".to_string()),
+            parent_txid: Some(parent_txid.clone()),
+        };
+
+        let attestation = WitnessAttestation {
+            id: 42,
+            witness,
+            trust_score: 9400,
+            precision_score: 9100,
+            domain_badge: "rust_consensus".to_string(),
+            timestamp: TimePointUSec { microseconds: 2_000_000 },
+        };
+
+        let archived = build_executed_attestation(
+            &staged_tx,
+            &attestation,
+            TimePointUSec { microseconds: 3_000_000 },
+        );
+
+        assert_eq!(archived.id, 42);
+        assert_eq!(archived.txid, txid);
+        assert_eq!(archived.parent_txid, Some(parent_txid));
+        assert_eq!(archived.ricardian_hash, Some(ricardian_hash));
+        assert_eq!(archived.witness, witness);
+        assert_eq!(archived.trust_score, 9400);
+        assert_eq!(archived.precision_score, 9100);
+        assert_eq!(archived.domain_badge, "rust_consensus");
     }
 }

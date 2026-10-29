@@ -54,6 +54,9 @@ pub mod tables {
         /// Domain badge (Ikhtisas) every witness must hold, e.g. "master_appraiser".
         /// `None` accepts any active domain badge.
         pub required_domain: Option<String>,
+
+        /// Optional predecessor staged transaction txid for chain continuity (Ittisal al-Sanad)
+        pub parent_txid: Option<Checksum256>,
     }
     impl StagedTx {
         #[primary_key]
@@ -139,6 +142,7 @@ pub mod tables {
         pub id: u32,
         pub witness: AccountNumber,
         pub trust_score: u32,
+        pub precision_score: u32,
         pub domain_badge: String,
         pub timestamp: TimePointUSec,
     }
@@ -153,6 +157,37 @@ pub mod tables {
             (self.witness, self.id)
         }
     }
+
+    /// Append-only provenance archive preserving Bayyinah witness attestations
+    /// and chain continuity (Ittisal al-Sanad) after the ephemeral StagedTx row is deleted.
+    #[table(name = "ExecutedAttestationTable", index = 6)]
+    #[derive(
+        Pack, Unpack, Serialize, Deserialize, ToSchema, SimpleObject, Clone, Debug, PartialEq, Eq,
+    )]
+    pub struct ExecutedAttestation {
+        pub id: u32,
+        pub txid: Checksum256,
+        pub parent_txid: Option<Checksum256>,
+        pub proposer: AccountNumber,
+        pub ricardian_hash: Option<Checksum256>,
+        pub witness: AccountNumber,
+        pub trust_score: u32,
+        pub precision_score: u32,
+        pub domain_badge: String,
+        pub attested_at: TimePointUSec,
+        pub executed_at: TimePointUSec,
+    }
+    impl ExecutedAttestation {
+        #[primary_key]
+        fn pk(&self) -> (u32, AccountNumber) {
+            (self.id, self.witness)
+        }
+
+        #[secondary_key(1)]
+        fn by_txid(&self) -> (Checksum256, AccountNumber) {
+            (self.txid.clone(), self.witness)
+        }
+    }
 }
 
 pub mod impls {
@@ -162,7 +197,29 @@ pub mod impls {
     use psibase::fracpack::Pack;
     use psibase::services::transact::ServiceMethod;
     use psibase::services::{accounts::Wrapper as Accounts, transact::Wrapper as Transact};
-    use psibase::{get_sender, AccountNumber, Action, Checksum256, ServiceWrapper, Table};
+    use psibase::{
+        get_sender, AccountNumber, Action, Checksum256, ServiceWrapper, Table, TimePointUSec,
+    };
+
+    pub fn build_executed_attestation(
+        staged_tx: &StagedTx,
+        attestation: &WitnessAttestation,
+        executed_at: TimePointUSec,
+    ) -> ExecutedAttestation {
+        ExecutedAttestation {
+            id: staged_tx.id,
+            txid: staged_tx.txid.clone(),
+            parent_txid: staged_tx.parent_txid.clone(),
+            proposer: staged_tx.proposer,
+            ricardian_hash: staged_tx.ricardian_hash.clone(),
+            witness: attestation.witness,
+            trust_score: attestation.trust_score,
+            precision_score: attestation.precision_score,
+            domain_badge: attestation.domain_badge.clone(),
+            attested_at: attestation.timestamp,
+            executed_at,
+        }
+    }
 
     impl StagedTx {
         pub fn add(actions: Vec<Action>, auto_exec: bool) -> Self {
@@ -175,6 +232,24 @@ pub mod impls {
             ricardian_hash: Option<Checksum256>,
             required_witnesses: u8,
             required_domain: Option<String>,
+        ) -> Self {
+            Self::add_with_provenance(
+                actions,
+                auto_exec,
+                ricardian_hash,
+                required_witnesses,
+                required_domain,
+                None,
+            )
+        }
+
+        pub fn add_with_provenance(
+            actions: Vec<Action>,
+            auto_exec: bool,
+            ricardian_hash: Option<Checksum256>,
+            required_witnesses: u8,
+            required_domain: Option<String>,
+            parent_txid: Option<Checksum256>,
         ) -> Self {
             assert!(
                 actions.len() > 0,
@@ -208,6 +283,7 @@ pub mod impls {
                 ricardian_hash,
                 required_witnesses,
                 required_domain,
+                parent_txid,
             };
 
             StagedTxTable::new().put(&new_tx).unwrap();
@@ -264,6 +340,21 @@ pub mod impls {
 
         pub fn reject(&self) {
             Response::upsert(self.id, false);
+        }
+
+        pub fn archive_and_delete(&self, executed_at: TimePointUSec) {
+            let id = self.id;
+            let attestations = WitnessAttestationTable::new();
+            let archive = ExecutedAttestationTable::new();
+            attestations
+                .get_index_pk()
+                .range((id, AccountNumber::MIN)..=(id, AccountNumber::MAX))
+                .for_each(|a| {
+                    let archived = build_executed_attestation(self, &a, executed_at);
+                    archive.put(&archived).unwrap();
+                });
+
+            self.delete();
         }
 
         pub fn delete(&self) {

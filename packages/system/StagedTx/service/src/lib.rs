@@ -42,6 +42,9 @@ pub mod service {
     /// adjudicator floor used by Guilds / ClaimCouncil evaluators (80.00%).
     pub const MIN_WITNESS_TRUST_SCORE: u32 = 8000;
 
+    /// Minimum domain-scoped `precision_score` (Dabt, in bps) a witness needs to attest (80.00%).
+    pub const MIN_WITNESS_PRECISION_SCORE: u32 = 8000;
+
     pub fn validate_witness_eligibility(
         witness: AccountNumber,
         proposer: AccountNumber,
@@ -50,6 +53,7 @@ pub mod service {
         domain_badge: &str,
         has_active_badge: bool,
         trust_score: u32,
+        precision_score: u32,
     ) {
         assert!(
             witness != proposer,
@@ -78,6 +82,12 @@ pub mod service {
             "Witness trust_score {} is below the required {}",
             trust_score,
             MIN_WITNESS_TRUST_SCORE
+        );
+        assert!(
+            precision_score >= MIN_WITNESS_PRECISION_SCORE,
+            "Witness precision_score {} is below the required {}",
+            precision_score,
+            MIN_WITNESS_PRECISION_SCORE
         );
     }
 
@@ -159,13 +169,42 @@ pub mod service {
         new_tx.id
     }
 
+    /// Proposes a new staged transaction linked to a parent staged transaction txid
+    /// to preserve chain continuity (Ittisal al-Sanad) across multi-step operations.
+    #[action]
+    #[allow(non_snake_case)]
+    fn proposeChainedRicardian(
+        actions: Vec<Action>,
+        auto_exec: bool,
+        ricardian_hash: Option<Checksum256>,
+        required_witnesses: u8,
+        required_domain: Option<String>,
+        parent_txid: Option<Checksum256>,
+    ) -> u32 {
+        let new_tx = StagedTx::add_with_provenance(
+            actions,
+            auto_exec,
+            ricardian_hash,
+            required_witnesses,
+            required_domain,
+            parent_txid,
+        );
+
+        emit_update(new_tx.txid.clone(), StagedTxEvent::PROPOSED);
+
+        accept(new_tx.id, new_tx.txid);
+
+        new_tx.id
+    }
+
     /// Attests to a staged transaction as a qualified witness.
     ///
-    /// The witness's `trust_score` and `domain_badge` are read from the credential
-    /// service (never supplied by the caller) and snapshotted into the attestation.
+    /// The witness's `trust_score`, `precision_score`, and `domain_badge` are read from the
+    /// credential service (never supplied by the caller) and snapshotted into the attestation.
     /// The witness must:
     /// * not be the proposer or a party to the staged actions,
-    /// * hold a trust score of at least `MIN_WITNESS_TRUST_SCORE`, and
+    /// * hold a trust score of at least `MIN_WITNESS_TRUST_SCORE`,
+    /// * hold a domain precision score of at least `MIN_WITNESS_PRECISION_SCORE`, and
     /// * hold an active `domain_badge`, matching `required_domain` if one was set.
     #[action]
     #[allow(non_snake_case)]
@@ -177,6 +216,7 @@ pub mod service {
         let credentials = Credentials::call();
         let has_badge = credentials.hasDomainBadge(witness, domain_badge.clone());
         let trust_score = credentials.trustScoreOf(witness);
+        let precision_score = credentials.precisionScoreOf(witness, domain_badge.clone());
         let parties: Vec<AccountNumber> = staged_tx
             .action_list
             .actions
@@ -192,6 +232,7 @@ pub mod service {
             &domain_badge,
             has_badge,
             trust_score,
+            precision_score,
         );
 
         let table = WitnessAttestationTable::new();
@@ -204,6 +245,7 @@ pub mod service {
             id,
             witness,
             trust_score,
+            precision_score,
             domain_badge,
             timestamp: Transact::call().currentBlock().time,
         };
@@ -316,7 +358,7 @@ pub mod service {
         );
 
         let accepters = staged_tx.accepters();
-        staged_tx.delete();
+        staged_tx.archive_and_delete(Transact::call().currentBlock().time);
 
         staged_tx
             .action_list
