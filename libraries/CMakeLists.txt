@@ -2,6 +2,7 @@ enable_testing()
 
 if(DEFINED IS_NATIVE)
   add_subdirectory(triedent)
+  add_subdirectory(muabase_db)
 endif()
 
 add_subdirectory(psio)
