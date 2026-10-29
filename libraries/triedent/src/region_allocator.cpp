@@ -143,6 +143,7 @@ namespace triedent
       std::pair<std::uint64_t, std::uint64_t> queue[max_regions];
       std::uint64_t                           total = 0;
       auto*                                   end   = queue;
+      auto by_used = [](const auto& a, const auto& b) { return a.second < b.second; };
       for (std::uint64_t i = 0; i < h->num_regions; ++i)
       {
          auto used = h->region_used[i].load();
@@ -152,10 +153,10 @@ namespace triedent
             {
                total += used;
                *end++ = std::pair{i, used};
-               std::push_heap(queue, end);
+               std::push_heap(queue, end, by_used);
                if (total > threshold)
                {
-                  std::pop_heap(queue, end);
+                  std::pop_heap(queue, end, by_used);
                   --end;
                   total -= end->second;
                }
@@ -290,14 +291,15 @@ namespace triedent
    void region_allocator::load_queue()
    {
       _queue_front = _queue_pos = 0;
-      // Find the first free item if there is one
+      // Locate active circular run [front, pos) when recovering non-empty queue items;
+      // when all slots are unused, keep _queue_front == _queue_pos == 0.
       for (std::uint64_t i = 0; i < max_queue; ++i)
       {
-         if (!is_used(_header->queue[i]))
-         {
-            _queue_pos   = i;
-            _queue_front = (i + 1) % max_queue;
-         }
+         auto prev = (i + max_queue - 1) % max_queue;
+         if (is_used(_header->queue[i]) && !is_used(_header->queue[prev]))
+            _queue_front = i;
+         if (!is_used(_header->queue[i]) && is_used(_header->queue[prev]))
+            _queue_pos = i;
       }
       // Remove existing pending writes
       for (auto& used : _h->region_used)
@@ -327,7 +329,7 @@ namespace triedent
       }
       // mark current_region as pending again
       {
-         auto& used = _h->region_used[_h->current_region / _h->region_size];
+         auto& used = _h->region_used[_h->current_region];
          auto  val  = used.load();
          val += pending_write;
          used.store(val);
@@ -410,7 +412,7 @@ namespace triedent
          if (extra)
          {
             static constexpr std::uint32_t max_fill = (1u << 24);
-            while (end > max_fill + item.dest_end.load())
+            while (dest_end - end > max_fill)
             {
                new (_base + end) object_header{.size = max_fill - sizeof(object_header), .id = 0};
                end += max_fill;

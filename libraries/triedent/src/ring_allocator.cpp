@@ -13,6 +13,7 @@ namespace triedent
    {
       if (_file.size() == 0)
       {
+         size = std::max<std::uint64_t>(sizeof(object_header), (size + 7) & ~std::uint64_t(7));
          _file.resize(round_to_page(sizeof(header) + size));
          new (_file.data()) header{.magic   = file_magic,
                                    .flags   = (level << 8) | file_type_data,

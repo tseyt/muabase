@@ -127,6 +127,237 @@ SCENARIO("cache_allocator crash-recovery GC reclaims orphaned nodes so allocator
    }
 }
 
+SCENARIO("region_allocator reopen preserves pending_write on non-zero current_region")
+{
+   GIVEN("a persistent region_allocator that has advanced to region 1 and been closed")
+   {
+      scoped_temp_dir        dir{"triedent_region_reopen"};
+      auto                   ids_file  = dir.path / "obj_ids";
+      auto                   cold_file = dir.path / "cold";
+      std::vector<object_id> live_ids;
+
+      {
+         gc_queue         gc{64};
+         object_db        ids{gc, ids_file, open_mode::create};
+         region_allocator cold{gc, ids, cold_file, open_mode::create, 128};
+         gc_session       session{gc};
+
+         // Fill region 0 (128B) and advance current_region to 1:
+         // each 40B payload -> ((40+7)&-8)+8 = 48B; 3 allocations = 144B -> 3rd lands in region 1
+         for (int i = 0; i < 3; ++i)
+         {
+            std::unique_lock l{session};
+            auto             id = ids.alloc(l, node_type::bytes);
+            cold.try_allocate(l, id, 40,
+                              [&](void* ptr, object_location loc)
+                              {
+                                 std::memset(ptr, 0x10 + i, 40);
+                                 ids.init(id, loc);
+                              });
+            live_ids.push_back(id);
+         }
+      }
+
+      WHEN("region_allocator is reopened in read_write mode and region 1 rolls over to region 2")
+      {
+         gc_queue         gc{64};
+         object_db        ids{gc, ids_file, open_mode::read_write};
+         region_allocator cold{gc, ids, cold_file, open_mode::read_write, 128};
+         gc_session       session{gc};
+
+         for (int i = 0; i < 3; ++i)
+         {
+            std::unique_lock l{session};
+            auto             id = ids.alloc(l, node_type::bytes);
+            cold.try_allocate(l, id, 40,
+                              [&](void* ptr, object_location loc)
+                              {
+                                 std::memset(ptr, 0x30 + i, 40);
+                                 ids.init(id, loc);
+                              });
+            live_ids.push_back(id);
+         }
+
+         // Release both objects in region 0 (live_ids[0] and live_ids[1]); region 0 had 32B dummy
+         // tail already deallocated on rollover, so releasing the two 48B objects must free region 0!
+         {
+            std::lock_guard l{session};
+            for (int i = 0; i < 2; ++i)
+            {
+               auto info = ids.release(live_ids[i]);
+               cold.deallocate(info);
+            }
+         }
+         for (int attempt = 0; attempt < 50; ++attempt)
+         {
+            gc.poll();
+            if (cold.get_stats().available_bytes >= 128)
+               break;
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+         }
+
+         THEN("current_region rollover succeeds and releasing region 0 objects frees region 0")
+         {
+            auto stats = cold.get_stats();
+            REQUIRE(stats.available_bytes >= 128);
+            REQUIRE(stats.used_bytes <= stats.total_bytes);
+
+            std::lock_guard l{session};
+            for (std::size_t i = 2; i < live_ids.size(); ++i)
+            {
+               auto           info = ids.get(live_ids[i]);
+               object_header* h    = cold.get_object(info);
+               REQUIRE(h->data_size() == 40);
+            }
+         }
+      }
+   }
+}
+
+SCENARIO("region_allocator small-region compaction evicts sparsest region instead of lowest index")
+{
+   GIVEN("region 0 at 56/128 bytes used and region 1 at 16/128 bytes used (threshold = 64)")
+   {
+      auto             tmp = std::filesystem::temp_directory_path();
+      gc_queue         gc{64};
+      object_db        ids{gc, tmp, open_mode::temporary};
+      region_allocator cold{gc, ids, tmp, open_mode::temporary, 128};
+      gc_session       session{gc};
+
+      auto alloc_bytes = [&](std::uint32_t sz, std::uint8_t fill)
+      {
+         std::unique_lock l{session};
+         auto             id = ids.alloc(l, node_type::bytes);
+         cold.try_allocate(l, id, sz,
+                           [&](void* ptr, object_location loc)
+                           {
+                              std::memset(ptr, fill, sz);
+                              ids.init(id, loc);
+                           });
+         return id;
+      };
+
+      // Region 0: id_r0_keep (48B payload + 8B hdr = 56B) + id_r0_drop (64B payload + 8B hdr = 72B) = 128B
+      auto id_r0_keep = alloc_bytes(48, 0xA1);
+      auto id_r0_drop = alloc_bytes(64, 0xA2);
+      REQUIRE(ids.get(id_r0_keep).offset() / 128 == 0);
+
+      // Region 1: id_r1_keep (8B payload + 8B hdr = 16B) + id_r1_drop (104B payload + 8B hdr = 112B) = 128B
+      auto id_r1_keep = alloc_bytes(8, 0xB1);
+      auto id_r1_drop = alloc_bytes(104, 0xB2);
+      REQUIRE(ids.get(id_r1_keep).offset() / 128 == 1);
+
+      // Advance into Region 2 and fill most of it before releasing r0_drop and r1_drop
+      auto id_r2_fill = alloc_bytes(112, 0xC1);  // 120B in region 2
+      REQUIRE(ids.get(id_r2_fill).offset() / 128 == 2);
+
+      // Now make Region 0 used=56 (<=64) and Region 1 used=16 (<=64); sum=72 > threshold(64)!
+      {
+         std::lock_guard l{session};
+         auto            i0 = ids.release(id_r0_drop);
+         cold.deallocate(i0);
+         auto i1 = ids.release(id_r1_drop);
+         cold.deallocate(i1);
+      }
+
+      WHEN("an allocation rolls over from Region 2 into Region 3, triggering queue_small_regions")
+      {
+         auto id_r3 = alloc_bytes(32, 0xD1);
+         (void)id_r3;
+
+         // Wait briefly for background evacuation thread to evacuate the queued sparse region
+         for (int attempt = 0; attempt < 100; ++attempt)
+         {
+            gc.poll();
+            if (ids.get(id_r1_keep).offset() / 128 != 1)
+               break;
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+         }
+
+         THEN(
+             "the sparser Region 1 (16B used) was evacuated rather than dropped in favor of Region "
+             "0 (56B)")
+         {
+            REQUIRE(ids.get(id_r1_keep).offset() / 128 != 1);
+            REQUIRE(ids.get(id_r0_keep).offset() / 128 == 0);
+         }
+      }
+   }
+}
+
+SCENARIO("ring_allocator aligns unaligned ring capacity to prevent wrap-around header underflow")
+{
+   GIVEN("a ring_allocator constructed with non-8-byte-multiple size 132")
+   {
+      ring_allocator a{std::filesystem::temp_directory_path(), 132, 0, open_mode::temporary, false};
+      gc_queue       gc{64};
+      gc_session     session{gc};
+
+      WHEN("allocations fill 128 bytes, swap advances, and a new allocation wraps around the end")
+      {
+         std::vector<std::uint64_t> offsets;
+         for (int i = 0; i < 4; ++i)
+         {
+            std::unique_lock l{session};
+            bool ok = a.try_allocate(l, object_id{static_cast<std::uint64_t>(i + 1)}, 24,
+                                     [&](void* ptr, object_location loc)
+                                     {
+                                        offsets.push_back(loc.offset);
+                                        std::memset(ptr, 0x40 + i, 24);
+                                     });
+            REQUIRE(ok);
+         }
+
+         std::size_t swapped_count = 0;
+         gc.push(a.swap(96,
+                        [&](object_header* o, object_location)
+                        {
+                           REQUIRE(o->size == 24);
+                           ++swapped_count;
+                           return true;
+                        }));
+         gc.poll();
+         REQUIRE(swapped_count >= 2);
+
+         // Next 24B allocation requires 32B used_size; with unaligned 132B ring, trailing_bytes=4 < 8!
+         bool          wrapped_ok     = false;
+         std::uint64_t wrapped_offset = 0;
+         {
+            std::unique_lock l{session};
+            wrapped_ok = a.try_allocate(l, object_id{99}, 24,
+                                        [&](void* ptr, object_location loc)
+                                        {
+                                           wrapped_offset = loc.offset;
+                                           std::memset(ptr, 0x7F, 24);
+                                        });
+         }
+
+         THEN(
+             "wrap-around succeeds without underflowing dummy object_header size and swaps cleanly")
+         {
+            REQUIRE(wrapped_ok);
+            auto* obj = a.get_object(wrapped_offset);
+            REQUIRE(obj->size == 24);
+            REQUIRE(obj->id == 99);
+
+            bool saw_99 = false;
+            gc.push(a.swap(128,
+                           [&](object_header* o, object_location)
+                           {
+                              if (o->id == 99)
+                              {
+                                 REQUIRE(o->size == 24);
+                                 saw_99 = true;
+                              }
+                              return true;
+                           }));
+            gc.poll();
+            REQUIRE(saw_99);
+         }
+      }
+   }
+}
+
 int main()
 {
    return bdd_lite::run_all("Triedent Tech-Debt Regression Suite");
