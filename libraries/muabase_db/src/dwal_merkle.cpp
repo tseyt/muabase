@@ -958,6 +958,22 @@ namespace muabase_db
       if (!root)
          return Checksum256{};
 
+      auto logical_entry_hash = [&](std::span<const std::byte> k, ValueTag t,
+                                    std::span<const std::byte> v) -> Checksum256
+      {
+         if (t == ValueTag::Subtree && v.size() == sizeof(std::uint32_t))
+         {
+            std::uint32_t sub_raw = 0;
+            std::memcpy(&sub_raw, v.data(), sizeof(sub_raw));
+            ArtRoot     sub_root{&_art.allocator(), PtrAddress{sub_raw}, /*adopt_existing_ref=*/false};
+            Checksum256 sub_digest = compute_root(sub_root);
+            return hash_entry(
+                k, ValueTag::Subtree,
+                {reinterpret_cast<const std::byte*>(sub_digest.data()), sub_digest.size()});
+         }
+         return hash_entry(k, t, v);
+      };
+
       auto summarize_slice = [&](auto&                    self_slice,
                                  std::span<const KvEntry> slice,
                                  std::size_t              depth) -> CachedSummary
@@ -970,7 +986,7 @@ namespace muabase_db
                 .count = 1,
                 .edge_prefix =
                     {e.key.begin() + static_cast<std::ptrdiff_t>(depth), e.key.end()},
-                .core_hash = hash_entry(e.key, e.tag, e.value),
+                .core_hash = logical_entry_hash(e.key, e.tag, e.value),
             };
          }
 
@@ -990,7 +1006,7 @@ namespace muabase_db
          {
             has_terminal = true;
             ++_stats.nodes_hashed;
-            term_hash = hash_entry(slice[0].key, slice[0].tag, slice[0].value);
+            term_hash = logical_entry_hash(slice[0].key, slice[0].tag, slice[0].value);
             idx       = 1;
          }
 
@@ -1064,7 +1080,7 @@ namespace muabase_db
                result = CachedSummary{
                    .count       = 1,
                    .edge_prefix = std::move(in.prefix),
-                   .core_hash   = hash_entry(path_buf, in.terminal_tag, in.terminal_val),
+                   .core_hash   = logical_entry_hash(path_buf, in.terminal_tag, in.terminal_val),
                };
             }
             else if (!in.has_terminal && in.children.size() == 1)
@@ -1089,7 +1105,7 @@ namespace muabase_db
                if (in.has_terminal)
                {
                   ++_stats.nodes_hashed;
-                  term_hash = hash_entry(path_buf, in.terminal_tag, in.terminal_val);
+                  term_hash = logical_entry_hash(path_buf, in.terminal_tag, in.terminal_val);
                }
 
                std::vector<MerkleSibling> sibs;
