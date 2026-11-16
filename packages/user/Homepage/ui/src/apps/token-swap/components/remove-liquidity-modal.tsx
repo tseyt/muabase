@@ -1,4 +1,4 @@
-import { Minus } from "lucide-react";
+import { Loader2, Minus } from "lucide-react";
 
 import { TokenAmount } from "@shared/lib/plugins/token-swap";
 import {
@@ -60,10 +60,10 @@ export const RemoveLiquidityModal = ({
         <AlertDialog open={show}>
             <AlertDialogContent className="max-w-md">
                 <AlertDialogHeader className="text-center">
-                    <AlertDialogTitle className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+                    <AlertDialogTitle className="text-lg font-semibold tracking-tight">
                         Confirm Liquidity removal
                     </AlertDialogTitle>
-                    <AlertDialogDescription className="text-slate-600 dark:text-slate-400">
+                    <AlertDialogDescription className="text-muted-foreground">
                         Please review the details before confirming your
                         liquidity withdrawal.
                     </AlertDialogDescription>
@@ -74,7 +74,8 @@ export const RemoveLiquidityModal = ({
                         amount={
                             Number(firstWithdrawal?.amount).toString() || ""
                         }
-                        avatarSeed={firstWithdrawal?.tokenId?.toString() ?? "?"}
+                        tokenId={firstWithdrawal?.tokenId}
+                        iconHash={firstWithdrawalSymbol?.iconHash}
                         label="Withdrawal #1"
                         title={
                             firstWithdrawalSymbol?.symbol ||
@@ -83,16 +84,15 @@ export const RemoveLiquidityModal = ({
                     />
 
                     <div className="flex justify-center">
-                        <Minus className="text-slate-600 dark:text-slate-400" />
+                        <Minus className="text-muted-foreground" />
                     </div>
 
                     <AmountSummary
                         amount={
                             Number(secondWithdrawal?.amount).toString() ?? ""
                         }
-                        avatarSeed={
-                            secondWithdrawal?.tokenId?.toString() ?? "?"
-                        }
+                        tokenId={secondWithdrawal?.tokenId}
+                        iconHash={secondWithdrawalSymbol?.iconHash}
                         label="Withdrawal #2"
                         title={
                             secondWithdrawalSymbol?.symbol ||
@@ -120,7 +120,7 @@ export const RemoveLiquidityModal = ({
                     >
                         {isPending ? (
                             <div className="flex items-center gap-2">
-                                <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-500 border-t-transparent"></div>
+                                <Loader2 className="size-4 animate-spin" />
                                 Removing...
                             </div>
                         ) : (

@@ -16,7 +16,7 @@ pub mod service {
         *,
     };
 
-    use psibase::services::nft::{NftHolderFlags, Wrapper as Nft};
+    use psibase::services::nft::Wrapper as Nft;
     use psibase::services::tokens::{BalanceFlags, Wrapper as Tokens};
 
     #[action]
@@ -25,7 +25,7 @@ pub mod service {
             InitRow::init();
 
             Tokens::call().setUserConf(BalanceFlags::AUTO_DEBIT.index(), false);
-            Nft::call().setUserConf(NftHolderFlags::AUTO_DEBIT.index(), false);
+            Nft::call().setAutoDebit(Some(false));
         };
         let add_index = |method: &str, columns: Vec<u8>| {
             for column in columns {

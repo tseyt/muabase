@@ -1,5 +1,6 @@
 #include <catch2/catch_all.hpp>
 #include <cstdint>
+#include <format>
 #include <psibase/DefaultTestChain.hpp>
 #include <psibase/checkSchema.hpp>
 #include <psio/fracpack.hpp>
@@ -19,7 +20,60 @@ using std::vector;
 
 namespace
 {
-   constexpr auto autoDebit = Nft::autoDebit;
+   struct FirstIdData
+   {
+      NID firstAvailableId;
+   };
+   PSIO_REFLECT(FirstIdData, firstAvailableId);
+
+   struct FirstIdRoot
+   {
+      FirstIdData data;
+   };
+   PSIO_REFLECT(FirstIdRoot, data);
+
+   struct StatusNft
+   {
+      NID id;
+   };
+   PSIO_REFLECT(StatusNft, id);
+
+   struct StatusData
+   {
+      string                state;
+      optional<StatusNft>   nftDetail;
+   };
+   PSIO_REFLECT(StatusData, state, nftDetail);
+
+   struct StatusNode
+   {
+      StatusData nftStatus;
+   };
+   PSIO_REFLECT(StatusNode, nftStatus);
+
+   struct StatusRoot
+   {
+      StatusNode data;
+   };
+   PSIO_REFLECT(StatusRoot, data);
+
+   NID firstAvailable(DefaultTestChain& t, NID begin)
+   {
+      auto query = std::format("query {{ firstAvailableId(begin: {}) }}", begin);
+      auto res   = t.post(Nft::service, "/graphql", GraphQLBody{query});
+      auto body  = std::string(res.body.begin(), res.body.end());
+      UNSCOPED_INFO(body);
+      return psio::convert_from_json<FirstIdRoot>(body).data.firstAvailableId;
+   }
+
+   StatusData nftStatus(DefaultTestChain& t, NID id)
+   {
+      auto query = std::format("query {{ nftStatus(nftId: {}) {{ state nftDetail {{ id }} }} }}", id);
+      auto res   = t.post(Nft::service, "/graphql", GraphQLBody{query});
+      auto body  = std::string(res.body.begin(), res.body.end());
+      UNSCOPED_INFO(body);
+      return psio::convert_from_json<StatusRoot>(body).data.nftStatus;
+   }
 }  // namespace
 
 SCENARIO("Minting & burning nfts")
@@ -36,7 +90,7 @@ SCENARIO("Minting & burning nfts")
 
       THEN("Alice can mint an NFT")
       {
-         auto mint = a.mint();
+         auto mint = a.mint(std::nullopt);
          CHECK(mint.succeeded());
 
          AND_THEN("The NFT exists")
@@ -55,8 +109,8 @@ SCENARIO("Minting & burning nfts")
       }
       WHEN("Alice mints an NFT")
       {
-         auto mint  = a.mint();
-         auto mint2 = a.mint();
+         auto mint  = a.mint(std::nullopt);
+         auto mint2 = a.mint(std::nullopt);
          auto nft1  = a.getNft(mint.returnVal()).returnVal().value();
 
          THEN("Alice can burn the NFT")
@@ -78,7 +132,7 @@ SCENARIO("Minting & burning nfts")
          }
          AND_WHEN("Alice mints a second NFT")
          {
-            auto mint3 = a.mint();
+            auto mint3 = a.mint(std::nullopt);
 
             THEN("The NFT is identical in every way, except the ID is incremented")
             {
@@ -107,26 +161,37 @@ SCENARIO("Transferring NFTs")
       auto b = bob.to<Nft>();
       auto c = charlie.to<Nft>();
 
-      THEN("Bob has auto-debit disabled by default")
+      THEN("Bob has auto-debit enabled by default")
       {
-         CHECK(b.getUserConf(bob, autoDebit).returnVal() == false);
+         CHECK(b.getNftHolder(bob).returnVal().autodebit == true);
       }
-      THEN("Bob is able to opt in to auto-debit")
+      THEN("A service account has auto-debit disabled by default")
       {
-         CHECK(b.setUserConf(autoDebit, true).succeeded());
-         CHECK(true == b.getUserConf(bob, autoDebit).returnVal());
+         CHECK(a.getNftHolder(Nft::service).returnVal().autodebit == false);
+      }
+      THEN("Bob is able to set auto-debit")
+      {
+         CHECK(b.setAutoDebit(false).succeeded());
+         CHECK(b.getNftHolder(bob).returnVal().autodebit == false);
+         CHECK(b.setAutoDebit(true).succeeded());
+         CHECK(b.getNftHolder(bob).returnVal().autodebit == true);
+         // Clearing the stored choice falls back to the user default.
+         CHECK(b.setAutoDebit(false).succeeded());
+         CHECK(b.setAutoDebit(std::nullopt).succeeded());
+         CHECK(b.getNftHolder(bob).returnVal().autodebit == true);
       }
 
-      THEN("Alice is unable to credit, uncredit, or debit a non-existent NFT")
+      THEN("Alice is unable to credit, transfer, uncredit, or debit a non-existent NFT")
       {
          NID invalidId = 99;
          CHECK(a.credit(invalidId, bob, "memo").failed(nftDNE));
+         CHECK(a.transfer(invalidId, bob, "memo").failed(nftDNE));
          CHECK(a.uncredit(invalidId, "memo").failed(uncreditRequiresCredit));
          CHECK(a.debit(invalidId, "memo").failed(nothingToDebit));
       }
       AND_GIVEN("Alice has minted an NFT")
       {
-         auto mint = a.mint();
+         auto mint = a.mint(std::nullopt);
          auto nft  = a.getNft(mint.returnVal()).returnVal().value();
 
          THEN("No one can debit or uncredit the NFT")
@@ -136,22 +201,29 @@ SCENARIO("Transferring NFTs")
             CHECK(a.uncredit(nft.id, "memo").failed(uncreditRequiresCredit));
          }
 
-         THEN("Bob may not credit the NFT to Bob")
+         THEN("Bob may not credit or transfer the NFT")
          {
             CHECK(b.credit(nft.id, alice, "memo").failed(missingRequiredAuth));
+            CHECK(b.transfer(nft.id, alice, "memo").failed(missingRequiredAuth));
          }
-         THEN("Alice may not credit the NFT to herself")
+         THEN("Alice may not credit or transfer the NFT to herself")
          {
             CHECK(a.credit(nft.id, alice, "memo").failed(creditorIsDebitor));
+            CHECK(a.transfer(nft.id, alice, "memo").failed(creditorIsDebitor));
          }
-         THEN("Alice may credit the NFT to Bob")
+         THEN("Credit does not move the NFT when auto-debit is enabled")
          {
             CHECK(a.credit(nft.id, bob, "memo").succeeded());
+            CHECK(bob.id != b.getNft(nft.id).returnVal().value().owner);
          }
-         WHEN("Alice credits the NFT to Bob")
+         THEN("Transfer to a service account stays pending")
          {
-            bob.to<Nft>().setUserConf(autoDebit, true);
-            CHECK(a.credit(nft.id, bob, "memo").succeeded());
+            CHECK(a.transfer(nft.id, Nft::service, "memo").succeeded());
+            CHECK(alice.id == a.getNft(nft.id).returnVal().value().owner);
+         }
+         WHEN("Alice transfers the NFT to Bob")
+         {
+            CHECK(a.transfer(nft.id, bob, "memo").succeeded());
 
             THEN("Bob immediately owns the NFT")
             {
@@ -165,11 +237,11 @@ SCENARIO("Transferring NFTs")
          }
          WHEN("Bob opts out of auto-debit")
          {
-            b.setUserConf(autoDebit, false);
+            b.setAutoDebit(false);
 
-            AND_WHEN("Alice credits the NFT to Bob")
+            AND_WHEN("Alice transfers the NFT to Bob")
             {
-               auto credit = a.credit(nft.id, bob, "memo");
+               CHECK(a.transfer(nft.id, bob, "memo").succeeded());
 
                THEN("The NFT is not yet owned by Bob")
                {
@@ -195,10 +267,10 @@ SCENARIO("Transferring NFTs")
                   auto uncredit = a.uncredit(nft.id, "memo");
                   CHECK(uncredit.succeeded());
                }
-               THEN("Alice may not credit the NFT to someone else")
+               THEN("Alice may not transfer the NFT to someone else")
                {
-                  auto credit = a.credit(nft.id, charlie, "Memo");
-                  CHECK(credit.failed(alreadyCredited));
+                  auto transferred = a.transfer(nft.id, charlie, "Memo");
+                  CHECK(transferred.failed(alreadyCredited));
                }
                AND_WHEN("Bob debits the NFT")
                {
@@ -234,13 +306,105 @@ SCENARIO("Transferring NFTs")
                      CHECK(b.debit(nft.id, "memo").failed(nothingToDebit));
                      CHECK(c.debit(nft.id, "memo").failed(nothingToDebit));
                   }
-                  THEN("Alice may credit the NFT again")
+                  THEN("Alice may transfer the NFT again")
                   {
-                     CHECK(a.credit(nft.id, bob, "memo").succeeded());
+                     CHECK(a.transfer(nft.id, bob, "memo").succeeded());
                   }
                }
             }
          }
+      }
+   }
+}
+
+SCENARIO("mint with an explicit id")
+{
+   GIVEN("A chain with Alice")
+   {
+      DefaultTestChain t;
+      auto             alice = t.from(t.addAccount("alice"_a));
+      auto             a     = alice.to<Nft>();
+
+      auto first = a.mint(std::nullopt);
+      REQUIRE(first.succeeded());
+      NID sequential = first.returnVal();
+      NID next       = sequential + 1;
+
+      THEN("A free id above the counter can be chosen")
+      {
+         NID chosen = next + 10;
+         CHECK(firstAvailable(t, chosen) == chosen);
+         CHECK(firstAvailable(t, 0) == next);
+
+         auto minted = a.mint(chosen);
+         REQUIRE(minted.succeeded());
+         CHECK(minted.returnVal() == chosen);
+
+         auto nft = a.getNft(chosen).returnVal().value();
+         CHECK(nft.owner == alice.id);
+         CHECK(nft.issuer == alice.id);
+
+         auto active = nftStatus(t, chosen);
+         CHECK(active.state == "active");
+         REQUIRE(active.nftDetail.has_value());
+         CHECK(active.nftDetail->id == chosen);
+         CHECK(firstAvailable(t, chosen) == chosen + 1);
+         CHECK(firstAvailable(t, 0) == next);
+
+         AND_THEN("That id cannot be minted again")
+         {
+            CHECK(a.mint(chosen).failed(nftIdTaken));
+         }
+         AND_THEN("The counter skips the chosen id")
+         {
+            NID id = next - 1;
+            while (id < chosen)
+            {
+               auto mint = a.mint(std::nullopt);
+               REQUIRE(mint.succeeded());
+               id = mint.returnVal();
+               CHECK(id != chosen);
+            }
+            CHECK(id == chosen + 1);
+         }
+      }
+      THEN("Id 0 is rejected")
+      {
+         CHECK(a.mint(NID{0}).failed(invalidNftId));
+      }
+      THEN("A burned sequential id cannot be reused")
+      {
+         REQUIRE(a.burn(sequential).succeeded());
+         CHECK(!a.getNft(sequential).returnVal().has_value());
+         CHECK(a.exists(sequential).returnVal() == false);
+         CHECK(a.mint(sequential).failed(nftIdTaken));
+         CHECK(firstAvailable(t, sequential) == next);
+         auto burned = nftStatus(t, sequential);
+         CHECK(burned.state == "burned");
+         CHECK_FALSE(burned.nftDetail.has_value());
+         auto missing = nftStatus(t, next + 50);
+         CHECK(missing.state == "available");
+         CHECK_FALSE(missing.nftDetail.has_value());
+      }
+      THEN("A burned explicit id cannot be reused")
+      {
+         NID chosen = next + 10;
+         REQUIRE(a.mint(chosen).succeeded());
+         REQUIRE(a.burn(chosen).succeeded());
+         CHECK(!a.getNft(chosen).returnVal().has_value());
+         CHECK(a.exists(chosen).returnVal() == false);
+         CHECK(a.mint(chosen).failed(nftIdTaken));
+         CHECK(firstAvailable(t, chosen) == chosen + 1);
+         CHECK(firstAvailable(t, 0) == next);
+      }
+      THEN("Search wraps past the last id and skips 0")
+      {
+         constexpr NID last = 0xffffffffu;
+         CHECK(firstAvailable(t, last) == last);
+         REQUIRE(a.mint(last).succeeded());
+         CHECK(firstAvailable(t, last) == firstAvailable(t, 0));
+         CHECK(firstAvailable(t, 0) != 0);
+         CHECK(firstAvailable(t, last) != last);
       }
    }
 }

@@ -174,6 +174,11 @@ pub mod tables {
                 .map(|s| s.symbolId)
         }
 
+        /// Content hash of the token's icon, or null if it has no icon
+        pub async fn icon_hash(&self) -> Option<psibase::Checksum256> {
+            psibase::services::tokens::icon_hash(self.token_id)
+        }
+
         pub async fn pool(&self) -> Pool {
             Pool::get_assert(self.pool_id)
         }
@@ -247,7 +252,7 @@ pub mod tables {
             );
 
             let mint_and_send_back = |memo| {
-                let id = nft.mint();
+                let id = nft.mint(None);
                 nft.credit(id, sender, memo);
                 id
             };

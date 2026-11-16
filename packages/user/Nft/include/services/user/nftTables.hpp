@@ -19,11 +19,11 @@ namespace UserService
    struct NftHolderRecord
    {
       psibase::AccountNumber account;
-      uint8_t                config;
+      bool                   autodebit;
 
       auto operator<=>(const NftHolderRecord&) const = default;
    };
-   PSIO_REFLECT(NftHolderRecord, account, config);
+   PSIO_REFLECT(NftHolderRecord, account, autodebit);
    using NftHolderTable = psibase::Table<NftHolderRecord, &NftHolderRecord::account>;
    PSIO_REFLECT_TYPENAME(NftHolderTable)
 
@@ -62,5 +62,28 @@ namespace UserService
                                       CreditRecord::ByCreditor{},
                                       CreditRecord::ByDebitor{}>;
    PSIO_REFLECT_TYPENAME(CreditTable)
+
+   struct UserPendingRecord
+   {
+      psibase::AccountNumber user;
+      NID                    nft_id;
+
+      auto operator<=>(const UserPendingRecord&) const = default;
+   };
+   PSIO_REFLECT(UserPendingRecord, user, nft_id);
+   using UserPendingTable =
+       psibase::Table<UserPendingRecord,
+                      psibase::CompositeKey<&UserPendingRecord::user, &UserPendingRecord::nft_id>{}>;
+   PSIO_REFLECT_TYPENAME(UserPendingTable)
+
+   struct BurnedRecord
+   {
+      NID id;
+
+      auto operator<=>(const BurnedRecord&) const = default;
+   };
+   PSIO_REFLECT(BurnedRecord, id);
+   using BurnedTable = psibase::Table<BurnedRecord, &BurnedRecord::id>;
+   PSIO_REFLECT_TYPENAME(BurnedTable)
 
 }  // namespace UserService

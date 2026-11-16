@@ -3,8 +3,8 @@
 pub mod tables {
     use async_graphql::SimpleObject;
     use psibase::{
-        abort_message, define_flags, get_sender, AccountNumber, Memo, Pack, ServiceWrapper, Table,
-        ToSchema, Unpack,
+        abort_message, get_sender, AccountNumber, Memo, Pack, ServiceWrapper, Table, ToSchema,
+        Unpack,
     };
     use serde::{Deserialize, Serialize};
 
@@ -17,10 +17,6 @@ pub mod tables {
     pub const CREDITED: u8 = 2;
     pub const DEBITED: u8 = 3;
     pub const UNCREDITED: u8 = 4;
-
-    define_flags!(NftHolderFlags, u8, {
-        auto_debit,
-    });
 
     #[table(name = "ConfigTable", index = 0)]
     #[derive(Pack, Unpack, ToSchema, Serialize, Deserialize, Debug)]
@@ -47,10 +43,7 @@ pub mod tables {
         }
 
         pub fn get_next_id(&mut self) -> NID {
-            let next_id = self
-                .next_id
-                .checked_add(1)
-                .expect("overflow in id generation");
+            let next_id = Nft::first_available_id(self.next_id.wrapping_add(1));
             self.next_id = next_id;
             self.save();
             next_id
@@ -62,12 +55,19 @@ pub mod tables {
     }
 
     #[table(name = "NftTable", index = 1)]
-    #[derive(Pack, Unpack, ToSchema, Serialize, Deserialize, Debug, Clone, SimpleObject)]
+    #[derive(Pack, Unpack, ToSchema, Serialize, Deserialize, Debug, Clone, PartialEq, SimpleObject)]
     pub struct Nft {
         #[primary_key]
         pub id: NID,
         pub issuer: AccountNumber,
         pub owner: AccountNumber,
+    }
+
+    #[derive(PartialEq)]
+    pub enum NftStatus {
+        Available,
+        Burned,
+        Active(Nft),
     }
 
     impl Nft {
@@ -81,16 +81,36 @@ pub mod tables {
             (self.issuer, self.owner, self.id)
         }
 
-        pub fn new(owner_and_issuer: AccountNumber) -> Self {
-            Self {
-                id: ConfigRow::get_assert().get_next_id(),
-                issuer: owner_and_issuer,
-                owner: owner_and_issuer,
+        pub fn get(nft_id: NID) -> Option<Self> {
+            NftTable::read().get_index_pk().get(&nft_id)
+        }
+
+        pub fn status(id: NID) -> NftStatus {
+            if let Some(nft) = Self::get(id) {
+                NftStatus::Active(nft)
+            } else if Burned::contains(id) {
+                NftStatus::Burned
+            } else {
+                NftStatus::Available
             }
         }
 
-        pub fn get(nft_id: NID) -> Option<Self> {
-            NftTable::read().get_index_pk().get(&nft_id)
+        /// First id at or after `begin` that mint can create. Wraps, and never returns 0.
+        pub fn first_available_id(begin: NID) -> NID {
+            let mut id = if begin == 0 { 1 } else { begin };
+            let start = id;
+            loop {
+                if Self::status(id) == NftStatus::Available {
+                    return id;
+                }
+                id = id.wrapping_add(1);
+                if id == 0 {
+                    id = 1;
+                }
+                if id == start {
+                    abort_message("no NFT id available");
+                }
+            }
         }
 
         pub fn check_is_owner(&self, account: AccountNumber) {
@@ -98,29 +118,45 @@ pub mod tables {
         }
 
         pub fn get_assert(nft_id: NID) -> Self {
-            Self::get(nft_id).unwrap_or_else(|| {
-                if nft_id <= ConfigRow::get_assert().next_id {
-                    abort_message("NFT was burned")
-                } else {
-                    abort_message("NFT does not exist")
-                }
-            })
+            match Self::status(nft_id) {
+                NftStatus::Active(nft) => nft,
+                NftStatus::Burned => abort_message("NFT was burned"),
+                NftStatus::Available => abort_message("NFT does not exist"),
+            }
         }
 
-        pub fn add() -> Self {
-            let sender = get_sender();
-            let new_instance = Self::new(sender);
-            new_instance.save();
+        pub fn new(sender: AccountNumber, id: NID) -> Self {
+            Self {
+                id,
+                issuer: sender,
+                owner: sender,
+            }
+        }
 
+        pub fn add(id: Option<NID>) -> Self {
+            let sender = get_sender();
+            let id = match id {
+                Some(id) => {
+                    assert!(id != 0, "NFT ID invalid");
+                    match Self::status(id) {
+                        NftStatus::Available => id,
+                        NftStatus::Active(_) | NftStatus::Burned => {
+                            abort_message("NFT ID already taken")
+                        }
+                    }
+                }
+                None => ConfigRow::get_assert().get_next_id(),
+            };
+            let nft = Self::new(sender, id);
+            nft.save();
             super::Wrapper::emit().history().ownerChange(
-                new_instance.id,
+                nft.id,
                 MINTED,
                 sender,
                 super::Wrapper::SERVICE,
                 "Minted".into(),
             );
-
-            new_instance
+            nft
         }
 
         pub fn burn(&self) {
@@ -135,6 +171,7 @@ pub mod tables {
                 super::Wrapper::SERVICE,
                 "Burned".into(),
             );
+            Burned::add(self.id);
             self.erase();
         }
 
@@ -154,11 +191,10 @@ pub mod tables {
 
     #[table(name = "NftHolderTable", index = 2)]
     #[derive(Pack, Unpack, ToSchema, Serialize, Deserialize, SimpleObject, Debug, Clone)]
-    #[graphql(complex)]
     pub struct NftHolder {
         #[primary_key]
         pub account: AccountNumber,
-        pub config: u8,
+        pub autodebit: bool,
     }
 
     #[table(name = "CreditTable", index = 3)]
@@ -324,37 +360,69 @@ pub mod tables {
         }
     }
 
-    impl NftHolder {
-        pub fn get_or_default(account: AccountNumber) -> Self {
-            NftHolderTable::read()
-                .get_index_pk()
-                .get(&account)
-                .unwrap_or(Self { account, config: 0 })
+    #[table(name = "BurnedTable", index = 5)]
+    #[derive(Pack, Unpack, ToSchema, Serialize, Deserialize, Debug, Clone)]
+    pub struct Burned {
+        #[primary_key]
+        pub id: NID,
+    }
+
+    impl Burned {
+        pub fn get(id: NID) -> Option<Self> {
+            BurnedTable::read().get_index_pk().get(&id)
         }
 
-        pub fn get_flag(&self, flag: NftHolderFlags) -> bool {
-            psibase::Flags::new(self.config).get(flag)
+        pub fn contains(id: NID) -> bool {
+            Self::get(id).is_some()
         }
 
-        pub fn set_flag(&mut self, flag: NftHolderFlags, enable: bool) {
-            self.config = psibase::Flags::new(self.config).set(flag, enable).value();
-            self.save();
-        }
-
-        pub fn save(&self) {
-            NftHolderTable::read_write().put(self).unwrap();
+        fn add(id: NID) {
+            BurnedTable::read_write().put(&Self { id }).unwrap();
         }
     }
 
-    #[ComplexObject]
+    fn account_has_service(account: AccountNumber) -> bool {
+        let native = psibase::KvHandle::new(psibase::DbId::Native, &[], psibase::KvMode::Read);
+        let key = (
+            psibase::CODE_TABLE,
+            psibase::NATIVE_TABLE_PRIMARY_INDEX,
+            account,
+        );
+        psibase::kv_get::<psibase::CodeRow, _>(&native, &key)
+            .unwrap()
+            .is_some_and(|row| row.codeHash != psibase::Checksum256::default())
+    }
+
     impl NftHolder {
-        pub async fn settings(&self) -> NftHolderFlagsJson {
-            NftHolderFlagsJson::from(psibase::Flags::new(self.config))
+        fn new(account: AccountNumber) -> Self {
+            Self {
+                account,
+                autodebit: !account_has_service(account),
+            }
+        }
+
+        fn get(account: AccountNumber) -> Option<Self> {
+            NftHolderTable::read().get_index_pk().get(&account)
+        }
+
+        pub fn get_or_new(account: AccountNumber) -> Self {
+            Self::get(account).unwrap_or_else(|| Self::new(account))
+        }
+
+        pub fn set(account: AccountNumber, autodebit: bool) {
+            NftHolderTable::read_write()
+                .put(&Self { account, autodebit })
+                .unwrap();
+        }
+
+        /// Drop a stored setting so the next read uses the default.
+        pub fn remove(account: AccountNumber) {
+            NftHolderTable::read_write().erase(&account);
         }
     }
 
     /// Asset Pool Physical Asset NFT metadata and trust gating
-    #[table(name = "NftAssetConfigTable", index = 5)]
+    #[table(name = "NftAssetConfigTable", index = 6)]
     #[derive(Pack, Unpack, ToSchema, Serialize, Deserialize, Debug, Clone, SimpleObject)]
     pub struct NftAssetConfig {
         pub nft_id: NID,
@@ -416,8 +484,8 @@ pub mod service {
     }
 
     #[action]
-    pub fn mint() -> NID {
-        Nft::add().id
+    pub fn mint(nftId: Option<NID>) -> NID {
+        Nft::add(nftId).id
     }
 
     #[action]
@@ -431,19 +499,23 @@ pub mod service {
     pub fn credit(nft_id: NID, debitor: AccountNumber, memo: Memo) {
         let creditor = get_sender();
         Nft::get_assert(nft_id).check_is_owner(creditor);
+        CreditRecord::add(nft_id, creditor, debitor, memo);
+    }
+
+    #[action]
+    pub fn transfer(nft_id: NID, debitor: AccountNumber, memo: Memo) {
+        let creditor = get_sender();
+        Nft::get_assert(nft_id).check_is_owner(creditor);
 
         let credit_record = CreditRecord::add(nft_id, creditor, debitor, memo.clone());
-
-        let receiver_holder = NftHolder::get_or_default(debitor);
-        let auto_debit = receiver_holder.get_flag(NftHolderFlags::AUTO_DEBIT);
-        if auto_debit {
+        if NftHolder::get_or_new(debitor).autodebit {
             credit_record.debit(memo);
         }
     }
 
     #[action]
     fn getNftHolder(account: AccountNumber) -> NftHolder {
-        NftHolder::get_or_default(account)
+        NftHolder::get_or_new(account)
     }
 
     #[action]
@@ -473,14 +545,17 @@ pub mod service {
         credit_record.debit(memo);
     }
 
+    /// Set the sender's auto-debit flag, or clear it.
+    ///
+    /// `Some` stores the choice. `None` deletes the row so the account
+    /// falls back to the default: on for a user, off for a service.
     #[action]
-    pub fn setUserConf(index: u8, enable: bool) {
-        NftHolder::get_or_default(get_sender()).set_flag(index.into(), enable);
-    }
-
-    #[action]
-    pub fn getUserConf(account: AccountNumber, index: u8) -> bool {
-        NftHolder::get_or_default(account).get_flag(index.into())
+    pub fn setAutoDebit(autodebit: Option<bool>) {
+        let account = get_sender();
+        match autodebit {
+            Some(value) => NftHolder::set(account, value),
+            None => NftHolder::remove(account),
+        }
     }
 
     #[action]
