@@ -141,7 +141,69 @@ pub mod tables {
                 institutional: "Cooperative Pod & Review Circle".to_string(),
                 muamalat: "Halaqat al-Tijarah / al-Shura".to_string(),
             },
+            TerminologyMapping {
+                key: "zakat_tamlik".to_string(),
+                institutional: "Zero-Fee Direct Principal Vault (100% Beneficiary Delivery)"
+                    .to_string(),
+                muamalat: "Zakat Tamlik Vault (Tamlik al-Asnaf 100%)".to_string(),
+            },
+            TerminologyMapping {
+                key: "asnaf_gate".to_string(),
+                institutional: "Zero-PII Dual-Witness Beneficiary Eligibility Gate".to_string(),
+                muamalat: "Asnaf Verification Gate (Bayyinat Istihqaq al-Zakat)".to_string(),
+            },
+            TerminologyMapping {
+                key: "bridge_liquidity_desk".to_string(),
+                institutional: "Licensed Non-Custodial Bridge Liquidity Desk".to_string(),
+                muamalat: "Bridge Liquidity Desk (Maktab al-Sarf wa al-Hawalah)".to_string(),
+            },
+            TerminologyMapping {
+                key: "sadaqah_tip".to_string(),
+                institutional: "Optional Donor Infrastructure & FX Subsidy Split".to_string(),
+                muamalat: "Tabarru‘ / Sadaqah Nafilah Infrastructure Split".to_string(),
+            },
+            TerminologyMapping {
+                key: "personal_remittance".to_string(),
+                institutional: "Non-Commercial P2P Personal Remittance Attestation".to_string(),
+                muamalat: "Hawalah Shakhsiyyah & Iqrar Ghayr Tijari".to_string(),
+            },
         ]
+    }
+
+    pub fn resolve_term_for_locale(term: &str, current_locale: &str) -> String {
+        let lookup_term = match term {
+            "rwa_series" | "rwa" => "asset_pool",
+            "usufruct_lease_fixed" | "usufruct" | "rental" | "fixed_lease" | "lease" => "lease",
+            "usufruct_lease_progressive" | "lease_to_own" | "rent_to_own" | "equity_usufruct" => {
+                "equity_lease"
+            }
+            "evaluations" => "evals",
+            "rofr_window" | "rofr" | "rofr_window_sec" => "priority_window",
+            "adalah_score" => "trust_score",
+            "ikhtisas_tag" => "domain_badge",
+            "dabt_score" | "dabt" | "domain_precision" => "precision_score",
+            "charity_sink_account" => "charity_sink",
+            "tangible_ratio_bps" => "tangible_ratio",
+            "endowment_guard" => "endowment_policy",
+            "binary_bayyinah" | "dual_witness_gate" | "bayyinah" => "evidence_gate",
+            "wajahah_hawalah" | "hawalah" | "wajahah" => "liquidity_bridge",
+            "zakat_tamlik_vault" | "zakat_tamlik_100" | "zakat_remittance" => "zakat_tamlik",
+            "asnaf_verification_gate" | "asnaf_category" | "humanitarian_verifier" => "asnaf_gate",
+            "bridge_corridor" | "bridge_desk" => "bridge_liquidity_desk",
+            "sadaqah_tip_amount" | "infra_ops_tip" => "sadaqah_tip",
+            "personal_remittance_attestation" | "remittance_attestation" => "personal_remittance",
+            _ => term,
+        };
+        for mapping in get_canonical_terminology_mappings() {
+            if mapping.key == lookup_term {
+                return if current_locale == "muamalat" {
+                    mapping.muamalat
+                } else {
+                    mapping.institutional
+                };
+            }
+        }
+        term.to_string()
     }
 }
 
@@ -228,33 +290,12 @@ mod service {
         }
 
         async fn translate_term(&self, term: String) -> String {
-            let lookup_term = match term.as_str() {
-                "rwa_series" | "rwa" => "asset_pool",
-                "usufruct_lease_fixed" | "usufruct" | "rental" | "fixed_lease" | "lease" => "lease",
-                "usufruct_lease_progressive" | "lease_to_own" | "rent_to_own" | "equity_usufruct" => "equity_lease",
-                "evaluations" => "evals",
-                "rofr_window" | "rofr" | "rofr_window_sec" => "priority_window",
-                "adalah_score" => "trust_score",
-                "ikhtisas_tag" => "domain_badge",
-                "dabt_score" | "dabt" | "domain_precision" => "precision_score",
-                "charity_sink_account" => "charity_sink",
-                "tangible_ratio_bps" => "tangible_ratio",
-                "endowment_guard" => "endowment_policy",
-                "binary_bayyinah" | "dual_witness_gate" | "bayyinah" => "evidence_gate",
-                "wajahah_hawalah" | "hawalah" | "wajahah" => "liquidity_bridge",
-                _ => term.as_str(),
-            };
-            let current_locale = LocaleTable::read().get_index_pk().get(&()).unwrap_or_default().locale;
-            for mapping in get_canonical_terminology_mappings() {
-                if mapping.key == lookup_term {
-                    return if current_locale == "muamalat" {
-                        mapping.muamalat
-                    } else {
-                        mapping.institutional
-                    };
-                }
-            }
-            term
+            let current_locale = LocaleTable::read()
+                .get_index_pk()
+                .get(&())
+                .unwrap_or_default()
+                .locale;
+            resolve_term_for_locale(&term, &current_locale)
         }
     }
 
@@ -266,5 +307,30 @@ mod service {
         _user: Option<AccountNumber>,
     ) -> Option<HttpReply> {
         None.or_else(|| serve_graphql(&request, Query))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::tables::resolve_term_for_locale;
+
+    #[test]
+    fn test_muamalat_and_institutional_humanitarian_corridor_terminology() {
+        assert_eq!(
+            resolve_term_for_locale("zakat_tamlik", "muamalat"),
+            "Zakat Tamlik Vault (Tamlik al-Asnaf 100%)"
+        );
+        assert_eq!(
+            resolve_term_for_locale("asnaf_gate", "muamalat"),
+            "Asnaf Verification Gate (Bayyinat Istihqaq al-Zakat)"
+        );
+        assert_eq!(
+            resolve_term_for_locale("bridge_liquidity_desk", "muamalat"),
+            "Bridge Liquidity Desk (Maktab al-Sarf wa al-Hawalah)"
+        );
+        assert_eq!(
+            resolve_term_for_locale("zakat_tamlik_vault", "institutional"),
+            "Zero-Fee Direct Principal Vault (100% Beneficiary Delivery)"
+        );
     }
 }
