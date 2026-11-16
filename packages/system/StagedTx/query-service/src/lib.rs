@@ -144,6 +144,52 @@ mod service {
                 .after(after)
                 .query()
         }
+
+        /// Fetches a single zero-PII PersonalRemittanceAttestation by ID
+        async fn remittance_attestation(
+            &self,
+            attestation_id: u64,
+        ) -> Option<PersonalRemittanceAttestation> {
+            RemittanceAttestationTable::with_service(staged_tx::SERVICE)
+                .get_index_pk()
+                .get(&attestation_id)
+        }
+
+        /// Lists zero-PII PersonalRemittanceAttestations (optionally filtered by bridge corridor)
+        async fn remittance_attestation_table(
+            &self,
+            corridor_jurisdiction: Option<String>,
+        ) -> Vec<PersonalRemittanceAttestation> {
+            let table = RemittanceAttestationTable::with_service(staged_tx::SERVICE);
+            table
+                .get_index_pk()
+                .iter()
+                .filter(|row| {
+                    corridor_jurisdiction
+                        .as_deref()
+                        .map_or(true, |code| row.corridor_jurisdiction == code)
+                })
+                .collect()
+        }
+
+        /// Paginated GraphQL connection for PersonalRemittanceAttestations
+        async fn remittance_attestations(
+            &self,
+            first: Option<i32>,
+            last: Option<i32>,
+            before: Option<String>,
+            after: Option<String>,
+        ) -> async_graphql::Result<Connection<RawKey, PersonalRemittanceAttestation>> {
+            TableQuery::new(
+                RemittanceAttestationTable::with_service(staged_tx::SERVICE).get_index_pk(),
+            )
+            .first(first)
+            .last(last)
+            .before(before)
+            .after(after)
+            .query()
+            .await
+        }
     }
 
     #[action]

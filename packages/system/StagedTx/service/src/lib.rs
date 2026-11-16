@@ -45,6 +45,165 @@ pub mod service {
     /// Minimum domain-scoped `precision_score` (Dabt, in bps) a witness needs to attest (80.00%).
     pub const MIN_WITNESS_PRECISION_SCORE: u32 = 8000;
 
+    /// Canonical soulbound domain badge required to verify humanitarian / Zakat beneficiaries.
+    pub const HUMANITARIAN_VERIFIER_BADGE: &str = "humanitarian-verifier";
+
+    /// Minimum binary Bayyinah witness quorum required for PersonalRemittanceAttestation.
+    pub const MIN_REMITTANCE_WITNESS_QUORUM: u8 = 2;
+
+    /// Strictly parses and validates a 32-byte SHA-256 hex digest string (with optional `0x` prefix).
+    /// Rejects any plaintext PII, malformed hex, non-32-byte length, or all-zero digest.
+    pub fn validate_32_byte_commitment_hex(digest_hex: &str) -> [u8; 32] {
+        let trimmed = digest_hex.strip_prefix("0x").unwrap_or(digest_hex);
+        assert!(
+            trimmed.len() == 64 && trimmed.chars().all(|c| c.is_ascii_hexdigit()),
+            "PII Guard Violation: Commitment hash must be an exact 32-byte (64-hex-char) SHA-256 digest; plaintext PII is strictly forbidden"
+        );
+
+        let mut out = [0u8; 32];
+        for (i, chunk) in trimmed.as_bytes().chunks_exact(2).enumerate() {
+            let byte_str = std::str::from_utf8(chunk).unwrap();
+            out[i] = u8::from_str_radix(byte_str, 16).unwrap();
+        }
+        assert!(
+            out != [0u8; 32],
+            "PII Guard Violation: Commitment hash cannot be an uninitialized all-zero 32-byte digest"
+        );
+        out
+    }
+
+    /// Ensures a `Checksum256` digest is non-zero (preventing empty/trivial commitment records).
+    pub fn validate_non_zero_digest(digest: &Checksum256, field_name: &str) {
+        assert!(
+            *digest != Checksum256::from([0u8; 32]),
+            "PII Guard Violation: {} must be a non-zero 32-byte salted SHA-256 commitment",
+            field_name
+        );
+    }
+
+    /// Validates that `corridor_jurisdiction` is a canonical uppercase ISO-3166-1 alpha-2 country code
+    /// (e.g., "TR", "AE", "UA", "UZ"), preventing free-form PII leakage in table metadata.
+    pub fn validate_corridor_jurisdiction(corridor: &str) {
+        assert!(
+            corridor.len() == 2 && corridor.chars().all(|c| c.is_ascii_uppercase()),
+            "PII & Compliance Violation: corridorJurisdiction '{}' must be a 2-letter uppercase ISO-3166-1 alpha-2 bridge code (e.g. TR, AE, UA, UZ)",
+            corridor
+        );
+    }
+
+    pub fn is_humanitarian_verifier_badge(domain_badge: &str) -> bool {
+        domain_badge == HUMANITARIAN_VERIFIER_BADGE || domain_badge == "humanitarian_verifier"
+    }
+
+    pub fn build_remittance_attestation(
+        attestation_id: u64,
+        proposer: AccountNumber,
+        recipient_commitment_hash: Checksum256,
+        corridor_jurisdiction: String,
+        non_commercial_personal_declaration_hash: Checksum256,
+        asnaf_category: Option<AsnafCategory>,
+        witness_quorum: u8,
+        created_at: TimePointUSec,
+    ) -> PersonalRemittanceAttestation {
+        assert!(
+            witness_quorum >= MIN_REMITTANCE_WITNESS_QUORUM,
+            "Bayyinah Violation: PersonalRemittanceAttestation requires witness_quorum >= {}, got {}",
+            MIN_REMITTANCE_WITNESS_QUORUM,
+            witness_quorum
+        );
+        validate_non_zero_digest(&recipient_commitment_hash, "recipientCommitmentHash");
+        validate_non_zero_digest(
+            &non_commercial_personal_declaration_hash,
+            "nonCommercialPersonalDeclarationHash",
+        );
+        validate_corridor_jurisdiction(&corridor_jurisdiction);
+
+        PersonalRemittanceAttestation {
+            attestation_id,
+            proposer,
+            recipient_commitment_hash,
+            corridor_jurisdiction,
+            non_commercial_personal_declaration_hash,
+            asnaf_category,
+            witness_quorum,
+            required_domain: HUMANITARIAN_VERIFIER_BADGE.to_string(),
+            verified_witnesses: Vec::new(),
+            quorum_satisfied: false,
+            created_at,
+        }
+    }
+
+    pub fn apply_remittance_witness_attestation(
+        mut attestation: PersonalRemittanceAttestation,
+        witness: AccountNumber,
+        expected_commitment: &Checksum256,
+        domain_badge: &str,
+        has_active_badge: bool,
+        trust_score: u32,
+        precision_score: u32,
+    ) -> PersonalRemittanceAttestation {
+        validate_non_zero_digest(expected_commitment, "recipientCommitmentHash");
+        assert!(
+            attestation.recipient_commitment_hash == *expected_commitment,
+            "Commitment hash mismatch: witness attested to a different recipientCommitmentHash"
+        );
+        assert!(
+            is_humanitarian_verifier_badge(domain_badge),
+            "Witness must attest with the required domain badge: {}",
+            HUMANITARIAN_VERIFIER_BADGE
+        );
+
+        let normalized_required = if domain_badge == "humanitarian_verifier" {
+            "humanitarian_verifier"
+        } else {
+            HUMANITARIAN_VERIFIER_BADGE
+        };
+
+        validate_witness_eligibility(
+            witness,
+            attestation.proposer,
+            &[],
+            Some(normalized_required),
+            domain_badge,
+            has_active_badge,
+            trust_score,
+            precision_score,
+        );
+
+        assert!(
+            !attestation.verified_witnesses.contains(&witness),
+            "Witness has already attested to this beneficiary commitment"
+        );
+
+        attestation.verified_witnesses.push(witness);
+        attestation.quorum_satisfied =
+            attestation.verified_witnesses.len() >= attestation.witness_quorum as usize;
+        attestation
+    }
+
+    pub fn assert_remittance_quorum_satisfied(
+        attestation: &PersonalRemittanceAttestation,
+        expected_commitment: &Checksum256,
+    ) {
+        assert!(
+            attestation.witness_quorum >= MIN_REMITTANCE_WITNESS_QUORUM,
+            "Bayyinah Violation: witness_quorum {} is below minimum {}",
+            attestation.witness_quorum,
+            MIN_REMITTANCE_WITNESS_QUORUM
+        );
+        assert!(
+            attestation.recipient_commitment_hash == *expected_commitment,
+            "Recipient commitment hash mismatch against verified PersonalRemittanceAttestation"
+        );
+        assert!(
+            attestation.verified_witnesses.len() >= attestation.witness_quorum as usize
+                && attestation.quorum_satisfied,
+            "Remittance escrow release blocked: witness quorum not met ({} of {} verified humanitarian-verifier witnesses)",
+            attestation.verified_witnesses.len(),
+            attestation.witness_quorum
+        );
+    }
+
     pub fn validate_witness_eligibility(
         witness: AccountNumber,
         proposer: AccountNumber,
@@ -412,6 +571,110 @@ pub mod service {
             .get_index_pk()
             .get(&id)
             .expect("Unknown staged tx")
+    }
+
+    /// Registers a zero-PII `PersonalRemittanceAttestation` Ricardian record (OFAC GL 6 / Non-Commercial P2P)
+    /// gated by a `witness_quorum >= 2` of soulbound `"humanitarian-verifier"` witnesses.
+    #[action]
+    #[allow(non_snake_case)]
+    fn proposeRemittanceAttestation(
+        recipient_commitment_hash: Checksum256,
+        corridor_jurisdiction: String,
+        non_commercial_personal_declaration_hash: Checksum256,
+        asnaf_category: Option<AsnafCategory>,
+        witness_quorum: u8,
+    ) -> u64 {
+        let attestation_id = RemittanceIdRow::next_id();
+        let proposer = get_sender();
+        let created_at = Transact::call().currentBlock().time;
+
+        let record = build_remittance_attestation(
+            attestation_id,
+            proposer,
+            recipient_commitment_hash.clone(),
+            corridor_jurisdiction,
+            non_commercial_personal_declaration_hash,
+            asnaf_category,
+            witness_quorum,
+            created_at,
+        );
+
+        RemittanceAttestationTable::new().put(&record).unwrap();
+        emit_update(recipient_commitment_hash, StagedTxEvent::PROPOSED);
+
+        attestation_id
+    }
+
+    /// Co-signs a `PersonalRemittanceAttestation` as an independent witness holding an active
+    /// soulbound `domain_badge` (`"humanitarian-verifier"`) and `trust_score >= 8000`.
+    #[action]
+    #[allow(non_snake_case)]
+    fn attestBeneficiaryCommitment(
+        attestation_id: u64,
+        recipient_commitment_hash: Checksum256,
+        domain_badge: String,
+    ) {
+        let existing = RemittanceAttestationTable::new()
+            .get_index_pk()
+            .get(&attestation_id)
+            .expect("Unknown PersonalRemittanceAttestation");
+        let witness = get_sender();
+
+        let credentials = Credentials::call();
+        let has_badge = credentials.hasDomainBadge(witness, domain_badge.clone());
+        let trust_score = credentials.trustScoreOf(witness);
+        let precision_score = credentials.precisionScoreOf(witness, domain_badge.clone());
+
+        let updated_record = apply_remittance_witness_attestation(
+            existing,
+            witness,
+            &recipient_commitment_hash,
+            &domain_badge,
+            has_badge,
+            trust_score,
+            precision_score,
+        );
+
+        let quorum_met = updated_record.quorum_satisfied;
+        RemittanceAttestationTable::new()
+            .put(&updated_record)
+            .unwrap();
+
+        emit_update(
+            recipient_commitment_hash,
+            if quorum_met {
+                StagedTxEvent::EXECUTED
+            } else {
+                StagedTxEvent::ACCEPTED
+            },
+        );
+    }
+
+    /// Enforces `witness_quorum >= 2` for `ExternalVault` before settlement execution or confirmation.
+    /// Aborts state execution if quorum is unmet or commitment hash mismatches.
+    #[action]
+    #[allow(non_snake_case)]
+    fn verifyRemittanceQuorum(
+        attestation_id: u64,
+        recipient_commitment_hash: Checksum256,
+    ) -> bool {
+        let attestation = RemittanceAttestationTable::new()
+            .get_index_pk()
+            .get(&attestation_id)
+            .expect("Unknown PersonalRemittanceAttestation");
+
+        assert_remittance_quorum_satisfied(&attestation, &recipient_commitment_hash);
+        true
+    }
+
+    /// Fetches a `PersonalRemittanceAttestation` by ID.
+    #[action]
+    #[allow(non_snake_case)]
+    fn getRemittanceAttestation(attestation_id: u64) -> PersonalRemittanceAttestation {
+        RemittanceAttestationTable::new()
+            .get_index_pk()
+            .get(&attestation_id)
+            .expect("Unknown PersonalRemittanceAttestation")
     }
 
     fn emit_update(txid: Checksum256, event_type: u8) {

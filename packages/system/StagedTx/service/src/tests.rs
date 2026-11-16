@@ -461,4 +461,255 @@ mod unit_tests {
         assert_eq!(archived.precision_score, 9100);
         assert_eq!(archived.domain_badge, "rust_consensus");
     }
+
+    #[test]
+    #[should_panic(
+        expected = "Bayyinah Violation: PersonalRemittanceAttestation requires witness_quorum >= 2, got 1"
+    )]
+    fn test_remittance_attestation_rejects_witness_quorum_below_two() {
+        let proposer = account!("donor");
+        let commitment = Checksum256::from([0xab; 32]);
+        let declaration = Checksum256::from([0xcd; 32]);
+
+        crate::service::build_remittance_attestation(
+            1,
+            proposer,
+            commitment,
+            "TR".to_string(),
+            declaration,
+            Some(crate::db::tables::AsnafCategory::FUQARA),
+            1,
+            TimePointUSec { microseconds: 1_000_000 },
+        );
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "Remittance escrow release blocked: witness quorum not met (1 of 2 verified humanitarian-verifier witnesses)"
+    )]
+    fn test_remittance_escrow_release_blocked_when_quorum_has_fewer_than_two_witnesses() {
+        let proposer = account!("donor");
+        let witness_one = account!("verifier1");
+        let commitment = Checksum256::from([0x44; 32]);
+        let declaration = Checksum256::from([0x55; 32]);
+
+        let att = crate::service::build_remittance_attestation(
+            7,
+            proposer,
+            commitment.clone(),
+            "TR".to_string(),
+            declaration,
+            Some(crate::db::tables::AsnafCategory::MASAKIN),
+            2,
+            TimePointUSec { microseconds: 1_000_000 },
+        );
+
+        let partial = crate::service::apply_remittance_witness_attestation(
+            att,
+            witness_one,
+            &commitment,
+            "humanitarian-verifier",
+            true,
+            9200,
+            8800,
+        );
+        assert!(!partial.quorum_satisfied);
+        assert_eq!(partial.verified_witnesses.len(), 1);
+
+        crate::service::assert_remittance_quorum_satisfied(&partial, &commitment);
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "Witness does not hold an active domain badge: humanitarian-verifier"
+    )]
+    fn test_remittance_attestation_blocks_witness_missing_humanitarian_badge() {
+        let proposer = account!("donor");
+        let witness = account!("unbadged");
+        let commitment = Checksum256::from([0x66; 32]);
+        let declaration = Checksum256::from([0x77; 32]);
+
+        let att = crate::service::build_remittance_attestation(
+            8,
+            proposer,
+            commitment.clone(),
+            "UA".to_string(),
+            declaration,
+            Some(crate::db::tables::AsnafCategory::IBN_AL_SABIL),
+            2,
+            TimePointUSec { microseconds: 1_000_000 },
+        );
+
+        crate::service::apply_remittance_witness_attestation(
+            att,
+            witness,
+            &commitment,
+            "humanitarian-verifier",
+            false,
+            9500,
+            9100,
+        );
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "Witness must attest with the required domain badge: humanitarian-verifier"
+    )]
+    fn test_remittance_attestation_rejects_wrong_domain_badge() {
+        let proposer = account!("donor");
+        let witness = account!("appraiser");
+        let commitment = Checksum256::from([0x66; 32]);
+        let declaration = Checksum256::from([0x77; 32]);
+
+        let att = crate::service::build_remittance_attestation(
+            9,
+            proposer,
+            commitment.clone(),
+            "AE".to_string(),
+            declaration,
+            Some(crate::db::tables::AsnafCategory::GHARIMIN),
+            2,
+            TimePointUSec { microseconds: 1_000_000 },
+        );
+
+        crate::service::apply_remittance_witness_attestation(
+            att,
+            witness,
+            &commitment,
+            "master_appraiser",
+            true,
+            9500,
+            9100,
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "Witness trust_score 7999 is below the required 8000")]
+    fn test_remittance_attestation_rejects_witness_below_8000_trust_score() {
+        let proposer = account!("donor");
+        let witness = account!("verifier1");
+        let commitment = Checksum256::from([0x88; 32]);
+        let declaration = Checksum256::from([0x99; 32]);
+
+        let att = crate::service::build_remittance_attestation(
+            10,
+            proposer,
+            commitment.clone(),
+            "UZ".to_string(),
+            declaration,
+            Some(crate::db::tables::AsnafCategory::FUQARA),
+            2,
+            TimePointUSec { microseconds: 1_000_000 },
+        );
+
+        crate::service::apply_remittance_witness_attestation(
+            att,
+            witness,
+            &commitment,
+            "humanitarian-verifier",
+            true,
+            7999,
+            9000,
+        );
+    }
+
+    #[test]
+    fn test_remittance_attestation_unlocks_quorum_with_two_verified_humanitarian_witnesses() {
+        use psibase::fracpack::{Pack, Unpack};
+
+        let proposer = account!("donor");
+        let witness_one = account!("qirimv1");
+        let witness_two = account!("qirimv2");
+        let digest_bytes = crate::service::validate_32_byte_commitment_hex(
+            "0x9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+        );
+        let commitment = Checksum256::from(digest_bytes);
+        let declaration = Checksum256::from([0xaa; 32]);
+
+        let att = crate::service::build_remittance_attestation(
+            11,
+            proposer,
+            commitment.clone(),
+            "TR".to_string(),
+            declaration,
+            Some(crate::db::tables::AsnafCategory::FUQARA),
+            2,
+            TimePointUSec { microseconds: 1_500_000 },
+        );
+
+        let att = crate::service::apply_remittance_witness_attestation(
+            att,
+            witness_one,
+            &commitment,
+            "humanitarian-verifier",
+            true,
+            9100,
+            8900,
+        );
+        assert!(!att.quorum_satisfied);
+
+        let att = crate::service::apply_remittance_witness_attestation(
+            att,
+            witness_two,
+            &commitment,
+            "humanitarian-verifier",
+            true,
+            8450,
+            8200,
+        );
+        assert!(att.quorum_satisfied);
+        assert_eq!(att.verified_witnesses, vec![witness_one, witness_two]);
+
+        crate::service::assert_remittance_quorum_satisfied(&att, &commitment);
+
+        // Verify fracpack round-trip of AsnafCategory + PersonalRemittanceAttestation
+        let packed = att.packed();
+        let unpacked =
+            crate::db::tables::PersonalRemittanceAttestation::unpacked(&packed).unwrap();
+        assert_eq!(unpacked, att);
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "PII Guard Violation: Commitment hash must be an exact 32-byte (64-hex-char) SHA-256 digest; plaintext PII is strictly forbidden"
+    )]
+    fn test_pii_guard_rejects_plaintext_beneficiary_name_or_iban() {
+        crate::service::validate_32_byte_commitment_hex("Amina Qirimli | TR330006100519786457841326");
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "PII Guard Violation: Commitment hash must be an exact 32-byte (64-hex-char) SHA-256 digest; plaintext PII is strictly forbidden"
+    )]
+    fn test_pii_guard_rejects_non_32_byte_hex_digest() {
+        crate::service::validate_32_byte_commitment_hex("0xdeadbeef");
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "PII Guard Violation: Commitment hash cannot be an uninitialized all-zero 32-byte digest"
+    )]
+    fn test_pii_guard_rejects_zero_32_byte_digest() {
+        crate::service::validate_32_byte_commitment_hex(
+            "0000000000000000000000000000000000000000000000000000000000000000",
+        );
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "PII & Compliance Violation: corridorJurisdiction 'Istanbul, Street 12' must be a 2-letter uppercase ISO-3166-1 alpha-2 bridge code"
+    )]
+    fn test_pii_guard_rejects_freeform_address_in_corridor_jurisdiction() {
+        let proposer = account!("donor");
+        crate::service::build_remittance_attestation(
+            12,
+            proposer,
+            Checksum256::from([0x12; 32]),
+            "Istanbul, Street 12".to_string(),
+            Checksum256::from([0x34; 32]),
+            None,
+            2,
+            TimePointUSec { microseconds: 1_000_000 },
+        );
+    }
 }

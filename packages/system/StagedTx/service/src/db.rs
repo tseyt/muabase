@@ -188,6 +188,142 @@ pub mod tables {
             (self.txid.clone(), self.witness)
         }
     }
+
+    /// Zakat & humanitarian beneficiary eligibility categories (Qur'an 9:60 / AAOIFI Standard No. 35)
+    #[derive(
+        async_graphql::Enum, Serialize, Deserialize, Copy, Clone, Eq, PartialEq, Debug, Default,
+    )]
+    #[allow(non_camel_case_types)]
+    pub enum AsnafCategory {
+        #[graphql(name = "FUQARA")]
+        FUQARA,
+        #[graphql(name = "MASAKIN")]
+        MASAKIN,
+        #[graphql(name = "GHARIMIN")]
+        GHARIMIN,
+        #[graphql(name = "IBN_AL_SABIL")]
+        IBN_AL_SABIL,
+        #[default]
+        #[graphql(name = "GENERAL_SADAQAH")]
+        GENERAL_SADAQAH,
+    }
+
+    impl AsnafCategory {
+        pub fn as_str(&self) -> &'static str {
+            match self {
+                Self::FUQARA => "FUQARA",
+                Self::MASAKIN => "MASAKIN",
+                Self::GHARIMIN => "GHARIMIN",
+                Self::IBN_AL_SABIL => "IBN_AL_SABIL",
+                Self::GENERAL_SADAQAH => "GENERAL_SADAQAH",
+            }
+        }
+
+        pub fn parse_str(value: &str) -> Result<Self, psibase::fracpack::Error> {
+            match value {
+                "FUQARA" => Ok(Self::FUQARA),
+                "MASAKIN" => Ok(Self::MASAKIN),
+                "GHARIMIN" => Ok(Self::GHARIMIN),
+                "IBN_AL_SABIL" => Ok(Self::IBN_AL_SABIL),
+                "GENERAL_SADAQAH" => Ok(Self::GENERAL_SADAQAH),
+                _ => Err(psibase::fracpack::Error::BadScalar),
+            }
+        }
+    }
+
+    impl psibase::fracpack::Pack for AsnafCategory {
+        const FIXED_SIZE: u32 = 4;
+        const VARIABLE_SIZE: bool = true;
+
+        fn pack(&self, dest: &mut Vec<u8>) {
+            self.as_str().pack(dest);
+        }
+    }
+
+    impl<'a> psibase::fracpack::Unpack<'a> for AsnafCategory {
+        const FIXED_SIZE: u32 = 4;
+        const VARIABLE_SIZE: bool = true;
+
+        fn unpack(
+            src: &mut psibase::fracpack::FracInputStream<'a>,
+        ) -> psibase::fracpack::Result<Self> {
+            let raw = <&str as psibase::fracpack::Unpack>::unpack(src)?;
+            Self::parse_str(raw)
+        }
+
+        fn verify(src: &mut psibase::fracpack::FracInputStream) -> psibase::fracpack::Result<()> {
+            let raw = <&str as psibase::fracpack::Unpack>::unpack(src)?;
+            Self::parse_str(raw).map(|_| ())
+        }
+    }
+
+    impl psibase::fracpack::ToSchema for AsnafCategory {
+        fn schema(builder: &mut psibase::fracpack::SchemaBuilder) -> psibase::fracpack::AnyType {
+            <String as psibase::fracpack::ToSchema>::schema(builder)
+        }
+    }
+
+    /// Zero-PII Ricardian personal remittance & Zakat Asnaf attestation (OFAC GL 6 / Non-Commercial P2P)
+    #[table(name = "RemittanceAttestationTable", index = 7)]
+    #[derive(
+        Pack, Unpack, Serialize, Deserialize, ToSchema, SimpleObject, Clone, Debug, PartialEq, Eq,
+    )]
+    pub struct PersonalRemittanceAttestation {
+        pub attestation_id: u64,
+        pub proposer: AccountNumber,
+        /// 32-byte SHA-256 salted commitment of off-chain encrypted beneficiary KYC/payout packet (0 PII on-chain)
+        pub recipient_commitment_hash: Checksum256,
+        /// Licensed bridge-country ISO-3166-1 alpha-2 jurisdiction code (e.g. "TR", "AE", "UA", "UZ")
+        pub corridor_jurisdiction: String,
+        /// 32-byte SHA-256 Ricardian text digest confirming non-commercial P2P personal remittance to non-SDN individual
+        pub non_commercial_personal_declaration_hash: Checksum256,
+        /// Optional Zakat Asnaf category or general Sadaqah classification
+        pub asnaf_category: Option<AsnafCategory>,
+        /// Required witness quorum (enforced >= 2)
+        pub witness_quorum: u8,
+        /// Required soulbound verifier domain credential ("humanitarian-verifier")
+        pub required_domain: String,
+        /// Verified witnesses holding active domain_badge and trust_score >= 8000
+        pub verified_witnesses: Vec<AccountNumber>,
+        /// True once verified_witnesses.len() >= witness_quorum
+        pub quorum_satisfied: bool,
+        pub created_at: TimePointUSec,
+    }
+    impl PersonalRemittanceAttestation {
+        #[primary_key]
+        fn pk(&self) -> u64 {
+            self.attestation_id
+        }
+
+        #[secondary_key(1)]
+        fn by_commitment(&self) -> (Checksum256, u64) {
+            (self.recipient_commitment_hash.clone(), self.attestation_id)
+        }
+
+        #[secondary_key(2)]
+        fn by_corridor(&self) -> (String, u64) {
+            (self.corridor_jurisdiction.clone(), self.attestation_id)
+        }
+    }
+
+    #[table(name = "RemittanceIdTable", index = 8)]
+    #[derive(Default, Pack, Unpack, Serialize, Deserialize, ToSchema)]
+    pub struct RemittanceIdRow {
+        pub next_id: u64,
+    }
+    impl RemittanceIdRow {
+        #[primary_key]
+        fn pk(&self) {}
+
+        pub fn next_id() -> u64 {
+            use psibase::Table;
+            let table = RemittanceIdTable::new();
+            let mut row = table.get_index_pk().get(&()).unwrap_or_default();
+            row.next_id += 1;
+            table.put(&row).unwrap();
+            row.next_id
+        }
+    }
 }
 
 pub mod impls {
