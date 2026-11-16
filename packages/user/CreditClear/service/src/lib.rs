@@ -83,6 +83,47 @@ pub mod tables {
             (self.node_a, self.node_b)
         }
     }
+
+    /// Non-custodial licensed bridge-country liquidity desk directory entry
+    /// (e.g., Turkey, UAE, mainland Ukraine, Central Asia exchange houses publishing Safe/Taproot vaults & FX spreads)
+    #[table(name = "BridgeLiquidityDeskTable", index = 4)]
+    #[derive(
+        Serialize, Deserialize, SimpleObject, ToSchema, Pack, Unpack, Debug, Clone, PartialEq, Eq,
+    )]
+    pub struct BridgeLiquidityDesk {
+        pub desk_id: u64,
+        pub operator: AccountNumber,
+        /// ISO-3166-1 alpha-2 bridge corridor code (e.g., "TR", "AE", "UA", "UZ")
+        pub corridor_jurisdiction: String,
+        pub desk_label: String,
+        /// 32-byte SHA-256 digest of exchange license / non-custodial attestation (0 PII on-chain)
+        pub license_registry_hash: Checksum256,
+        pub evm_safe_address: String,
+        pub btc_taproot_descriptor: String,
+        pub solana_squads_pda: String,
+        /// Live bridge FX spread in basis points (100 bps = 1.00%; funded via donor sadaqah_tip for Zakat)
+        pub fx_spread_bps: u32,
+        pub max_per_tx_usdc_cents: u64,
+        pub sadaqah_fee_subsidy_supported: bool,
+        pub active: bool,
+        pub last_updated: TimePointSec,
+    }
+    impl BridgeLiquidityDesk {
+        #[primary_key]
+        fn pk(&self) -> u64 {
+            self.desk_id
+        }
+
+        #[secondary_key(1)]
+        fn by_corridor(&self) -> (String, u64) {
+            (self.corridor_jurisdiction.clone(), self.desk_id)
+        }
+
+        #[secondary_key(2)]
+        fn by_operator(&self) -> (AccountNumber, u64) {
+            (self.operator, self.desk_id)
+        }
+    }
 }
 
 #[psibase::service(name = "cred-clear", tables = "tables")]
@@ -93,6 +134,9 @@ pub mod service {
     use psibase::services::tokens::{Quantity, TID};
     use psibase::services::transact::Wrapper as Transact;
     use psibase::*;
+
+    /// Maximum allowed bridge FX spread (10.00% = 1000 bps) to prevent predatory corridor pricing
+    pub const MAX_BRIDGE_FX_SPREAD_BPS: u32 = 1000;
 
     #[action]
     fn init() {
@@ -112,6 +156,8 @@ pub mod service {
         add_index("invoiceRegistered", 0);
         add_index("invoicesNetted", 0);
         add_index("creditLimitUpdated", 0);
+        add_index("bridgeDeskReg", 0);
+        add_index("bridgeDeskUpd", 0);
     }
 
     #[pre_action(exclude(init))]
@@ -252,6 +298,140 @@ pub mod service {
         Wrapper::emit().history().invoicesNetted(invoice_1_id, invoice_2_id, net_cancel.into());
     }
 
+    pub fn validate_bridge_desk_registration(
+        corridor_jurisdiction: &str,
+        desk_label: &str,
+        license_registry_hash: &Checksum256,
+        evm_safe_address: &str,
+        btc_taproot_descriptor: &str,
+        solana_squads_pda: &str,
+        fx_spread_bps: u32,
+        max_per_tx_usdc_cents: u64,
+    ) {
+        assert!(
+            corridor_jurisdiction.len() == 2
+                && corridor_jurisdiction.chars().all(|c| c.is_ascii_uppercase()),
+            "corridorJurisdiction '{}' must be a 2-letter uppercase ISO-3166-1 alpha-2 bridge code (e.g. TR, AE, UA, UZ)",
+            corridor_jurisdiction
+        );
+        assert!(
+            !desk_label.trim().is_empty() && desk_label.len() <= 96,
+            "desk_label must be between 1 and 96 characters"
+        );
+        assert!(
+            *license_registry_hash != Checksum256::from([0u8; 32]),
+            "license_registry_hash must be a non-zero 32-byte SHA-256 digest"
+        );
+        let has_non_custodial_vault = !evm_safe_address.trim().is_empty()
+            || !btc_taproot_descriptor.trim().is_empty()
+            || !solana_squads_pda.trim().is_empty();
+        assert!(
+            has_non_custodial_vault,
+            "Non-Custodial Safe Harbor Violation: BridgeLiquidityDesk must publish at least one client-verifiable Safe, Taproot, or Squads multisig settlement address"
+        );
+        assert!(
+            fx_spread_bps <= MAX_BRIDGE_FX_SPREAD_BPS,
+            "fx_spread_bps {} exceeds maximum corridor spread cap ({} bps)",
+            fx_spread_bps,
+            MAX_BRIDGE_FX_SPREAD_BPS
+        );
+        assert!(
+            max_per_tx_usdc_cents > 0,
+            "max_per_tx_usdc_cents must be strictly positive"
+        );
+    }
+
+    /// Registers a licensed bridge-country exchange desk publishing non-custodial Safe/Taproot/Squads
+    /// settlement addresses and live corridor FX spread metadata without holding platform custody.
+    #[action]
+    pub fn registerBridgeLiquidityDesk(
+        corridor_jurisdiction: String,
+        desk_label: String,
+        license_registry_hash: Checksum256,
+        evm_safe_address: String,
+        btc_taproot_descriptor: String,
+        solana_squads_pda: String,
+        fx_spread_bps: u32,
+        max_per_tx_usdc_cents: u64,
+        sadaqah_fee_subsidy_supported: bool,
+    ) -> u64 {
+        let operator = get_sender();
+        validate_bridge_desk_registration(
+            &corridor_jurisdiction,
+            &desk_label,
+            &license_registry_hash,
+            &evm_safe_address,
+            &btc_taproot_descriptor,
+            &solana_squads_pda,
+            fx_spread_bps,
+            max_per_tx_usdc_cents,
+        );
+
+        let desk_id = ClearIdRow::next_id();
+        let desk = BridgeLiquidityDesk {
+            desk_id,
+            operator,
+            corridor_jurisdiction: corridor_jurisdiction.clone(),
+            desk_label,
+            license_registry_hash,
+            evm_safe_address,
+            btc_taproot_descriptor,
+            solana_squads_pda,
+            fx_spread_bps,
+            max_per_tx_usdc_cents,
+            sadaqah_fee_subsidy_supported,
+            active: true,
+            last_updated: Transact::call().currentBlock().time.seconds(),
+        };
+
+        BridgeLiquidityDeskTable::new().put(&desk).unwrap();
+        Wrapper::emit()
+            .history()
+            .bridgeDeskReg(desk_id, operator, corridor_jurisdiction, fx_spread_bps);
+
+        desk_id
+    }
+
+    /// Updates live FX spread, capacity, or active status for an operator's registered BridgeLiquidityDesk
+    #[action]
+    pub fn updateBridgeCorridorSpread(
+        desk_id: u64,
+        fx_spread_bps: u32,
+        max_per_tx_usdc_cents: u64,
+        active: bool,
+    ) {
+        let caller = get_sender();
+        let mut desk = BridgeLiquidityDeskTable::read()
+            .get_index_pk()
+            .get(&desk_id)
+            .expect("BridgeLiquidityDesk DNE");
+
+        assert_eq!(
+            desk.operator, caller,
+            "Only the registered desk operator can update corridor spread metadata"
+        );
+        assert!(
+            fx_spread_bps <= MAX_BRIDGE_FX_SPREAD_BPS,
+            "fx_spread_bps {} exceeds maximum corridor spread cap ({} bps)",
+            fx_spread_bps,
+            MAX_BRIDGE_FX_SPREAD_BPS
+        );
+        assert!(
+            max_per_tx_usdc_cents > 0,
+            "max_per_tx_usdc_cents must be strictly positive"
+        );
+
+        desk.fx_spread_bps = fx_spread_bps;
+        desk.max_per_tx_usdc_cents = max_per_tx_usdc_cents;
+        desk.active = active;
+        desk.last_updated = Transact::call().currentBlock().time.seconds();
+
+        BridgeLiquidityDeskTable::new().put(&desk).unwrap();
+        Wrapper::emit()
+            .history()
+            .bridgeDeskUpd(desk_id, caller, fx_spread_bps, active);
+    }
+
     #[event(history)]
     pub fn invoiceRegistered(invoice_id: u64, creditor: AccountNumber, debtor: AccountNumber, amount: Quantity) {}
 
@@ -260,6 +440,18 @@ pub mod service {
 
     #[event(history)]
     pub fn creditLimitUpdated(node_a: AccountNumber, node_b: AccountNumber, limit: Quantity) {}
+
+    #[event(history)]
+    pub fn bridgeDeskReg(
+        desk_id: u64,
+        operator: AccountNumber,
+        corridor_jurisdiction: String,
+        fx_spread_bps: u32,
+    ) {
+    }
+
+    #[event(history)]
+    pub fn bridgeDeskUpd(desk_id: u64, operator: AccountNumber, fx_spread_bps: u32, active: bool) {}
 
     struct Query;
 
@@ -271,6 +463,32 @@ pub mod service {
 
         async fn get_credit_limit(&self, node_a: AccountNumber, node_b: AccountNumber) -> Option<WajahahCreditLimit> {
             WajahahCreditTable::read().get_index_pk().get(&(node_a, node_b))
+        }
+
+        async fn get_bridge_desk(&self, desk_id: u64) -> Option<BridgeLiquidityDesk> {
+            BridgeLiquidityDeskTable::read().get_index_pk().get(&desk_id)
+        }
+
+        async fn list_bridge_corridors(
+            &self,
+            corridor_jurisdiction: Option<String>,
+            active_only: Option<bool>,
+        ) -> Vec<BridgeLiquidityDesk> {
+            let require_active = active_only.unwrap_or(true);
+            BridgeLiquidityDeskTable::read()
+                .get_index_pk()
+                .iter()
+                .filter(|desk| {
+                    (!require_active || desk.active)
+                        && corridor_jurisdiction
+                            .as_deref()
+                            .map_or(true, |code| desk.corridor_jurisdiction == code)
+                })
+                .collect()
+        }
+
+        async fn bridge_liquidity_desk_table(&self) -> Vec<BridgeLiquidityDesk> {
+            BridgeLiquidityDeskTable::read().get_index_pk().iter().collect()
         }
     }
 
@@ -287,7 +505,8 @@ pub mod service {
 
 #[cfg(test)]
 mod tests {
-    use crate::service::calculate_wajahah_limit;
+    use crate::service::{calculate_wajahah_limit, validate_bridge_desk_registration};
+    use psibase::Checksum256;
 
     #[test]
     fn test_wajahah_limit_zero_disputes_capped_by_volume_or_reserve() {
@@ -304,5 +523,51 @@ mod tests {
         assert_eq!(calculate_wajahah_limit(100_000, 20_000, 50_000), 16_000);
         // 100% disputed -> limit collapses to 0
         assert_eq!(calculate_wajahah_limit(100_000, 100_000, 50_000), 0);
+    }
+
+    #[test]
+    fn test_bridge_liquidity_desk_accepts_non_custodial_safe_and_taproot() {
+        validate_bridge_desk_registration(
+            "TR",
+            "Bosphorus Non-Custodial Sarf Desk",
+            &Checksum256::from([0x5a; 32]),
+            "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+            "tr(xpub661MyMwAqRbcFtXgS5sYJABqqG9YLmC4Q1Rdap9gSE8NqtwybGhePY2gZ29ESFjqJoCu1Rupje8YtGqsefD265TMg7usUDFdp6W1EGMcet8)",
+            "",
+            85, // 0.85% FX spread
+            2_500_000,
+        );
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "Non-Custodial Safe Harbor Violation: BridgeLiquidityDesk must publish at least one client-verifiable Safe, Taproot, or Squads multisig settlement address"
+    )]
+    fn test_bridge_liquidity_desk_rejects_missing_non_custodial_vaults() {
+        validate_bridge_desk_registration(
+            "AE",
+            "Custodial Desk Without Multisig",
+            &Checksum256::from([0x5a; 32]),
+            "",
+            "   ",
+            "",
+            50,
+            1_000_000,
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "exceeds maximum corridor spread cap (1000 bps)")]
+    fn test_bridge_liquidity_desk_rejects_excessive_fx_spread() {
+        validate_bridge_desk_registration(
+            "UA",
+            "Kyiv Relief Bridge",
+            &Checksum256::from([0x5a; 32]),
+            "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+            "",
+            "",
+            1250,
+            1_000_000,
+        );
     }
 }
