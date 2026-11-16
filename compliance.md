@@ -104,6 +104,11 @@ Muabase provides a native terminology translation layer in `packages/user/Brandi
 | `evidence_gate` | Dual-Witness Evidentiary Gate | **Bayyinah (Dual Proof / Attestation)** | *Bayyinah* (بينة عادلة) | Two-witness quorum verification of physical evidence digests (receipt hashes, condition photos) prior to escrow release. **Qur'an 2:282; AAOIFI Standard No. 5.** | `"staged-tx"` |
 | `external_vault` | Non-Custodial Multi-Chain Splits | **Amanah Ghayr Hiyaziyyah** | *Amānah Ghayr Ḥiyāziyyah* (أمانة غير حيازية) | Fiduciary custody without possession; zero-key client-side multisig (Taproot Miniscript, EVM Safe) and direct payment splits eliminating custodial commingling. **Majallah, Arts. 762–832.** | `"ext-vault"` |
 | `guild_pod` | Cooperative Pod & Review Circle | **Halaqat al-Tijarah / al-Shura** | *Ḥalaqāt al-Tijārah wa al-Shūrā* (حلقات الشورى) | Autonomous 5–7 peer governance pods operating consensus without centralized managerial capture. **Qur'an 42:38.** | `"guilds"` / `"subgroups"` |
+| `zakat_tamlik` | Zero-Fee Direct Principal Vault (100% Beneficiary Delivery) | **Zakat Tamlik Vault (Tamlik al-Asnaf 100%)** | *Tamlīk al-Zakāh li al-Aṣnāf* (تمليك الزكاة للأصناف) | Mandatory 100% transfer of Zakat corpus ownership (*Tamlīk*) directly to eligible individual recipients (*Aṣnāf*) with zero platform, gas, or FX fee deduction from principal. **Qur'an 9:60; AAOIFI Standard No. 35 (Zakat).** | `"ext-vault"` |
+| `asnaf_gate` | Zero-PII Dual-Witness Beneficiary Eligibility Gate | **Asnaf Verification Gate (Bayyinat Istihqaq al-Zakat)** | *Bayyinat Istiḥqāq al-Zakāh* (بينة استحقاق الزكاة) | Salted 32-byte SHA-256 beneficiary commitment attested by $\ge 2$ witnesses holding soulbound `"humanitarian-verifier"` (*Ikhtiṣāṣ*) and `trust_score >= 8000` (*‘Adālah*) without exposing PII on-chain. **Qur'an 2:282 & 9:60; AAOIFI Standard No. 5 & No. 35.** | `"staged-tx"` |
+| `bridge_liquidity_desk` | Licensed Non-Custodial Bridge Liquidity Desk | **Bridge Liquidity Desk (Maktab al-Sarf wa al-Hawalah)** | *Maktab al-Ṣarf wa al-Ḥawālah* (مكتب الصرف والحوالة) | Non-custodial directory of licensed bridge-country exchange desks publishing Safe/Taproot multisig vaults and transparent FX spreads without platform custody. **AAOIFI Standard No. 1 (Trading in Currencies / Sarf) & No. 7 (Hawalah).** | `"creditclear"` |
+| `sadaqah_tip` | Optional Donor Infrastructure & FX Subsidy Split | **Tabarru‘ / Sadaqah Nafilah Infrastructure Split** | *Ṣadaqah Nāfilah / Tabarru‘* (صدقة نافلة / تبرع) | Separate voluntary donor gratuity (*Tabarru‘*) funding node operations, gas, and corridor FX spreads so Zakat principal remains 100% intact. **AAOIFI Standard No. 35.** | `"ext-vault"` |
+| `personal_remittance` | Non-Commercial P2P Personal Remittance Attestation | **Hawalah Shakhsiyyah & Iqrar Ghayr Tijari** | *Ḥawālah Shakhṣiyyah wa Iqrār* (حوالة شخصية وإقرار) | Standardized Ricardian declaration confirming non-commercial peer-to-peer family/humanitarian remittance to verified non-SDN individuals. **Majallah, Art. 1587 (Iqrar); OFAC GL 6.** | `"staged-tx"` |
 
 ---
 
@@ -143,7 +148,7 @@ $$\text{Quorum Valid} \iff \sum_{i=1}^{n} \mathbb{I}\left(\text{Sign}(W_i, H(M))
 
 Where:
 - $H(M)$ is the 32-byte SHA-256 digest of the physical evidence (e.g., photo of returned item, itemized POS receipt hash).
-- $\text{trust\_score}(W_i) \ge \theta$ confirms the witness possesses verified probity (*‘Adalah* $\ge 70\%$).
+- $\text{trust\_score}(W_i) \ge \theta$ confirms the witness possesses verified probity (*‘Adalah* $\ge 70\%$, and $\ge 80\%$ for humanitarian beneficiary attestations).
 - $\text{domain\_badge}(W_i) \in \mathcal{D}$ confirms competence in the relevant commercial domain (*Ikhtisas*).
 
 #### Shariah Citation
@@ -259,6 +264,32 @@ In `packages/user/ExternalVault`:
 
 ---
 
+### 4.9 Invariant 9: Zero-Fee Zakat *Tamlik* Routing & Zero-PII *Asnaf* Attestation (`zakat_tamlik` & `asnaf_gate`)
+
+#### The Classical Fiqh Problem
+Across all four classical Sunni *madhahib* (Hanafi, Maliki, Shafi‘i, Hanbali) and AAOIFI Shariah Standard No. 35, valid discharge of obligatory **Zakat** requires **Tamlik** (*Tamlīk al-Zakāh*): transferring full, unencumbered individual ownership of the Zakat principal directly to eligible human recipients belonging to the Quranic *Asnaf* categories (*Fuqara*, *Masakin*, *Gharimin*, *Ibn al-Sabil*; Qur'an 9:60). Commercial crowdfunding apps and legacy NGOs routinely violate *Tamlik* by deducting 3%–12% platform fees, payment-processor take-rates, or hidden FX spreads directly out of the donor's Zakat principal—leaving the donor's religious obligation partially undischarged—while simultaneously storing sensitive beneficiary names and addresses on centralized servers where displaced or persecuted communities face severe safety risks (*Darar*).
+
+#### The Mathematical Solution in Muabase
+1. **Strict Zero-Fee Principal Conservation (`CorridorSplitMode::ZAKAT_TAMLIK_100`):** In `packages/user/ExternalVault`, commercial lease splits (`COMMERCIAL_93_4_3`) are strictly segregated from Zakat disbursements (`ZAKAT_TAMLIK_100`). Let $Z_{\text{principal}} > 0$ denote the donor's obligatory Zakat principal, $T_{\text{sadaqah}} \ge 0$ denote an optional, separate voluntary *Sadaqah Nafilah* tip (`sadaqah_tip_amount`), and $F_{\text{deducted}}$ denote any fee deducted from $Z_{\text{principal}}$:
+
+$$\text{Mode} = \text{ZAKAT\_TAMLIK\_100} \implies F_{\text{deducted}} = 0 \quad \land \quad \text{Amount}(\text{recipientBridgeVault}) = Z_{\text{principal}}$$
+
+$$\text{Total Donor Debit} = Z_{\text{principal}} + T_{\text{sadaqah}}, \qquad \text{Amount}(\text{infraOpsVault} / \text{charity\_sink}) = T_{\text{sadaqah}}$$
+
+Any transaction attempting to pass $F_{\text{deducted}} > 0$ when `mode == ZAKAT_TAMLIK_100` immediately panics in WebAssembly (`Tamlik Violation`), aborting state execution.
+
+2. **Zero-PII Salted Beneficiary Commitments & Dual-Witness *Asnaf* Gate (`PersonalRemittanceAttestation`):** Consistent with *Satr* (protecting beneficiary dignity and safety) and *La Darar wa la Dirar* ("neither harm nor reciprocating harm"), `packages/system/StagedTx` prohibits plaintext names, IBANs, or street addresses on-chain. Instead, verifiers attest to a 32-byte salted SHA-256 commitment $C = \text{SHA256}(\text{salt} \parallel \text{encryptedBeneficiaryPacket})$ alongside an ISO-3166-1 alpha-2 bridge code (`"TR"`, `"AE"`, `"UA"`, `"UZ"`) and a Ricardian non-commercial P2P declaration digest:
+
+$$\text{Release Permitted} \iff |\mathcal{W}_{\text{verified}}(C)| \ge 2, \quad \forall w \in \mathcal{W}_{\text{verified}}(C): \; \text{badge}(w) = \text{"humanitarian-verifier"} \land \text{trust\_score}(w) \ge 8000$$
+
+`ExternalVault::createZakatRemittanceSplit` and `ExternalVault::confirmRemittanceSettlement` invoke `StagedTx::verifyRemittanceQuorum` synchronously, blocking settlement if fewer than two independent qualified verifiers have attested.
+
+#### Shariah Citation
+> *“Zakah expenditures are only for the poor (al-Fuqara’) and for the needy (al-Masakin)… and for those in bondage, for those in debt (al-Gharimin), for the cause of Allah, and for the stranded traveler (Ibn al-Sabil)—an obligation ordained by Allah.”*  
+> — **Qur'an 9:60 (Surat al-Tawbah); AAOIFI Shariah Standard No. 35 (Zakah), Clauses 2/1 & 9/1 (Requirement of Tamlik and Prohibition of Administrative Fee Deduction from Allocated Zakah Shares without Sovereign Mandate)**
+
+---
+
 ## 5. Developer Integration & Dual-Locale SDK Usage
 
 Developers can toggle the SDK between neutral institutional terminology and classical jurisprudence terms with a single configuration flag:
@@ -308,8 +339,9 @@ const lease = await client.leaseEngine.createLease({
 Muabase satisfies both US regulatory standards and international Islamic finance standards:
 
 1. **NYDFS BitLicense Safe Harbor (`23 NYCRR § 200.2(q)`):** Because the protocol operates in a 100% non-custodial manner with zero operator keys and no volatile governance token, infrastructure operators qualify under pure software developer exemptions.
-2. **AAOIFI Shariah Governance Standards (GSIFI):** The state machine's deterministic invariant checks provide an automated, continuous audit trail for internal Shariah review units and external Shariah Supervisory Boards (SSBs).
-3. **Absence of Speculative Gas Arbitrage:** Bandwidth and computation are bounded by CPU time budgets and bonded capacity, eliminating Front-Running, Maximal Extractable Value (MEV), and speculative gas price manipulation.
+2. **OFAC Personal Remittance General License Alignment (e.g., GL 6 / Non-Commercial P2P):** `PersonalRemittanceAttestation` embeds a mandatory 32-byte Ricardian declaration digest (`non_commercial_personal_declaration_hash`) attesting that humanitarian diaspora transfers are non-commercial, personal peer-to-peer remittances to verified non-SDN individuals routed via licensed bridge-country exchange desks (`BridgeLiquidityDesk` in `"TR"`, `"AE"`, `"UA"`, `"UZ"`).
+3. **AAOIFI Shariah Governance Standards (GSIFI):** The state machine's deterministic invariant checks provide an automated, continuous audit trail for internal Shariah review units and external Shariah Supervisory Boards (SSBs).
+4. **Absence of Speculative Gas Arbitrage:** Bandwidth and computation are bounded by CPU time budgets and bonded capacity, eliminating Front-Running, Maximal Extractable Value (MEV), and speculative gas price manipulation.
 
 ---
 
@@ -325,5 +357,7 @@ When conducting an institutional Shariah audit of a Muabase deployment, verify t
 | **Pre-emption Window** | `priority_window_sec >= 86400` | Ensure co-owners receive minimum 24-hour exclusive purchase window. |
 | **Non-Custodial Escrow** | `operator_keys == 0` | Inspect `packages/user/ExternalVault` to confirm zero platform custody of user funds. |
 | **Waqf Corpus Lock** | `endowment_policy == active` | Confirm outward principal debits from trust accounts fail with state transition error. |
+| **Zakat Tamlik 100% Principal** | `mode == ZAKAT_TAMLIK_100 && protocol_fee_deducted == 0` | Verify `ExternalVault::createZakatRemittanceSplit` panics on any non-zero fee deduction from `zakat_principal_amount`. |
+| **Zero-PII Asnaf Quorum** | `witness_quorum >= 2 && badge == "humanitarian-verifier" && trust_score >= 8000` | Verify `StagedTx::verifyRemittanceQuorum` blocks settlement below 2 qualified witnesses and stores only 32-byte SHA-256 digests. |
 
 For inquiries, formal fatwas, or institutional audit certifications, refer to the documentation repository or contact the Muabase governance council.

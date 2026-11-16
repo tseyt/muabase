@@ -42,6 +42,11 @@ To accommodate both traditional commercial syndicates (Manhattan family offices,
 | `evidence_gate` | Dual-Witness Evidentiary Gate | *Bayyinah (Dual Proof / Attestation)* | 2-witness quorum verification of physical evidence digests (receipt hashes, condition photos) prior to escrow or claim release. |
 | `external_vault` | Non-Custodial Multi-Chain Splits | *Amanah Ghayr Hiyaziyyah (Trustee Escrow)* | 0-key client-side execution on Stripe Connect, EVM Safe, and Bitcoin Taproot Miniscript, eliminating platform custody liability. |
 | `guild_pod` | Cooperative Pod & Review Circle | *Halaqat al-Tijarah / al-Shura* | Autonomous 5-7 peer governance pods operating consensus without centralized managerial capture. |
+| `zakat_tamlik` | Zero-Fee Direct Principal Vault (100% Beneficiary Delivery) | *Zakat Tamlik Vault (Tamlik al-Asnaf 100%)* | 100% direct ownership transfer (*Tamlik*) of Zakat principal to verified *Asnaf* with 0% fee deduction (`CorridorSplitMode::ZAKAT_TAMLIK_100`). |
+| `asnaf_gate` | Zero-PII Dual-Witness Beneficiary Eligibility Gate | *Asnaf Verification Gate (Bayyinat Istihqaq al-Zakat)* | Salted 32-byte SHA-256 beneficiary commitment attested by `witness_quorum >= 2` of `"humanitarian-verifier"` badge holders (`trust_score >= 8000`). |
+| `bridge_liquidity_desk` | Licensed Non-Custodial Bridge Liquidity Desk | *Bridge Liquidity Desk (Maktab al-Sarf wa al-Hawalah)* | Licensed bridge-country exchange houses publishing non-custodial Safe/Taproot vaults and live FX spread metadata (`CreditClear`). |
+| `sadaqah_tip` | Optional Donor Infrastructure & FX Subsidy Split | *Tabarru‘ / Sadaqah Nafilah Infrastructure Split* | Voluntary donor gratuity split funding gas, node ops, and bridge FX spreads outside Zakat principal. |
+| `personal_remittance` | Non-Commercial P2P Personal Remittance Attestation | *Hawalah Shakhsiyyah & Iqrar Ghayr Tijari* | Ricardian digest attesting non-commercial P2P personal remittance to non-SDN individuals (OFAC GL 6). |
 
 
 ---

@@ -138,6 +138,9 @@ Muabase equips developers with a set of universal canonical primitives implement
 | `evidence_gate` | Dual-Witness Evidentiary Gate | 2-witness quorum verification of physical evidence digests prior to escrow release. | `"staged-tx"` |
 | `external_vault` | Non-Custodial Multi-Chain Splits | 0-key client-side execution on Stripe Connect, EVM Safe, and Bitcoin Taproot Miniscript. | `"ext-vault"` |
 | `guild_pod` | Cooperative Pod & Review Circle | Autonomous 5-7 peer governance pods operating consensus without centralized managerial capture. | `"guilds"` / `"subgroups"` |
+| `zakat_tamlik` | Zero-Fee Direct Principal Vault (100% Beneficiary Delivery) | 100% *tamlik* principal delivery (`ZAKAT_TAMLIK_100`) with zero protocol/FX fee deduction from Zakat principal; optional separate `sadaqah_tip`. | `"ext-vault"` |
+| `asnaf_gate` | Zero-PII Dual-Witness Beneficiary Eligibility Gate | Salted 32-byte SHA-256 beneficiary commitments attested by `witness_quorum >= 2` `"humanitarian-verifier"` credentials (`trust_score >= 8000`). | `"staged-tx"` |
+| `bridge_liquidity_desk` | Licensed Non-Custodial Bridge Liquidity Desk | Licensed bridge-country liquidity providers publishing non-custodial Safe/Taproot settlement addresses and live FX spreads. | `"creditclear"` |
 
 ---
 
@@ -231,6 +234,50 @@ await client.evaluations.recordPairwiseVote({
   category: "food",
   voter: client.account,
 });
+
+// =========================================================================
+// Example C: Non-Custodial Zakat & Personal Remittance Corridor
+// =========================================================================
+
+const commitmentHash =
+  "0x9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08";
+const ofacGl6DeclarationHash =
+  "0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+
+// 1. Discover licensed non-custodial bridge-country liquidity desks (e.g., Turkey "TR")
+const [bridgeDesk] = await client.creditClear.listBridgeCorridors({
+  corridorJurisdiction: "TR",
+  activeOnly: true,
+});
+
+// 2. Propose zero-PII PersonalRemittanceAttestation (0 beneficiary names/IBANs on-chain)
+const { attestationId } = await client.stagedTx.proposeRemittanceAttestation({
+  recipientCommitmentHash: commitmentHash,
+  corridorJurisdiction: "TR",
+  nonCommercialPersonalDeclarationHash: ofacGl6DeclarationHash,
+  asnafCategory: "FUQARA",
+  witnessQuorum: 2,
+});
+
+// 3. Two independent verifiers (domain_badge: "humanitarian-verifier", trust_score >= 8000) co-sign
+await client.stagedTx.attestBeneficiaryCommitment({
+  attestationId,
+  recipientCommitmentHash: commitmentHash,
+  domainBadge: "humanitarian-verifier",
+});
+
+// 4. Generate 100% Tamlik Zakat split (0% fee deducted from principal; optional Sadaqah ops tip)
+const zakatIntent = await client.externalVault.createZakatRemittanceSplit({
+  attestationId,
+  mode: "ZAKAT_TAMLIK_100",
+  railType: "evm_safe",
+  corridorJurisdiction: "TR",
+  recipientBridgeVault: bridgeDesk.evmSafeAddress,
+  infraOpsVault: "0xQirimSadaqahOpsVault00000000000000000002",
+  zakatPrincipalAmount: 100_000, // $1,000.00 USDC -> 100% delivered intact to beneficiary vault
+  sadaqahTipAmount: 1_500,       // $15.00 optional separate Sadaqah tip covering FX spread & gas
+  recipientCommitmentHash: commitmentHash,
+});
 ```
 
 <a name="reference-guides"></a>
@@ -239,6 +286,7 @@ await client.evaluations.recordPairwiseVote({
 - **[Un-Gameable Social Restaurant Ranking & Tastemaker App (Beli Competitor)](packages/shared-ui/headless-sdk/examples/beli-competitor-quickstart.md):** 93% tastemaker take-home, cryptographic proof-of-visit (`evidence_gate` receipt hashing), Wasm-native Condorcet pairwise tournaments (`evals`), non-custodial supper club escrow (`external_vault`), and zero-penalty food rescue sink (`charity_sink`).
 - **[Real Estate & Solar Infrastructure Cooperative (MizanVest)](packages/shared-ui/headless-sdk/examples/mizanvest-quickstart.md):** Workforce housing & commercial solar syndication (`asset_pool`), Yield Stabilization Reserve (8–12% target payout), 100% tangible asset backing (`tangible_ratio`), and endowment principal lock (`endowment_policy`).
 - **[Positive-Sum Ethical Forecasting Protocol (Irfan.Markets)](packages/shared-ui/headless-sdk/examples/irfan-markets-quickstart.md):** 100% principal protection, knowledge bounties from redirected yield (`evals`), dual-witness resolution gate (`evidence_gate`), and zero-house extraction charity sink (`charity_sink`).
+- **[Humanitarian & Zakat Remittance Corridors (QırımBridge / Ummah Rails)](doc/HUMANITARIAN_CORRIDOR_QUICKSTART.md):** 100% *tamlik* principal delivery (`ZAKAT_TAMLIK_100` with zero fee deduction from Zakat principal), zero-PII dual-witness `evidence_gate` beneficiary verification (`"humanitarian-verifier"`, `trust_score >= 8000`), OFAC GL 6 personal remittance Ricardian attestations, and non-custodial bridge-country settlement (`external_vault` + `credit_clear`).
 
 ---
 
@@ -259,8 +307,8 @@ await client.evaluations.recordPairwiseVote({
 │   │   ├── LeaseEngine/     # P2P rentals, progressive buyouts & non-profiteering charity sink
 │   │   ├── MutualShield/    # Mutual protection reserve pool with epoch surplus rebates
 │   │   ├── ClaimCouncil/    # 3-peer rapid damage triage & objective bounty ranking
-│   │   ├── CreditClear/     # Bilateral & multilateral B2B invoice netting
-│   │   ├── ExternalVault/   # Non-custodial Bitcoin Taproot, EVM Safe & Stripe splits
+│   │   ├── CreditClear/     # Bilateral & multilateral B2B invoice netting & bridge liquidity desks
+│   │   ├── ExternalVault/   # Non-custodial Taproot, EVM Safe, Stripe & Zakat Tamlik splits
 │   │   ├── Evaluations/     # Objective claim/bounty rank-ordering
 │   │   ├── Guilds/          # Cooperative merchant pods & investment committees
 │   │   └── Subgroups/       # 5-7 peer review pods
@@ -268,7 +316,8 @@ await client.evaluations.recordPairwiseVote({
 │       └── headless-sdk/    # Reactive TypeScript SDK (@muabase/headless-sdk)
 ├── compliance.md            # Ethical & Shariah compliance specification (Fiqh al-Mu'amalat)
 ├── doc/
-│   └── MUABASE_SPEC.md      # Mathematical specification, formulas, & regulatory proofs
+│   ├── MUABASE_SPEC.md                      # Mathematical specification, formulas, & regulatory proofs
+│   └── HUMANITARIAN_CORRIDOR_QUICKSTART.md  # Non-custodial Zakat & humanitarian diaspora corridor guide
 └── rust/
     └── psibase/             # Core Wasm-in-Database micro-execution engine
 ```

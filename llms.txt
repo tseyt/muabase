@@ -15,13 +15,13 @@ AI agents must **never hallucinate** service names or action endpoints. Use thes
 | :--- | :--- | :--- | :--- |
 | `"tokens"` | `asset_pool`, `tangible_ratio` | `configureAssetPool`, `purchaseDigitalShares` | RWA asset pool creation, par-value floor (>= 51%), ROFR configuration. |
 | `"lease-eng"` | `lease`, `charity_sink` | `createLease`, `confirmCleanReturn`, `settleCancellation` | Usufruct leases (P2P rentals, supper clubs), zero-*riba* cancellation settling. |
-| `"staged-tx"` | `evidence_gate` | `recordAttestation` | Dual-witness Ricardian evidence digest verification ($H(M)$). |
+| `"staged-tx"` | `evidence_gate`, `asnaf_gate`, `personal_remittance` | `recordAttestation`, `proposeRemittanceAttestation`, `attestBeneficiaryCommitment`, `verifyRemittanceQuorum`, `getRemittanceAttestation` | Dual-witness Ricardian evidence & zero-PII humanitarian beneficiary commitment verification (`witness_quorum >= 2`, `"humanitarian-verifier"`). |
 | `"evals"` | `evals` | `recordPairwiseVote`, `createJu'alahBounty`, `resolveJu'alahBounty` | Schulze Condorcet pairwise tournaments, objective bounties. (People are NEVER ranked). |
 | `"claimcouncil"` | `claim_council` | `submitDamageClaim`, `voteDamageClaim` | 3-peer rapid damage triage committee for mutual protection reserves. |
-| `"ext-vault"` | `external_vault` | `generateSplitIntent`, `generateInvestmentIntent` | Non-custodial 0-key multi-party payouts (Stripe Connect, EVM Safe, Taproot). |
-| `"creditclear"` | `credit_clear`, `liquidity_bridge` | `executeBilateralNetting` | Zero-fee multilateral B2B invoice clearing & debt novation. |
+| `"ext-vault"` | `external_vault`, `zakat_tamlik`, `sadaqah_tip` | `generateSplitIntent`, `generateInvestmentIntent`, `createZakatRemittanceSplit`, `confirmRemittanceSettlement` | Non-custodial 0-key multi-party payouts (`COMMERCIAL_93_4_3` and `ZAKAT_TAMLIK_100` 100% principal delivery). |
+| `"creditclear"` (Wasm: `"cred-clear"`) | `credit_clear`, `liquidity_bridge`, `bridge_liquidity_desk` | `executeBilateralNetting`, `registerBridgeLiquidityDesk`, `updateBridgeCorridorSpread`, GraphQL `listBridgeCorridors` | Zero-fee multilateral B2B invoice clearing, Wajahah credit limits & licensed non-custodial bridge corridor discovery. |
 | `"tokenstream"` | `endowment_policy`, `mutual_shield` | `recordGrossRevenue`, `distributeCoopYield`, `allocateYieldStake` | Yield stabilization reserve math, Waqf principal preservation locks. |
-| `"branding"` | Dual-Locale Engine | `setNetworkName`, `getTerminologyMappings` | Dynamic switching between `"institutional"` and `"muamalat"` terms. |
+| `"branding"` | Dual-Locale Engine | `setNetworkName`, `setTerminologyLocale`, GraphQL `terminologyDictionary`, `translateTerm` | Dynamic switching between `"institutional"` and `"muamalat"` terms. |
 
 ---
 
@@ -33,19 +33,24 @@ When generating code, always adhere to these exact data scale and validation rul
    - $100\% = 10000\text{ bps}$.
    - $51\% = 5100\text{ bps}$.
    - `tangibleRatioBps`: **Must be $\ge 5100$**. If $< 5100$, non-par trading reverts with `Bay' al-Dayn Violation`. Default to `10000` (100% tangible).
-   - `trust_score` / `AdalahScore`: $0$ to $10000$. A score of $7000$ represents $70.00\%$.
+   - `trust_score` / `AdalahScore`: $0$ to $10000$. A score of $7000$ represents $70.00\%$; humanitarian/Zakat witnesses require `trust_score >= 8000` ($80.00\%$) and active soulbound `domain_badge` = `"humanitarian-verifier"`.
 2. **Token Amounts & Value Objects:**
    - On-chain currency values are wrapped in `{ value: number }`.
    - Token precision is typically 4 decimal places ($1.00\text{ USD} = 10000$).
    - Never pass raw JavaScript floats (e.g., `45.5`) directly into `{ value: ... }`; convert to integer units: `Math.floor(amountUsd * 10000)`.
-3. **Fee Split Proportions:**
-   - Standard rental / curation split is **93% / 4% / 3%**:
+3. **Fee Split Proportions (`CorridorSplitMode`):**
+   - `COMMERCIAL_93_4_3` (Standard rental / curation split is **93% / 4% / 3%**):
      - `9300 bps` $\rightarrow$ Asset Owner / Tastemaker
      - `400 bps` $\rightarrow$ Mutual Protection Pool (`mutual_shield` / *Takaful*)
      - `300 bps` $\rightarrow$ App SaaS Operator
-4. **Evidence Hashes (`evidenceHash` / `receiptDigestHash`):**
-   - Must be a 32-byte hexadecimal string prefixed with `0x` (66 characters total: `0x` + 64 hex chars).
-   - Generated via `crypto.subtle.digest('SHA-256', buffer)`.
+   - `ZAKAT_TAMLIK_100` (Zero-fee Zakat *Tamlik* & Humanitarian Remittance split):
+     - `10000 bps` ($100\%$) of `zakatPrincipalAmount` $\rightarrow$ `recipientBridgeVault` (`protocolFeeDeduction` **MUST be `0`**, or state transition panics with `Tamlik Violation`).
+     - Optional separate `sadaqahTipAmount` $\rightarrow$ `infraOpsVault` / `"charity-sink"` to fund gas, node ops, and bridge FX spreads (`fxSpreadBps`).
+4. **Evidence & Zero-PII Commitment Hashes (`evidenceHash` / `recipientCommitmentHash` / `nonCommercialPersonalDeclarationHash`):**
+   - Must be a non-zero 32-byte hexadecimal string prefixed with `0x` (66 characters total: `0x` + 64 hex chars).
+   - Generated via `crypto.subtle.digest('SHA-256', buffer)`. **Never store beneficiary names, addresses, or plaintext off-ramp IBANs on-chain.**
+   - `corridorJurisdiction` must be an uppercase 2-letter ISO-3166-1 alpha-2 bridge code (e.g., `"TR"`, `"AE"`, `"UA"`, `"UZ"`).
+   - `AsnafCategory` enum values: `"FUQARA"`, `"MASAKIN"`, `"GHARIMIN"`, `"IBN_AL_SABIL"`, `"GENERAL_SADAQAH"`.
 5. **Charity Sink Default:**
    - `charitySinkAccount` is always `"waqf-sadaqah"`. Punitive late deterrences route 100% here. Creditors never retain late fees.
 
@@ -55,8 +60,8 @@ When generating code, always adhere to these exact data scale and validation rul
 
 **Crucial for AI Agents:** Institutional terms and Muamalat terms are **presentation labels** managed by `packages/user/Branding`. They are **NOT** the names of Wasm services or API endpoints!
 
-- ❌ **Incorrect:** `client.transact("ijarah", "rentItem", ...)` or `client.transact("rental_marketplace", "book", ...)`
-- ✅ **Correct:** `client.leaseEngine.createLease(...)` or `client.transact("lease-eng", "createLease", ...)`
+- ❌ **Incorrect:** `client.transact("ijarah", "rentItem", ...)` or `client.transact("zakat_vault", "sendZakat", ...)`
+- ✅ **Correct:** `client.leaseEngine.createLease(...)` or `client.externalVault.createZakatRemittanceSplit(...)`
 
 | Canonical Key (`key`) | Institutional Locale (`"institutional"`) | Jurisprudential Locale (`"muamalat"`) | Underlying Wasm Service |
 | :--- | :--- | :--- | :--- |
@@ -77,6 +82,11 @@ When generating code, always adhere to these exact data scale and validation rul
 | `evidence_gate` | Dual-Witness Evidentiary Gate | *Bayyinah (Dual Proof / Attestation)*| `"staged-tx"` |
 | `external_vault` | Non-Custodial Multi-Chain Splits | *Amanah Ghayr Hiyaziyyah (Trustee Escrow)*| `"ext-vault"` |
 | `guild_pod` | Cooperative Pod & Review Circle | *Halaqat al-Tijarah / al-Shura* | `"guilds"` / `"subgroups"` |
+| `zakat_tamlik` | Zero-Fee Direct Principal Vault (100% Beneficiary Delivery) | *Zakat Tamlik Vault (Tamlik al-Asnaf 100%)* | `"ext-vault"` |
+| `asnaf_gate` | Zero-PII Dual-Witness Beneficiary Eligibility Gate | *Asnaf Verification Gate (Bayyinat Istihqaq al-Zakat)* | `"staged-tx"` |
+| `bridge_liquidity_desk` | Licensed Non-Custodial Bridge Liquidity Desk | *Bridge Liquidity Desk (Maktab al-Sarf wa al-Hawalah)* | `"creditclear"` |
+| `sadaqah_tip` | Optional Donor Infrastructure & FX Subsidy Split | *Tabarru‘ / Sadaqah Nafilah Infrastructure Split* | `"ext-vault"` |
+| `personal_remittance` | Non-Commercial P2P Personal Remittance Attestation | *Hawalah Shakhsiyyah & Iqrar Ghayr Tijari* | `"staged-tx"` |
 
 ---
 
@@ -151,13 +161,49 @@ await client.externalVault.generateSplitIntent({
 });
 ```
 
-### Pattern 5: Reactive UI Subscription Hook
+### Pattern 5: Reactive UI Subscription Hook (SSE / WebSocket)
 ```tsx
 const { data, loading, error } = useMuabaseTable({
   client,
   service: 'lease-eng',
   table: 'UsufructLeaseTable',
+  transport: 'sse',
   query: '{ usufructLeaseTable { leaseId lessor lessee grossPayment status } }',
   pollIntervalMs: 3000,
+});
+```
+
+### Pattern 6: Zero-Fee Zakat *Tamlik* & Humanitarian Remittance Corridor
+Reference Guide: `doc/HUMANITARIAN_CORRIDOR_QUICKSTART.md`
+```typescript
+const [desk] = await client.creditClear.listBridgeCorridors({
+  corridorJurisdiction: "TR",
+  activeOnly: true,
+});
+
+const { attestationId } = await client.stagedTx.proposeRemittanceAttestation({
+  recipientCommitmentHash: "0x" + "d".repeat(64), // Salted SHA-256 (0 PII on-chain)
+  corridorJurisdiction: "TR",
+  nonCommercialPersonalDeclarationHash: "0x" + "e".repeat(64), // OFAC GL 6 Ricardian digest
+  asnafCategory: "FUQARA",
+  witnessQuorum: 2,
+});
+
+await client.stagedTx.attestBeneficiaryCommitment({
+  attestationId,
+  recipientCommitmentHash: "0x" + "d".repeat(64),
+  domainBadge: "humanitarian-verifier", // Requires >= 2 witnesses with trust_score >= 8000
+});
+
+await client.externalVault.createZakatRemittanceSplit({
+  attestationId,
+  mode: "ZAKAT_TAMLIK_100", // Panics if protocolFeeDeduction > 0
+  railType: "evm_safe",
+  corridorJurisdiction: "TR",
+  recipientBridgeVault: desk.evmSafeAddress,
+  infraOpsVault: "0xQirimSadaqahOpsVault00000000000000000002",
+  zakatPrincipalAmount: 100_000, // 100% delivered intact
+  sadaqahTipAmount: 1_500,       // Optional separate Sadaqah tip for FX spread & ops
+  recipientCommitmentHash: "0x" + "d".repeat(64),
 });
 ```
