@@ -211,3 +211,178 @@ export interface TastemakerGuildInput {
   legalWrapperHash: string;
 }
 
+/**
+ * =========================================================================
+ * Humanitarian Remittance & Shariah-Compliant Zakat/Sadaqah Corridor Types
+ * (NYDFS 23 NYCRR § 200.2(q) Non-Custodial / OFAC GL 6 Personal Remittance)
+ * =========================================================================
+ */
+
+/**
+ * Settlement routing mode for `ExternalVault` (`"ext-vault"`):
+ * - `"COMMERCIAL_93_4_3"`: Standard commercial lease split (93% owner / 4% mutual_shield / 3% SaaS).
+ * - `"ZAKAT_TAMLIK_100"`: 100% direct ownership transfer (*Tamlik*) of `zakatPrincipalAmount` to
+ *   `recipientBridgeVault` with 0% fee deduction; optional `sadaqahTipAmount` routes separately.
+ */
+export type CorridorSplitMode = "COMMERCIAL_93_4_3" | "ZAKAT_TAMLIK_100";
+
+/**
+ * Zakat & humanitarian beneficiary eligibility classification (*Asnaf*, Qur'an 9:60).
+ */
+export type AsnafCategory =
+  | "FUQARA"
+  | "MASAKIN"
+  | "GHARIMIN"
+  | "IBN_AL_SABIL"
+  | "GENERAL_SADAQAH";
+
+/**
+ * Supported non-custodial multi-signature & licensed bridge settlement rails (0 platform keys held).
+ */
+export type RemittanceSettlementRail =
+  | "evm_safe"
+  | "bitcoin_taproot"
+  | "solana_squads"
+  | "bridge_corridor_api";
+
+/**
+ * Input to propose a zero-PII `PersonalRemittanceAttestation` on `StagedTx` (`"staged-tx"`).
+ */
+export interface ProposeRemittanceAttestationInput {
+  /** 32-byte SHA-256 salted commitment (`0x` + 64 hex chars) of off-chain encrypted beneficiary KYC/payout packet. */
+  recipientCommitmentHash: string;
+  /** Licensed bridge-country ISO-3166-1 alpha-2 jurisdiction code (e.g. `"TR"`, `"AE"`, `"UA"`, `"UZ"`). */
+  corridorJurisdiction: string;
+  /** 32-byte SHA-256 Ricardian text digest confirming non-commercial P2P personal remittance to a non-SDN individual. */
+  nonCommercialPersonalDeclarationHash: string;
+  /** Optional Zakat *Asnaf* category or `"GENERAL_SADAQAH"`. */
+  asnafCategory?: AsnafCategory;
+  /** Required independent witness quorum (enforced `>= 2`). Defaults to `2`. */
+  witnessQuorum?: number;
+}
+
+/**
+ * Input for a qualified community verifier (`trust_score >= 8000` + soulbound `"humanitarian-verifier"` badge)
+ * to co-sign a zero-PII beneficiary commitment via `client.stagedTx.attestBeneficiaryCommitment(...)`.
+ */
+export interface AttestBeneficiaryCommitmentInput {
+  /** Monotonic ID of the `PersonalRemittanceAttestation` record in `StagedTx`. */
+  attestationId: number;
+  /** 32-byte SHA-256 salted commitment (`0x` + 64 hex chars) matching the proposed beneficiary packet. */
+  recipientCommitmentHash: string;
+  /** Soulbound verifier domain credential. Defaults to `"humanitarian-verifier"`. */
+  domainBadge?: string;
+}
+
+/**
+ * On-chain zero-PII `PersonalRemittanceAttestation` state row in `StagedTx` (`RemittanceAttestationTable`).
+ */
+export interface PersonalRemittanceAttestation {
+  attestationId: number;
+  proposer: string;
+  recipientCommitmentHash: string;
+  corridorJurisdiction: string;
+  nonCommercialPersonalDeclarationHash: string;
+  asnafCategory?: AsnafCategory | null;
+  witnessQuorum: number;
+  requiredDomain: string;
+  verifiedWitnesses: string[];
+  quorumSatisfied: boolean;
+  createdAt: string;
+}
+
+/**
+ * Input to generate a non-custodial Zakat *Tamlik* or Humanitarian Corridor split intent on `ExternalVault` (`"ext-vault"`).
+ */
+export interface CreateZakatRemittanceSplitInput {
+  /** Verified `PersonalRemittanceAttestation` ID with `witness_quorum >= 2` satisfied. */
+  attestationId: number;
+  /** Split invariant mode. Defaults to `"ZAKAT_TAMLIK_100"`. */
+  mode?: CorridorSplitMode;
+  /** Client-side multisig or licensed bridge settlement rail. */
+  railType: RemittanceSettlementRail;
+  /** Licensed bridge-country ISO-3166-1 alpha-2 code (e.g. `"TR"`, `"AE"`, `"UA"`, `"UZ"`). */
+  corridorJurisdiction: string;
+  /** Non-custodial recipient or licensed bridge Safe / Taproot / Squads settlement vault address. */
+  recipientBridgeVault: string;
+  /** Optional infrastructure / charity sink vault receiving the separate `sadaqahTipAmount`. */
+  infraOpsVault?: string;
+  /** Zakat principal in integer minor units (e.g. USDC cents or satoshis). Delivered 100% intact in `ZAKAT_TAMLIK_100`. */
+  zakatPrincipalAmount: number;
+  /** Optional separate donor *Sadaqah* tip funding gas, node ops, or bridge FX spread (`0` if omitted). */
+  sadaqahTipAmount?: number;
+  /** Protocol fee deduction from principal. MUST be `0` when `mode === "ZAKAT_TAMLIK_100"` or execution reverts. */
+  protocolFeeDeduction?: number;
+  /** 32-byte SHA-256 salted beneficiary commitment hash (`0x` + 64 hex chars). */
+  recipientCommitmentHash: string;
+}
+
+/**
+ * On-chain `ZakatRemittanceIntent` state row in `ExternalVault` (`RemittanceIntentTable`).
+ */
+export interface ZakatRemittanceIntent {
+  intentId: number;
+  attestationId: number;
+  donor: string;
+  mode: CorridorSplitMode;
+  railType: RemittanceSettlementRail | string;
+  corridorJurisdiction: string;
+  recipientBridgeVault: string;
+  infraOpsVault?: string | null;
+  zakatPrincipalAmount: number;
+  recipientAmount: number;
+  sadaqahTipAmount: number;
+  protocolFeeDeducted: number;
+  recipientCommitmentHash: string;
+  payloadJson: string;
+  externalTxRef?: string | null;
+  settled: boolean;
+}
+
+/**
+ * Input to register a non-custodial licensed bridge-country exchange desk on `CreditClear` (`"creditclear"`).
+ */
+export interface RegisterBridgeLiquidityDeskInput {
+  corridorJurisdiction: string;
+  deskLabel: string;
+  /** 32-byte SHA-256 digest of exchange license / non-custodial attestation. */
+  licenseRegistryHash: string;
+  evmSafeAddress?: string;
+  btcTaprootDescriptor?: string;
+  solanaSquadsPda?: string;
+  /** Live bridge FX spread in basis points (e.g. `85` = `0.85%`). */
+  fxSpreadBps: number;
+  maxPerTxUsdcCents: number;
+  sadaqahFeeSubsidySupported?: boolean;
+}
+
+/**
+ * Filter options for `client.creditClear.listBridgeCorridors(...)`.
+ */
+export interface ListBridgeCorridorsFilter {
+  /** Optional 2-letter ISO bridge code (e.g. `"TR"`, `"AE"`, `"UA"`, `"UZ"`). */
+  corridorJurisdiction?: string;
+  /** When `true` (default), returns only active liquidity desks. */
+  activeOnly?: boolean;
+}
+
+/**
+ * Registered `BridgeLiquidityDesk` state row in `CreditClear` (`BridgeLiquidityDeskTable`).
+ */
+export interface BridgeLiquidityDesk {
+  deskId: number;
+  operator: string;
+  corridorJurisdiction: string;
+  deskLabel: string;
+  licenseRegistryHash: string;
+  evmSafeAddress: string;
+  btcTaprootDescriptor: string;
+  solanaSquadsPda: string;
+  fxSpreadBps: number;
+  maxPerTxUsdcCents: number;
+  sadaqahFeeSubsidySupported: boolean;
+  active: boolean;
+  lastUpdated: string | number;
+}
+
+

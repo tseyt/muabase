@@ -21,7 +21,85 @@ import {
   SupperClubBookingResult,
   BookingCancellationInput,
   TastemakerGuildInput,
+  ProposeRemittanceAttestationInput,
+  AttestBeneficiaryCommitmentInput,
+  PersonalRemittanceAttestation,
+  CreateZakatRemittanceSplitInput,
+  ZakatRemittanceIntent,
+  RegisterBridgeLiquidityDeskInput,
+  ListBridgeCorridorsFilter,
+  BridgeLiquidityDesk,
 } from "./types";
+
+const SHA256_HEX_RE = /^(?:0x)?([0-9a-fA-F]{64})$/;
+const ZERO_SHA256_HEX = "0".repeat(64);
+const ISO_CORRIDOR_RE = /^[A-Z]{2}$/;
+
+/**
+ * Client-side Zero-PII guard: ensures `digestHex` is an exact, non-zero 32-byte SHA-256 hex string
+ * (`0x`-prefixed or 64 raw hex chars) and never plaintext beneficiary PII.
+ */
+export function assertValidSha256Commitment(digestHex: string, fieldName = "recipientCommitmentHash"): string {
+  const match = SHA256_HEX_RE.exec(digestHex);
+  if (!match) {
+    throw new Error(
+      `PII Guard Violation: ${fieldName} must be an exact 32-byte (64-hex-char) SHA-256 digest; plaintext PII is strictly forbidden`,
+    );
+  }
+  const rawHex = match[1].toLowerCase();
+  if (rawHex === ZERO_SHA256_HEX) {
+    throw new Error(
+      `PII Guard Violation: ${fieldName} cannot be an uninitialized all-zero 32-byte digest`,
+    );
+  }
+  return `0x${rawHex}`;
+}
+
+/**
+ * Client-side corridor code guard: enforces uppercase ISO-3166-1 alpha-2 bridge codes (e.g. `"TR"`, `"AE"`, `"UA"`, `"UZ"`).
+ */
+export function assertValidCorridorJurisdiction(corridor: string): string {
+  if (!ISO_CORRIDOR_RE.test(corridor)) {
+    throw new Error(
+      `PII & Compliance Violation: corridorJurisdiction '${corridor}' must be a 2-letter uppercase ISO-3166-1 alpha-2 bridge code (e.g. TR, AE, UA, UZ)`,
+    );
+  }
+  return corridor;
+}
+
+/**
+ * Client-side *Tamlik* principal conservation guard:
+ * Rejects any attempt to deduct protocol fees, gas, or FX spread from `zakatPrincipalAmount`
+ * when `mode === "ZAKAT_TAMLIK_100"`.
+ */
+export function assertZakatTamlikSplitInvariant(input: CreateZakatRemittanceSplitInput): {
+  mode: "COMMERCIAL_93_4_3" | "ZAKAT_TAMLIK_100";
+  zakatPrincipalAmount: number;
+  sadaqahTipAmount: number;
+  protocolFeeDeduction: number;
+} {
+  const mode = input.mode ?? "ZAKAT_TAMLIK_100";
+  const zakatPrincipalAmount = input.zakatPrincipalAmount;
+  const sadaqahTipAmount = input.sadaqahTipAmount ?? 0;
+  const protocolFeeDeduction = input.protocolFeeDeduction ?? 0;
+
+  if (!Number.isInteger(zakatPrincipalAmount) || zakatPrincipalAmount <= 0) {
+    throw new Error("zakatPrincipalAmount must be a positive integer in minor token units");
+  }
+  if (!Number.isInteger(sadaqahTipAmount) || sadaqahTipAmount < 0) {
+    throw new Error("sadaqahTipAmount must be a non-negative integer in minor token units");
+  }
+  if (!Number.isInteger(protocolFeeDeduction) || protocolFeeDeduction < 0) {
+    throw new Error("protocolFeeDeduction must be a non-negative integer in minor token units");
+  }
+  if (mode === "ZAKAT_TAMLIK_100" && protocolFeeDeduction > 0) {
+    throw new Error(
+      `Tamlik Violation: ZAKAT_TAMLIK_100 strictly forbids deducting any protocol fee, gas, or FX spread (${protocolFeeDeduction}) from zakatPrincipalAmount (${zakatPrincipalAmount})`,
+    );
+  }
+
+  return { mode, zakatPrincipalAmount, sadaqahTipAmount, protocolFeeDeduction };
+}
 
 
 export class MuabaseClient {
@@ -149,6 +227,94 @@ export class MuabaseClient {
     }) => {
       return this.transact("staged-tx", "recordAttestation", args);
     },
+
+    /**
+     * Propose a zero-PII `PersonalRemittanceAttestation` Ricardian record (OFAC GL 6 / Non-Commercial P2P).
+     * Wasm Service: `"staged-tx"`, Action: `"proposeRemittanceAttestation"`
+     *
+     * Stores only salted 32-byte SHA-256 digests (`recipientCommitmentHash` and
+     * `nonCommercialPersonalDeclarationHash`) and enforces `witness_quorum >= 2` of verifiers
+     * holding active `"humanitarian-verifier"` badges and `trust_score >= 8000`.
+     */
+    proposeRemittanceAttestation: async (
+      input: ProposeRemittanceAttestationInput,
+    ): Promise<{ attestationId: number }> => {
+      const recipientCommitmentHash = assertValidSha256Commitment(
+        input.recipientCommitmentHash,
+        "recipientCommitmentHash",
+      );
+      const nonCommercialPersonalDeclarationHash = assertValidSha256Commitment(
+        input.nonCommercialPersonalDeclarationHash,
+        "nonCommercialPersonalDeclarationHash",
+      );
+      const corridorJurisdiction = assertValidCorridorJurisdiction(input.corridorJurisdiction);
+      const witnessQuorum = input.witnessQuorum ?? 2;
+      if (!Number.isInteger(witnessQuorum) || witnessQuorum < 2) {
+        throw new Error(
+          `Bayyinah Violation: PersonalRemittanceAttestation requires witnessQuorum >= 2, got ${witnessQuorum}`,
+        );
+      }
+
+      return this.transact("staged-tx", "proposeRemittanceAttestation", {
+        recipient_commitment_hash: recipientCommitmentHash,
+        corridor_jurisdiction: corridorJurisdiction,
+        non_commercial_personal_declaration_hash: nonCommercialPersonalDeclarationHash,
+        asnaf_category: input.asnafCategory ?? null,
+        witness_quorum: witnessQuorum,
+      });
+    },
+
+    /**
+     * Co-sign a zero-PII beneficiary commitment as an independent witness holding an active
+     * soulbound `domain_badge` (`"humanitarian-verifier"`) and `trust_score >= 8000`.
+     * Wasm Service: `"staged-tx"`, Action: `"attestBeneficiaryCommitment"`
+     */
+    attestBeneficiaryCommitment: async (
+      input: AttestBeneficiaryCommitmentInput,
+    ): Promise<{ attestationId: number; quorumSatisfied?: boolean }> => {
+      const recipientCommitmentHash = assertValidSha256Commitment(
+        input.recipientCommitmentHash,
+        "recipientCommitmentHash",
+      );
+      const domainBadge = input.domainBadge ?? "humanitarian-verifier";
+
+      return this.transact("staged-tx", "attestBeneficiaryCommitment", {
+        attestation_id: input.attestationId,
+        recipient_commitment_hash: recipientCommitmentHash,
+        domain_badge: domainBadge,
+      });
+    },
+
+    /**
+     * Query a single `PersonalRemittanceAttestation` quorum state record via GraphQL.
+     * Wasm Query Service: `"staged-tx"` (`RemittanceAttestationTable`)
+     */
+    getRemittanceAttestation: async (
+      attestationId: number,
+    ): Promise<PersonalRemittanceAttestation | null> => {
+      const data = await this.query<{
+        remittanceAttestation: PersonalRemittanceAttestation | null;
+      }>(
+        "staged-tx",
+        `query GetRemittanceAttestation($attestationId: Int!) {
+          remittanceAttestation(attestationId: $attestationId) {
+            attestationId
+            proposer
+            recipientCommitmentHash
+            corridorJurisdiction
+            nonCommercialPersonalDeclarationHash
+            asnafCategory
+            witnessQuorum
+            requiredDomain
+            verifiedWitnesses
+            quorumSatisfied
+            createdAt
+          }
+        }`,
+        { attestationId },
+      );
+      return data.remittanceAttestation ?? null;
+    },
   };
 
   public evaluations = {
@@ -206,6 +372,66 @@ export class MuabaseClient {
     generateInvestmentIntent: async (args: Record<string, any>) => {
       return this.transact("ext-vault", "generateInvestmentIntent", args);
     },
+
+    /**
+     * Generate a non-custodial Zakat *Tamlik* (`ZAKAT_TAMLIK_100`) or Humanitarian Corridor split intent.
+     * Wasm Service: `"ext-vault"`, Action: `"createZakatRemittanceSplit"`
+     *
+     * Enforces:
+     * 1. **0-Key Non-Custodial Safe Harbor (`23 NYCRR § 200.2(q)`):** Produces client-signed EVM Safe,
+     *    Bitcoin Taproot Miniscript, Solana Squads, or licensed bridge settlement payloads.
+     * 2. **Zero-Fee *Tamlik* Invariant:** Throws/reverts if `protocolFeeDeduction > 0` when
+     *    `mode === "ZAKAT_TAMLIK_100"`. 100% of `zakatPrincipalAmount` routes to `recipientBridgeVault`,
+     *    while optional `sadaqahTipAmount` routes separately to `infraOpsVault` / `charity_sink`.
+     * 3. **Dual-Witness Evidence Gate:** Requires `StagedTx::verifyRemittanceQuorum` (`witness_quorum >= 2`).
+     */
+    createZakatRemittanceSplit: async (
+      input: CreateZakatRemittanceSplitInput,
+    ): Promise<ZakatRemittanceIntent & { intentId: number }> => {
+      const recipientCommitmentHash = assertValidSha256Commitment(
+        input.recipientCommitmentHash,
+        "recipientCommitmentHash",
+      );
+      const corridorJurisdiction = assertValidCorridorJurisdiction(input.corridorJurisdiction);
+      if (!input.recipientBridgeVault || input.recipientBridgeVault.trim().length === 0) {
+        throw new Error(
+          "recipientBridgeVault must be a non-empty non-custodial Safe, Taproot, Squads, or licensed bridge address",
+        );
+      }
+      const { mode, zakatPrincipalAmount, sadaqahTipAmount, protocolFeeDeduction } =
+        assertZakatTamlikSplitInvariant(input);
+
+      return this.transact("ext-vault", "createZakatRemittanceSplit", {
+        attestation_id: input.attestationId,
+        mode,
+        rail_type: input.railType,
+        corridor_jurisdiction: corridorJurisdiction,
+        recipient_bridge_vault: input.recipientBridgeVault,
+        infra_ops_vault: input.infraOpsVault ?? null,
+        zakat_principal_amount: zakatPrincipalAmount,
+        sadaqah_tip_amount: sadaqahTipAmount,
+        protocol_fee_deduction: protocolFeeDeduction,
+        recipient_commitment_hash: recipientCommitmentHash,
+      });
+    },
+
+    /**
+     * Confirm external non-custodial settlement of a Zakat / Humanitarian remittance split
+     * by recording its Safe / Taproot / Squads / licensed bridge confirmation hash.
+     * Wasm Service: `"ext-vault"`, Action: `"confirmRemittanceSettlement"`
+     */
+    confirmRemittanceSettlement: async (args: {
+      intentId: number;
+      externalTxRef: string;
+    }): Promise<{ intentId: number; settled: boolean; externalTxRef: string }> => {
+      if (!args.externalTxRef || args.externalTxRef.trim().length === 0) {
+        throw new Error("externalTxRef settlement confirmation hash must be non-empty");
+      }
+      return this.transact("ext-vault", "confirmRemittanceSettlement", {
+        intent_id: args.intentId,
+        external_tx_ref: args.externalTxRef,
+      });
+    },
   };
 
   public creditClear = {
@@ -215,6 +441,82 @@ export class MuabaseClient {
      */
     executeBilateralNetting: async (args: { invoice1Id: number; invoice2Id: number }) => {
       return this.transact("creditclear", "executeBilateralNetting", args);
+    },
+
+    /**
+     * Register a licensed bridge-country liquidity desk publishing non-custodial Safe/Taproot/Squads
+     * settlement vaults and live corridor FX spread metadata (0 platform custody).
+     * Wasm Service: `"creditclear"`, Action: `"registerBridgeLiquidityDesk"`
+     */
+    registerBridgeLiquidityDesk: async (
+      input: RegisterBridgeLiquidityDeskInput,
+    ): Promise<{ deskId: number }> => {
+      const corridorJurisdiction = assertValidCorridorJurisdiction(input.corridorJurisdiction);
+      const licenseRegistryHash = assertValidSha256Commitment(
+        input.licenseRegistryHash,
+        "licenseRegistryHash",
+      );
+      const evmSafeAddress = input.evmSafeAddress ?? "";
+      const btcTaprootDescriptor = input.btcTaprootDescriptor ?? "";
+      const solanaSquadsPda = input.solanaSquadsPda ?? "";
+      if (
+        evmSafeAddress.trim().length === 0 &&
+        btcTaprootDescriptor.trim().length === 0 &&
+        solanaSquadsPda.trim().length === 0
+      ) {
+        throw new Error(
+          "Non-Custodial Safe Harbor Violation: BridgeLiquidityDesk must publish at least one Safe, Taproot, or Squads multisig address",
+        );
+      }
+
+      return this.transact("creditclear", "registerBridgeLiquidityDesk", {
+        corridor_jurisdiction: corridorJurisdiction,
+        desk_label: input.deskLabel,
+        license_registry_hash: licenseRegistryHash,
+        evm_safe_address: evmSafeAddress,
+        btc_taproot_descriptor: btcTaprootDescriptor,
+        solana_squads_pda: solanaSquadsPda,
+        fx_spread_bps: input.fxSpreadBps,
+        max_per_tx_usdc_cents: input.maxPerTxUsdcCents,
+        sadaqah_fee_subsidy_supported: input.sadaqahFeeSubsidySupported ?? true,
+      });
+    },
+
+    /**
+     * Discover active licensed non-custodial bridge-country liquidity desks and live FX spreads.
+     * Wasm Service: `"creditclear"`, GraphQL Query: `listBridgeCorridors`
+     */
+    listBridgeCorridors: async (
+      filter: ListBridgeCorridorsFilter = {},
+    ): Promise<BridgeLiquidityDesk[]> => {
+      if (filter.corridorJurisdiction !== undefined) {
+        assertValidCorridorJurisdiction(filter.corridorJurisdiction);
+      }
+      const data = await this.query<{ listBridgeCorridors: BridgeLiquidityDesk[] }>(
+        "creditclear",
+        `query ListBridgeCorridors($corridorJurisdiction: String, $activeOnly: Boolean) {
+          listBridgeCorridors(corridorJurisdiction: $corridorJurisdiction, activeOnly: $activeOnly) {
+            deskId
+            operator
+            corridorJurisdiction
+            deskLabel
+            licenseRegistryHash
+            evmSafeAddress
+            btcTaprootDescriptor
+            solanaSquadsPda
+            fxSpreadBps
+            maxPerTxUsdcCents
+            sadaqahFeeSubsidySupported
+            active
+            lastUpdated
+          }
+        }`,
+        {
+          corridorJurisdiction: filter.corridorJurisdiction ?? null,
+          activeOnly: filter.activeOnly ?? true,
+        },
+      );
+      return data.listBridgeCorridors ?? [];
     },
   };
 

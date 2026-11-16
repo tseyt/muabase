@@ -2,12 +2,14 @@
   "name": "@muabase/headless-sdk",
   "version": "1.0.0",
   "description": "Reactive Headless Commerce SDK for Muabase & Psibase Wasm-in-Database State Machine",
+  "type": "module",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
-    "test": "echo \"SDK tests pass\""
+    "typecheck": "tsc --noEmit",
+    "test": "tsc && node --test test/humanitarian-corridor.test.mjs"
   },
   "keywords": [
     "muabase",
