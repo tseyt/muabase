@@ -3,7 +3,7 @@
 #[psibase::service_tables]
 pub mod tables {
     use async_graphql::SimpleObject;
-    use psibase::{AccountNumber, Pack, Table, ToSchema, Unpack};
+    use psibase::{AccountNumber, Checksum256, Pack, Table, ToSchema, Unpack};
     use serde::{Deserialize, Serialize};
 
     #[table(name = "InitTable", index = 0)]
@@ -77,6 +77,106 @@ pub mod tables {
             (self.lease_id, self.intent_id)
         }
     }
+
+    /// Corridor split routing mode:
+    /// - `COMMERCIAL_93_4_3`: Standard commercial lease split (93% owner / 4% mutual_shield / 3% SaaS).
+    /// - `ZAKAT_TAMLIK_100`: Shariah-compliant Zakat *Tamlik* routing (100% principal to `recipientBridgeVault`,
+    ///   0% protocol fee deduction from `zakatPrincipalAmount`, plus optional separate `sadaqahTipAmount`).
+    #[allow(non_camel_case_types)]
+    #[derive(
+        async_graphql::Enum, Serialize, Deserialize, Copy, Clone, Eq, PartialEq, Debug, Default,
+    )]
+    pub enum CorridorSplitMode {
+        #[default]
+        #[graphql(name = "COMMERCIAL_93_4_3")]
+        COMMERCIAL_93_4_3,
+        #[graphql(name = "ZAKAT_TAMLIK_100")]
+        ZAKAT_TAMLIK_100,
+    }
+
+    impl CorridorSplitMode {
+        pub fn as_str(&self) -> &'static str {
+            match self {
+                Self::COMMERCIAL_93_4_3 => "COMMERCIAL_93_4_3",
+                Self::ZAKAT_TAMLIK_100 => "ZAKAT_TAMLIK_100",
+            }
+        }
+
+        pub fn parse_str(value: &str) -> Result<Self, psibase::fracpack::Error> {
+            match value {
+                "COMMERCIAL_93_4_3" => Ok(Self::COMMERCIAL_93_4_3),
+                "ZAKAT_TAMLIK_100" => Ok(Self::ZAKAT_TAMLIK_100),
+                _ => Err(psibase::fracpack::Error::BadScalar),
+            }
+        }
+    }
+
+    impl psibase::fracpack::Pack for CorridorSplitMode {
+        const FIXED_SIZE: u32 = 4;
+        const VARIABLE_SIZE: bool = true;
+
+        fn pack(&self, dest: &mut Vec<u8>) {
+            self.as_str().pack(dest);
+        }
+    }
+
+    impl<'a> psibase::fracpack::Unpack<'a> for CorridorSplitMode {
+        const FIXED_SIZE: u32 = 4;
+        const VARIABLE_SIZE: bool = true;
+
+        fn unpack(
+            src: &mut psibase::fracpack::FracInputStream<'a>,
+        ) -> psibase::fracpack::Result<Self> {
+            let raw = <&str as psibase::fracpack::Unpack>::unpack(src)?;
+            Self::parse_str(raw)
+        }
+
+        fn verify(src: &mut psibase::fracpack::FracInputStream) -> psibase::fracpack::Result<()> {
+            let raw = <&str as psibase::fracpack::Unpack>::unpack(src)?;
+            Self::parse_str(raw).map(|_| ())
+        }
+    }
+
+    impl psibase::fracpack::ToSchema for CorridorSplitMode {
+        fn schema(builder: &mut psibase::fracpack::SchemaBuilder) -> psibase::fracpack::AnyType {
+            <String as psibase::fracpack::ToSchema>::schema(builder)
+        }
+    }
+
+    /// Non-custodial Zakat *Tamlik* & humanitarian bridge remittance intent (0 platform keys held)
+    #[table(name = "RemittanceIntentTable", index = 4)]
+    #[derive(
+        Serialize, Deserialize, SimpleObject, ToSchema, Pack, Unpack, Debug, Clone, PartialEq, Eq,
+    )]
+    pub struct ZakatRemittanceIntent {
+        pub intent_id: u64,
+        pub attestation_id: u64,
+        pub donor: AccountNumber,
+        pub mode: CorridorSplitMode,
+        pub rail_type: String, // "evm_safe", "bitcoin_taproot", "solana_squads", "bridge_corridor_api"
+        pub corridor_jurisdiction: String, // e.g., "TR", "AE", "UA", "UZ"
+        pub recipient_bridge_vault: String,
+        pub infra_ops_vault: Option<String>,
+        pub zakat_principal_amount: u64,
+        pub recipient_amount: u64,
+        pub sadaqah_tip_amount: u64,
+        pub protocol_fee_deducted: u64,
+        pub recipient_commitment_hash: Checksum256,
+        pub payload_json: String,
+        pub external_tx_ref: Option<String>,
+        pub settled: bool,
+    }
+    impl ZakatRemittanceIntent {
+        #[primary_key]
+        fn pk(&self) -> u64 {
+            self.intent_id
+        }
+
+        #[secondary_key(1)]
+        fn by_attestation(&self) -> (u64, u64) {
+            (self.attestation_id, self.intent_id)
+        }
+    }
 }
 
 #[psibase::service(name = "ext-vault", tables = "tables")]
@@ -84,6 +184,7 @@ pub mod service {
     use crate::tables::*;
     use async_graphql::Object;
     use psibase::services::events;
+    use psibase::services::staged_tx::Wrapper as StagedTxSvc;
     use psibase::*;
 
     #[action]
@@ -104,6 +205,8 @@ pub mod service {
         add_index("configRegistered", 0);
         add_index("intentGenerated", 0);
         add_index("intentSettled", 0);
+        add_index("remitGenerated", 0);
+        add_index("remitSettled", 0);
     }
 
     #[pre_action(exclude(init))]
@@ -247,6 +350,145 @@ pub mod service {
         Wrapper::emit().history().intentSettled(intent_id, intent.lease_id, external_tx_ref);
     }
 
+    /// Generates a non-custodial Zakat *Tamlik* or Humanitarian Corridor settlement split intent.
+    ///
+    /// Invariants enforced before state commit:
+    /// 1. **Tamlik Principal Invariant:** If `mode == CorridorSplitMode::ZAKAT_TAMLIK_100`, panics if
+    ///    `protocol_fee_deduction > 0`. 100% of `zakat_principal_amount` routes directly to
+    ///    `recipient_bridge_vault`; optional `sadaqah_tip_amount` routes separately to `infra_ops_vault` / `charity_sink`.
+    /// 2. **Zero-PII Commitment Guard:** Rejects zeroed 32-byte `recipient_commitment_hash` or non-ISO corridor strings.
+    /// 3. **Dual-Witness Evidence Gate:** Verifies `StagedTx::verifyRemittanceQuorum(attestation_id, recipient_commitment_hash)`
+    ///    (`witness_quorum >= 2`, active `"humanitarian-verifier"` soulbound badge, `trust_score >= 8000`).
+    #[action]
+    pub fn createZakatRemittanceSplit(
+        attestation_id: u64,
+        mode: CorridorSplitMode,
+        rail_type: String,
+        corridor_jurisdiction: String,
+        recipient_bridge_vault: String,
+        infra_ops_vault: Option<String>,
+        zakat_principal_amount: u64,
+        sadaqah_tip_amount: u64,
+        protocol_fee_deduction: u64,
+        recipient_commitment_hash: Checksum256,
+    ) -> u64 {
+        let donor = get_sender();
+
+        let (recipient_amount, tip_routed_amount, fee_deducted) = validate_zakat_remittance_split(
+            mode,
+            &corridor_jurisdiction,
+            &recipient_bridge_vault,
+            zakat_principal_amount,
+            sadaqah_tip_amount,
+            protocol_fee_deduction,
+            &recipient_commitment_hash,
+        );
+
+        // Enforce witness_quorum >= 2 with active "humanitarian-verifier" badges & trust_score >= 8000
+        let quorum_ok = StagedTxSvc::call()
+            .verifyRemittanceQuorum(attestation_id, recipient_commitment_hash.clone());
+        assert!(
+            quorum_ok,
+            "Remittance settlement blocked: beneficiary attestation quorum not satisfied"
+        );
+
+        let resolved_infra_vault = if tip_routed_amount > 0 {
+            Some(
+                infra_ops_vault
+                    .clone()
+                    .filter(|v| !v.trim().is_empty())
+                    .unwrap_or_else(|| "charity-sink".to_string()),
+            )
+        } else {
+            infra_ops_vault.filter(|v| !v.trim().is_empty())
+        };
+
+        let payload_json = build_remittance_multisig_payload(
+            mode,
+            &rail_type,
+            &corridor_jurisdiction,
+            &recipient_bridge_vault,
+            resolved_infra_vault.as_deref(),
+            recipient_amount,
+            tip_routed_amount,
+            fee_deducted,
+            attestation_id,
+            &recipient_commitment_hash,
+        );
+
+        let intent_id = IntentIdRow::next_id();
+        let intent = ZakatRemittanceIntent {
+            intent_id,
+            attestation_id,
+            donor,
+            mode,
+            rail_type,
+            corridor_jurisdiction,
+            recipient_bridge_vault,
+            infra_ops_vault: resolved_infra_vault,
+            zakat_principal_amount,
+            recipient_amount,
+            sadaqah_tip_amount: tip_routed_amount,
+            protocol_fee_deducted: fee_deducted,
+            recipient_commitment_hash,
+            payload_json,
+            external_tx_ref: None,
+            settled: false,
+        };
+
+        RemittanceIntentTable::new().put(&intent).unwrap();
+        Wrapper::emit().history().remitGenerated(
+            intent_id,
+            attestation_id,
+            donor,
+            recipient_amount,
+            tip_routed_amount,
+        );
+
+        intent_id
+    }
+
+    /// Confirms external non-custodial execution of a Zakat / Humanitarian remittance split
+    /// (e.g., EVM Safe tx hash, Bitcoin Taproot txid, Solana Squads signature, or licensed bridge receipt hash).
+    #[action]
+    pub fn confirmRemittanceSettlement(intent_id: u64, external_tx_ref: String) {
+        assert!(
+            !external_tx_ref.trim().is_empty(),
+            "external_tx_ref settlement confirmation hash must be non-empty"
+        );
+
+        let mut intent = RemittanceIntentTable::read()
+            .get_index_pk()
+            .get(&intent_id)
+            .expect("ZakatRemittanceIntent DNE");
+
+        // Re-assert Tamlik 100% principal delivery & dual-witness quorum prior to marking settled
+        if intent.mode == CorridorSplitMode::ZAKAT_TAMLIK_100 {
+            assert!(
+                intent.protocol_fee_deducted == 0
+                    && intent.recipient_amount == intent.zakat_principal_amount,
+                "Tamlik Violation: ZAKAT_TAMLIK_100 intent cannot settle with fee deduction"
+            );
+        }
+
+        let quorum_ok = StagedTxSvc::call().verifyRemittanceQuorum(
+            intent.attestation_id,
+            intent.recipient_commitment_hash.clone(),
+        );
+        assert!(
+            quorum_ok,
+            "Remittance settlement confirmation blocked: witness quorum not satisfied"
+        );
+
+        intent.external_tx_ref = Some(external_tx_ref.clone());
+        intent.settled = true;
+
+        RemittanceIntentTable::new().put(&intent).unwrap();
+        Wrapper::emit()
+            .history()
+            .remitSettled(intent_id, intent.attestation_id, external_tx_ref);
+    }
+
     #[event(history)]
     pub fn configRegistered(account: AccountNumber) {}
 
@@ -255,6 +497,19 @@ pub mod service {
 
     #[event(history)]
     pub fn intentSettled(intent_id: u64, lease_id: u64, external_ref: String) {}
+
+    #[event(history)]
+    pub fn remitGenerated(
+        intent_id: u64,
+        attestation_id: u64,
+        donor: AccountNumber,
+        principal: u64,
+        sadaqah_tip: u64,
+    ) {
+    }
+
+    #[event(history)]
+    pub fn remitSettled(intent_id: u64, attestation_id: u64, external_ref: String) {}
 
     struct Query;
 
@@ -267,6 +522,25 @@ pub mod service {
         async fn get_split_intent(&self, intent_id: u64) -> Option<SplitIntent> {
             SplitIntentTable::read().get_index_pk().get(&intent_id)
         }
+
+        async fn get_remittance_intent(&self, intent_id: u64) -> Option<ZakatRemittanceIntent> {
+            RemittanceIntentTable::read().get_index_pk().get(&intent_id)
+        }
+
+        async fn remittance_intent_table(
+            &self,
+            corridor_jurisdiction: Option<String>,
+        ) -> Vec<ZakatRemittanceIntent> {
+            RemittanceIntentTable::read()
+                .get_index_pk()
+                .iter()
+                .filter(|row| {
+                    corridor_jurisdiction
+                        .as_deref()
+                        .map_or(true, |code| row.corridor_jurisdiction == code)
+                })
+                .collect()
+        }
     }
 
     pub fn compute_split_amounts(gross_amount_cents: u64) -> (u64, u64, u64) {
@@ -274,6 +548,111 @@ pub mod service {
         let shield_amount_cents = (gross_amount_cents * 400) / 10000;
         let saas_amount_cents = gross_amount_cents - (lender_amount_cents + shield_amount_cents);
         (lender_amount_cents, shield_amount_cents, saas_amount_cents)
+    }
+
+    /// Computes and validates corridor routing splits.
+    ///
+    /// Panics if `mode == CorridorSplitMode::ZAKAT_TAMLIK_100` and `protocol_fee_deduction > 0`.
+    pub fn compute_corridor_split(
+        mode: CorridorSplitMode,
+        zakat_principal_amount: u64,
+        sadaqah_tip_amount: u64,
+        protocol_fee_deduction: u64,
+    ) -> (u64, u64, u64) {
+        assert!(
+            zakat_principal_amount > 0,
+            "Principal amount must be strictly positive"
+        );
+
+        match mode {
+            CorridorSplitMode::ZAKAT_TAMLIK_100 => {
+                assert!(
+                    protocol_fee_deduction == 0,
+                    "Tamlik Violation: ZAKAT_TAMLIK_100 strictly forbids deducting any protocol fee, gas, or FX spread ({}) from zakatPrincipalAmount ({})",
+                    protocol_fee_deduction,
+                    zakat_principal_amount
+                );
+                // 100% direct ownership transfer (Tamlik) to recipientBridgeVault; optional separate sadaqahTipAmount
+                (zakat_principal_amount, sadaqah_tip_amount, 0)
+            }
+            CorridorSplitMode::COMMERCIAL_93_4_3 => {
+                let (owner_93, shield_4, saas_3) = compute_split_amounts(zakat_principal_amount);
+                let total_protocol_fee = shield_4 + saas_3;
+                (owner_93, sadaqah_tip_amount, total_protocol_fee)
+            }
+        }
+    }
+
+    pub fn validate_zakat_remittance_split(
+        mode: CorridorSplitMode,
+        corridor_jurisdiction: &str,
+        recipient_bridge_vault: &str,
+        zakat_principal_amount: u64,
+        sadaqah_tip_amount: u64,
+        protocol_fee_deduction: u64,
+        recipient_commitment_hash: &Checksum256,
+    ) -> (u64, u64, u64) {
+        assert!(
+            *recipient_commitment_hash != Checksum256::from([0u8; 32]),
+            "PII Guard Violation: recipientCommitmentHash must be a non-zero 32-byte salted SHA-256 digest"
+        );
+        assert!(
+            corridor_jurisdiction.len() == 2
+                && corridor_jurisdiction.chars().all(|c| c.is_ascii_uppercase()),
+            "corridorJurisdiction '{}' must be a 2-letter uppercase ISO-3166-1 alpha-2 bridge code (e.g. TR, AE, UA, UZ)",
+            corridor_jurisdiction
+        );
+        assert!(
+            !recipient_bridge_vault.trim().is_empty(),
+            "recipientBridgeVault must be a non-empty non-custodial vault or licensed bridge settlement address"
+        );
+
+        compute_corridor_split(
+            mode,
+            zakat_principal_amount,
+            sadaqah_tip_amount,
+            protocol_fee_deduction,
+        )
+    }
+
+    pub fn build_remittance_multisig_payload(
+        mode: CorridorSplitMode,
+        rail_type: &str,
+        corridor_jurisdiction: &str,
+        recipient_bridge_vault: &str,
+        infra_ops_vault: Option<&str>,
+        recipient_amount: u64,
+        sadaqah_tip_amount: u64,
+        protocol_fee_deducted: u64,
+        attestation_id: u64,
+        recipient_commitment_hash: &Checksum256,
+    ) -> String {
+        let mut transfers = vec![serde_json::json!({
+            "leg": "zakat_tamlik_principal",
+            "to": recipient_bridge_vault,
+            "amount": recipient_amount,
+            "fee_deducted": protocol_fee_deducted
+        })];
+
+        if sadaqah_tip_amount > 0 {
+            transfers.push(serde_json::json!({
+                "leg": "sadaqah_infra_tip",
+                "to": infra_ops_vault.unwrap_or("charity-sink"),
+                "amount": sadaqah_tip_amount
+            }));
+        }
+
+        serde_json::json!({
+            "custody": "strict_non_custodial_23_nycrr_200_2_q",
+            "mode": mode.as_str(),
+            "rail_type": rail_type,
+            "corridor_jurisdiction": corridor_jurisdiction,
+            "attestation_id": attestation_id,
+            "recipient_commitment_hash": recipient_commitment_hash.to_string(),
+            "total_debited": recipient_amount + sadaqah_tip_amount + protocol_fee_deducted,
+            "transfers": transfers
+        })
+        .to_string()
     }
 
     #[action]
@@ -289,7 +668,13 @@ pub mod service {
 
 #[cfg(test)]
 mod tests {
-    use crate::service::compute_split_amounts;
+    use crate::service::{
+        build_remittance_multisig_payload, compute_corridor_split, compute_split_amounts,
+        validate_zakat_remittance_split,
+    };
+    use crate::tables::CorridorSplitMode;
+    use psibase::fracpack::{Pack, Unpack};
+    use psibase::Checksum256;
 
     #[test]
     fn test_split_amounts_exact_conservation() {
@@ -300,5 +685,84 @@ mod tests {
         // Prime/unaligned cent value conserves exact total without rounding loss
         let (l, sh, s) = compute_split_amounts(1_001);
         assert_eq!(l + sh + s, 1_001);
+    }
+
+    #[test]
+    fn test_zakat_tamlik_100_routes_100_percent_principal_and_separate_sadaqah_tip() {
+        let commitment = Checksum256::from([0x7a; 32]);
+        let (recipient, tip, fee) = validate_zakat_remittance_split(
+            CorridorSplitMode::ZAKAT_TAMLIK_100,
+            "TR",
+            "0xSafeIstanbulBridgeVault000000000000000001",
+            100_000, // $1,000.00 Zakat principal
+            2_500,   // $25.00 optional separate Sadaqah tip for FX/ops
+            0,       // 0 fee deducted from Zakat principal
+            &commitment,
+        );
+
+        assert_eq!(recipient, 100_000);
+        assert_eq!(tip, 2_500);
+        assert_eq!(fee, 0);
+
+        let payload = build_remittance_multisig_payload(
+            CorridorSplitMode::ZAKAT_TAMLIK_100,
+            "evm_safe",
+            "TR",
+            "0xSafeIstanbulBridgeVault000000000000000001",
+            Some("0xQirimReliefOpsCharitySink00000000000002"),
+            recipient,
+            tip,
+            fee,
+            42,
+            &commitment,
+        );
+        assert!(payload.contains("\"mode\":\"ZAKAT_TAMLIK_100\""));
+        assert!(payload.contains("\"total_debited\":102500"));
+        assert!(payload.contains("\"leg\":\"sadaqah_infra_tip\""));
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "Tamlik Violation: ZAKAT_TAMLIK_100 strictly forbids deducting any protocol fee, gas, or FX spread (1) from zakatPrincipalAmount (50000)"
+    )]
+    fn test_zakat_tamlik_100_panics_on_any_nonzero_fee_deduction_from_principal() {
+        compute_corridor_split(
+            CorridorSplitMode::ZAKAT_TAMLIK_100,
+            50_000,
+            500,
+            1, // Even 1 cent / 1 satoshi of fee deduction must panic!
+        );
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "PII Guard Violation: recipientCommitmentHash must be a non-zero 32-byte salted SHA-256 digest"
+    )]
+    fn test_zakat_remittance_rejects_zero_commitment_hash() {
+        validate_zakat_remittance_split(
+            CorridorSplitMode::ZAKAT_TAMLIK_100,
+            "UA",
+            "bc1pbridgevaulttaproot0000000000000000000000000",
+            25_000,
+            0,
+            0,
+            &Checksum256::from([0u8; 32]),
+        );
+    }
+
+    #[test]
+    fn test_corridor_split_mode_fracpack_roundtrip_and_commercial_default() {
+        assert_eq!(
+            CorridorSplitMode::default(),
+            CorridorSplitMode::COMMERCIAL_93_4_3
+        );
+        for mode in [
+            CorridorSplitMode::COMMERCIAL_93_4_3,
+            CorridorSplitMode::ZAKAT_TAMLIK_100,
+        ] {
+            let bytes = mode.packed();
+            let decoded = CorridorSplitMode::unpacked(&bytes).unwrap();
+            assert_eq!(decoded, mode);
+        }
     }
 }
