@@ -41,6 +41,7 @@ mod unit_tests {
     }
 
     #[test]
+    #[cfg(not(target_family = "wasm"))]
     #[should_panic(expected = "Cannot report on your own trust score")]
     fn test_self_reporting_trust_score_is_rejected() {
         let alice = account!("alice");
@@ -48,6 +49,7 @@ mod unit_tests {
     }
 
     #[test]
+    #[cfg(not(target_family = "wasm"))]
     #[should_panic(expected = "trust_score must be within 0..=10000 bps")]
     fn test_out_of_bounds_trust_score_is_rejected() {
         let alice = account!("alice");
@@ -56,6 +58,7 @@ mod unit_tests {
     }
 
     #[test]
+    #[cfg(not(target_family = "wasm"))]
     #[should_panic(expected = "Cannot issue a domain badge to yourself")]
     fn test_self_issued_domain_badge_is_rejected() {
         let alice = account!("alice");
@@ -63,6 +66,7 @@ mod unit_tests {
     }
 
     #[test]
+    #[cfg(not(target_family = "wasm"))]
     #[should_panic(expected = "Domain must not be empty")]
     fn test_empty_domain_badge_is_rejected() {
         let alice = account!("alice");
@@ -98,6 +102,7 @@ mod unit_tests {
     }
 
     #[test]
+    #[cfg(not(target_family = "wasm"))]
     #[should_panic(expected = "Cannot report on your own precision score")]
     fn test_self_reporting_precision_score_is_rejected() {
         let alice = account!("alice");

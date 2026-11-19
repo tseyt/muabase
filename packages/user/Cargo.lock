@@ -626,7 +626,9 @@ name = "claim-council-pkg"
 version = "0.29.0"
 dependencies = [
  "claim-council",
+ "mutual-shield-pkg",
  "psibase",
+ "psibase-user-workspace-hack",
 ]
 
 [[package]]
@@ -815,6 +817,7 @@ version = "0.29.0"
 dependencies = [
  "credit-clear",
  "psibase",
+ "psibase-user-workspace-hack",
 ]
 
 [[package]]
@@ -1211,6 +1214,7 @@ version = "0.29.0"
 dependencies = [
  "external-vault",
  "psibase",
+ "psibase-user-workspace-hack",
 ]
 
 [[package]]
@@ -2113,7 +2117,9 @@ name = "lease-engine-pkg"
 version = "0.29.0"
 dependencies = [
  "lease-engine",
+ "mutual-shield-pkg",
  "psibase",
+ "psibase-user-workspace-hack",
 ]
 
 [[package]]
@@ -2311,6 +2317,7 @@ version = "0.29.0"
 dependencies = [
  "mutual-shield",
  "psibase",
+ "psibase-user-workspace-hack",
 ]
 
 [[package]]

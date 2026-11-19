@@ -6,7 +6,9 @@ edition.workspace = true
 publish.workspace = true
 
 [package.metadata.psibase]
+server = "external-vault"
 postinstall = [
+    { sender = "ext-vault", service = "ext-vault", method = "init", data = {} },
     { sender = "ext-vault", service = "tokens", method = "setUserConf", data = { index = 0, enabled = false } },
 ]
 

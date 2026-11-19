@@ -433,6 +433,7 @@ mod unit_tests {
     }
 
     #[test]
+    #[cfg(not(target_family = "wasm"))]
     #[should_panic(expected = "Bay' al-Dayn Violation")]
     fn test_tangible_floor_pricing_rejects_non_par_below_51_percent() {
         crate::service::validate_tangible_floor_pricing(5099, 950_000);
@@ -446,6 +447,7 @@ mod unit_tests {
     }
 
     #[test]
+    #[cfg(not(target_family = "wasm"))]
     #[should_panic(expected = "Haqq al-Shuf'ah Violation")]
     fn test_shufah_priority_rejects_outsider_during_priority_window() {
         crate::service::validate_shufah_priority(150, 200, 0);

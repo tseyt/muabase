@@ -309,6 +309,7 @@ mod unit_tests {
     }
 
     #[test]
+    #[cfg(not(target_family = "wasm"))]
     #[should_panic(expected = "Witness trust_score 7999 is below the required 8000")]
     fn test_witness_rejected_when_trust_score_below_threshold() {
         let proposer = account!("alice");
@@ -327,6 +328,7 @@ mod unit_tests {
     }
 
     #[test]
+    #[cfg(not(target_family = "wasm"))]
     #[should_panic(expected = "Witness precision_score 7999 is below the required 8000")]
     fn test_witness_rejected_when_precision_score_below_threshold() {
         let proposer = account!("alice");
@@ -345,6 +347,7 @@ mod unit_tests {
     }
 
     #[test]
+    #[cfg(not(target_family = "wasm"))]
     #[should_panic(expected = "Witness does not hold an active domain badge: master_appraiser")]
     fn test_witness_rejected_without_active_domain_badge() {
         let proposer = account!("alice");
@@ -363,6 +366,7 @@ mod unit_tests {
     }
 
     #[test]
+    #[cfg(not(target_family = "wasm"))]
     #[should_panic(expected = "Witness must attest with the required domain badge: master_appraiser")]
     fn test_witness_rejected_when_domain_badge_mismatches_required_domain() {
         let proposer = account!("alice");
@@ -381,6 +385,7 @@ mod unit_tests {
     }
 
     #[test]
+    #[cfg(not(target_family = "wasm"))]
     #[should_panic(expected = "Proposer cannot witness their own staged tx")]
     fn test_proposer_cannot_witness_own_staged_tx() {
         let proposer = account!("alice");
@@ -398,6 +403,7 @@ mod unit_tests {
     }
 
     #[test]
+    #[cfg(not(target_family = "wasm"))]
     #[should_panic(expected = "A party to the staged tx cannot act as its witness")]
     fn test_party_to_staged_tx_cannot_act_as_witness() {
         let proposer = account!("alice");
@@ -463,6 +469,7 @@ mod unit_tests {
     }
 
     #[test]
+    #[cfg(not(target_family = "wasm"))]
     #[should_panic(
         expected = "Bayyinah Violation: PersonalRemittanceAttestation requires witness_quorum >= 2, got 1"
     )]
@@ -484,6 +491,7 @@ mod unit_tests {
     }
 
     #[test]
+    #[cfg(not(target_family = "wasm"))]
     #[should_panic(
         expected = "Remittance escrow release blocked: witness quorum not met (1 of 2 verified humanitarian-verifier witnesses)"
     )]
@@ -520,6 +528,7 @@ mod unit_tests {
     }
 
     #[test]
+    #[cfg(not(target_family = "wasm"))]
     #[should_panic(
         expected = "Witness does not hold an active domain badge: humanitarian-verifier"
     )]
@@ -552,6 +561,7 @@ mod unit_tests {
     }
 
     #[test]
+    #[cfg(not(target_family = "wasm"))]
     #[should_panic(
         expected = "Witness must attest with the required domain badge: humanitarian-verifier"
     )]
@@ -584,6 +594,7 @@ mod unit_tests {
     }
 
     #[test]
+    #[cfg(not(target_family = "wasm"))]
     #[should_panic(expected = "Witness trust_score 7999 is below the required 8000")]
     fn test_remittance_attestation_rejects_witness_below_8000_trust_score() {
         let proposer = account!("donor");
@@ -670,6 +681,7 @@ mod unit_tests {
     }
 
     #[test]
+    #[cfg(not(target_family = "wasm"))]
     #[should_panic(
         expected = "PII Guard Violation: Commitment hash must be an exact 32-byte (64-hex-char) SHA-256 digest; plaintext PII is strictly forbidden"
     )]
@@ -678,6 +690,7 @@ mod unit_tests {
     }
 
     #[test]
+    #[cfg(not(target_family = "wasm"))]
     #[should_panic(
         expected = "PII Guard Violation: Commitment hash must be an exact 32-byte (64-hex-char) SHA-256 digest; plaintext PII is strictly forbidden"
     )]
@@ -686,6 +699,7 @@ mod unit_tests {
     }
 
     #[test]
+    #[cfg(not(target_family = "wasm"))]
     #[should_panic(
         expected = "PII Guard Violation: Commitment hash cannot be an uninitialized all-zero 32-byte digest"
     )]
@@ -696,6 +710,7 @@ mod unit_tests {
     }
 
     #[test]
+    #[cfg(not(target_family = "wasm"))]
     #[should_panic(
         expected = "PII & Compliance Violation: corridorJurisdiction 'Istanbul, Street 12' must be a 2-letter uppercase ISO-3166-1 alpha-2 bridge code"
     )]

@@ -16,7 +16,6 @@ members = [
     "user/ClientData/plugin",
     "user/Config/plugin",
     "user/Explorer/plugin",
-    "user/FractalCore/plugin",
     "user/Homepage/plugin/homepage",
     "user/Homepage/plugin/explorer",
     "user/Host/plugin/accounts",
@@ -41,6 +40,7 @@ resolver = "2"
 
 exclude = [
     "user/CommonApi/common/packages/component-parser",
+    "user/FractalCore/plugin",
     "local/XAdmin/ui/wasm",
     # other excludes
 ]

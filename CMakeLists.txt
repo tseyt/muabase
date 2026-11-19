@@ -306,7 +306,6 @@ add_rs_component_workspace(packages/:Plugins
     transact
     transact-admin
     workshop
-    fractal-core
     config
     homepage
     homepage-explorer
@@ -567,15 +566,32 @@ cargo_psibase_package(
 
 
 cargo_psibase_package(
-    OUTPUT ${SERVICE_DIR}/Fractals.psi
-    PATH packages/user/Fractals
+    OUTPUT ${SERVICE_DIR}/ClaimCouncil.psi
+    PATH packages/user/ClaimCouncil
     TARGET_DIR ${USER_WORKSPACE_TARGET}
-    DEPENDS ${Fractals_js_DEP}
 )
 
 cargo_psibase_package(
-    OUTPUT ${SERVICE_DIR}/FractalGen.psi
-    PATH packages/user/FractalGen
+    OUTPUT ${SERVICE_DIR}/CreditClear.psi
+    PATH packages/user/CreditClear
+    TARGET_DIR ${USER_WORKSPACE_TARGET}
+)
+
+cargo_psibase_package(
+    OUTPUT ${SERVICE_DIR}/ExternalVault.psi
+    PATH packages/user/ExternalVault
+    TARGET_DIR ${USER_WORKSPACE_TARGET}
+)
+
+cargo_psibase_package(
+    OUTPUT ${SERVICE_DIR}/LeaseEngine.psi
+    PATH packages/user/LeaseEngine
+    TARGET_DIR ${USER_WORKSPACE_TARGET}
+)
+
+cargo_psibase_package(
+    OUTPUT ${SERVICE_DIR}/MutualShield.psi
+    PATH packages/user/MutualShield
     TARGET_DIR ${USER_WORKSPACE_TARGET}
 )
 
@@ -588,12 +604,6 @@ cargo_psibase_package(
 cargo_psibase_package(
     OUTPUT ${SERVICE_DIR}/Guilds.psi
     PATH packages/user/Guilds
-    TARGET_DIR ${USER_WORKSPACE_TARGET}
-)
-
-cargo_psibase_package(
-    OUTPUT ${SERVICE_DIR}/FractalTester.psi
-    PATH packages/user/FractalTester
     TARGET_DIR ${USER_WORKSPACE_TARGET}
 )
 
@@ -1095,27 +1105,26 @@ psibase_package(
 )
 
 psibase_package(
-    OUTPUT ${SERVICE_DIR}/FractalCore.psi
-    NAME FractalCore
+    OUTPUT ${SERVICE_DIR}/Studio.psi
+    NAME Studio
     VERSION ${PSIBASE_VERSION}.0
-    DESCRIPTION "Vanilla fractal instance deployment"
-    PACKAGE_DEPENDS 
-        "Guilds(^${PSIBASE_VERSION})"
-        "Host(^${PSIBASE_VERSION})"
-        "HttpServer(^${PSIBASE_VERSION})" 
-        "Sites(^${PSIBASE_VERSION})" 
-        "Accounts(^${PSIBASE_VERSION})" 
-        "CommonApi(^${PSIBASE_VERSION})" 
-        "Permissions(^${PSIBASE_VERSION})"
-        "StagedTx(^${PSIBASE_VERSION})" 
-        "Transact(^${PSIBASE_VERSION})"
-        "Fractals(^${PSIBASE_VERSION})"
-    SERVICE fractal-cr
-        DATA GLOB ${CMAKE_CURRENT_SOURCE_DIR}/packages/user/FractalCore/ui/dist/* /
-        DATA ${Plugins_OUTPUT_FILE_fractal_core} /plugin.wasm
-    DEPENDS ${FractalCore_js_DEP}
-    DEPENDS ${Plugins_DEP}
-    POSTINSTALL ${CMAKE_CURRENT_SOURCE_DIR}/packages/user/FractalCore/postinstall.json
+    DESCRIPTION "Muabase Studio for Triedent tables, Wasm actions, and invariants"
+    PACKAGE_DEPENDS
+        "Accounts(^${PSIBASE_VERSION}.0)"
+        "Branding(^${PSIBASE_VERSION}.0)"
+        "CommonApi(^${PSIBASE_VERSION}.0)"
+        "Credentials(^${PSIBASE_VERSION}.0)"
+        "Host(^${PSIBASE_VERSION}.0)"
+        "HttpServer(^${PSIBASE_VERSION}.0)"
+        "Permissions(^${PSIBASE_VERSION}.0)"
+        "Sites(^${PSIBASE_VERSION}.0)"
+        "StagedTx(^${PSIBASE_VERSION}.0)"
+        "Tokens(^${PSIBASE_VERSION}.0)"
+        "Transact(^${PSIBASE_VERSION}.0)"
+    SERVICE studio
+        DATA GLOB ${CMAKE_CURRENT_SOURCE_DIR}/packages/user/Studio/ui/dist/* /
+    DEPENDS ${Studio_js_DEP}
+    POSTINSTALL ${CMAKE_CURRENT_SOURCE_DIR}/packages/user/Studio/postinstall.json
 )
 
 psibase_package(
@@ -1342,9 +1351,9 @@ psibase_package(
     NAME DevDefault
     VERSION ${PSIBASE_VERSION}.0
     DESCRIPTION "Network initializes with development-only apps, insecure authentication, and no governance."
-    PACKAGE_DEPENDS Accounts Aes AuthAny AuthNone AuthDyn AuthSig AuthDelegate Base64 Branding BrotliCodec BrotliSvc Chainmail ClientData CommonApi Config CpuLimit Credentials Db
-                    Docs DiffAdjust Evaluations Events Fractals FractalCore Guilds Explorer Homepage Host HostLoginPrompt HttpServer Identity Invite Kdf Nft Packages Permissions Producers Profiles Registry ReservedNames
-                    Sites SetCode StagedTx Subgroups Supervisor Symbol Tokens NameMarket TokenStream TokenSwap Transact VirtualServer WebCrypto Workshop WsAuth
+    PACKAGE_DEPENDS Accounts Aes AuthAny AuthNone AuthDyn AuthSig AuthDelegate Base64 Branding BrotliCodec BrotliSvc Chainmail ClaimCouncil ClientData CommonApi Config CpuLimit CreditClear Credentials Db
+                    Docs DiffAdjust Evaluations Events ExternalVault Guilds Explorer Homepage Host HostLoginPrompt HttpServer Identity Invite Kdf LeaseEngine MutualShield Nft Packages Permissions Producers Profiles Registry ReservedNames
+                    Sites SetCode StagedTx Studio Subgroups Supervisor Symbol Tokens NameMarket TokenStream TokenSwap Transact VirtualServer WebCrypto Workshop WsAuth
 )
 
 psibase_package(
@@ -1352,17 +1361,9 @@ psibase_package(
     NAME ProdDefault
     VERSION ${PSIBASE_VERSION}.0
     DESCRIPTION "Network initializes with production-ready apps, secure authentication, and no governance."
-    PACKAGE_DEPENDS Accounts Aes AuthNone AuthDyn AuthSig AuthDelegate Base64 Branding BrotliCodec BrotliSvc Chainmail ClientData CommonApi Config CpuLimit Credentials Db
-                    Docs DiffAdjust Evaluations Events Explorer Fractals FractalCore Guilds Homepage Host HostLoginPrompt HttpServer Invite Kdf Nft Packages Permissions Producers Profiles Registry ReservedNames
-                    Sites SetCode StagedTx Subgroups Supervisor Symbol Tokens NameMarket TokenStream TokenSwap Transact VirtualServer WebCrypto Workshop WsAuth
-)
-
-psibase_package(
-    OUTPUT ${SERVICE_DIR}/ProdWithFG.psi
-    NAME ProdWithFG
-    VERSION ${PSIBASE_VERSION}.0
-    DESCRIPTION "Network initializes with production-ready apps, secure authentication, and \"fractal\" network governance."
-    PACKAGE_DEPENDS ProdDefault FractalGen
+    PACKAGE_DEPENDS Accounts Aes AuthNone AuthDyn AuthSig AuthDelegate Base64 Branding BrotliCodec BrotliSvc Chainmail ClaimCouncil ClientData CommonApi Config CpuLimit CreditClear Credentials Db
+                    Docs DiffAdjust Evaluations Events Explorer ExternalVault Guilds Homepage Host HostLoginPrompt HttpServer Invite Kdf LeaseEngine MutualShield Nft Packages Permissions Producers Profiles Registry ReservedNames
+                    Sites SetCode StagedTx Studio Subgroups Supervisor Symbol Tokens NameMarket TokenStream TokenSwap Transact VirtualServer WebCrypto Workshop WsAuth
 )
 
 psibase_package(
@@ -1370,9 +1371,9 @@ psibase_package(
     NAME PrivDefault
     VERSION ${PSIBASE_VERSION}.0
     DESCRIPTION "Network initializes with production-ready apps and a single-provider private system token."
-    PACKAGE_DEPENDS Accounts Aes AuthNone AuthDyn AuthSig AuthDelegate Base64 Branding BrotliCodec BrotliSvc Chainmail ClientData CommonApi Config CpuLimit Credentials Db
-                    Docs DiffAdjust Events Explorer Homepage Host HostLoginPrompt HttpServer Invite Kdf Nft Packages Permissions Producers Profiles Registry ReservedNames
-                    Sites SetCode StagedTx Supervisor Symbol Tokens NameMarket TokenSwap Transact VirtualServer WebCrypto Workshop WsAuth SingleProd
+    PACKAGE_DEPENDS Accounts Aes AuthNone AuthDyn AuthSig AuthDelegate Base64 Branding BrotliCodec BrotliSvc Chainmail ClaimCouncil ClientData CommonApi Config CpuLimit CreditClear Credentials Db
+                    Docs DiffAdjust Events Explorer ExternalVault Homepage Host HostLoginPrompt HttpServer Invite Kdf LeaseEngine MutualShield Nft Packages Permissions Producers Profiles Registry ReservedNames
+                    Sites SetCode StagedTx Studio Supervisor Symbol Tokens NameMarket TokenSwap Transact VirtualServer WebCrypto Workshop WsAuth SingleProd
 )
 
 psibase_package(
@@ -1425,9 +1426,9 @@ function(write_package_index target dir reserve)
 endfunction()
 
 write_package_index(package-index ${SERVICE_DIR} 1
-    Accounts AccountsService Aes AuthAny AuthNone AuthDyn AuthDelegate AuthDelegateService AuthRecover AuthSig AuthSigService Base64 Branding BrotliCodec BrotliSvc Chainmail ClientData CommonApi CpuLimit Credentials Db DevDefault ProdDefault ProdWithFG PrivDefault
-    Docs DiffAdjust DynLd Events EventsService Evaluations FaucetTok Fractals FractalCore FractalGen FractalTester Guilds Explorer Host HostLoginPrompt Identity Invite InviteService Kdf Kvtests Nft Nop Minimal Packages Permissions Producers Profiles SingleProd TestDefault HttpServer Registry
-    Sites SetCode StagedTx Subgroups Supervisor Symbol TokenUsers Tokens TokenStream TokenSwap NameMarket Transact TransactService Homepage VirtualServer WebCrypto Workshop WsAuth Config
+    Accounts AccountsService Aes AuthAny AuthNone AuthDyn AuthDelegate AuthDelegateService AuthRecover AuthSig AuthSigService Base64 Branding BrotliCodec BrotliSvc Chainmail ClaimCouncil ClientData CommonApi CpuLimit CreditClear Credentials Db DevDefault ProdDefault PrivDefault
+    Docs DiffAdjust DynLd Events EventsService Evaluations ExternalVault FaucetTok Guilds Explorer Host HostLoginPrompt Identity Invite InviteService Kdf Kvtests LeaseEngine MutualShield Nft Nop Minimal Packages Permissions Producers Profiles SingleProd TestDefault HttpServer Registry
+    Sites SetCode StagedTx Studio Subgroups Supervisor Symbol TokenUsers Tokens TokenStream TokenSwap NameMarket Transact TransactService Homepage VirtualServer WebCrypto Workshop WsAuth Config
     XAdmin XBasic XCommonApi XDb XDefault XHttp XKeys XPackages XPeers XProxy XRun XSites XTimer XTransact)
 
 install(
@@ -1448,13 +1449,14 @@ install(
           ${SERVICE_DIR}/BrotliCodec.psi
           ${SERVICE_DIR}/BrotliSvc.psi
           ${SERVICE_DIR}/Chainmail.psi
+          ${SERVICE_DIR}/ClaimCouncil.psi
           ${SERVICE_DIR}/ClientData.psi
           ${SERVICE_DIR}/CommonApi.psi
+          ${SERVICE_DIR}/CreditClear.psi
           ${SERVICE_DIR}/Credentials.psi
           ${SERVICE_DIR}/DevDefault.psi
           ${SERVICE_DIR}/DiffAdjust.psi
           ${SERVICE_DIR}/ProdDefault.psi
-          ${SERVICE_DIR}/ProdWithFG.psi
           ${SERVICE_DIR}/PrivDefault.psi
           ${SERVICE_DIR}/CpuLimit.psi
           ${SERVICE_DIR}/Db.psi
@@ -1464,12 +1466,9 @@ install(
           ${SERVICE_DIR}/EventsService.psi
           ${SERVICE_DIR}/Evaluations.psi
           ${SERVICE_DIR}/Explorer.psi
+          ${SERVICE_DIR}/ExternalVault.psi
           ${SERVICE_DIR}/FaucetTok.psi
-          ${SERVICE_DIR}/Fractals.psi
           ${SERVICE_DIR}/Guilds.psi
-          ${SERVICE_DIR}/FractalCore.psi
-          ${SERVICE_DIR}/FractalGen.psi
-          ${SERVICE_DIR}/FractalTester.psi
           ${SERVICE_DIR}/Host.psi
           ${SERVICE_DIR}/HostLoginPrompt.psi
           ${SERVICE_DIR}/HttpServer.psi
@@ -1479,7 +1478,9 @@ install(
           ${SERVICE_DIR}/InviteService.psi
           ${SERVICE_DIR}/Kdf.psi
           ${SERVICE_DIR}/Kvtests.psi
+          ${SERVICE_DIR}/LeaseEngine.psi
           ${SERVICE_DIR}/Minimal.psi
+          ${SERVICE_DIR}/MutualShield.psi
           ${SERVICE_DIR}/Nft.psi
           ${SERVICE_DIR}/Nop.psi
           ${SERVICE_DIR}/Packages.psi
@@ -1494,6 +1495,7 @@ install(
           ${SERVICE_DIR}/SingleProd.psi
           ${SERVICE_DIR}/Sites.psi
           ${SERVICE_DIR}/StagedTx.psi
+          ${SERVICE_DIR}/Studio.psi
           ${SERVICE_DIR}/Subgroups.psi
           ${SERVICE_DIR}/Supervisor.psi
           ${SERVICE_DIR}/Symbol.psi

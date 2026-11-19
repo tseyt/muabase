@@ -6,7 +6,9 @@ edition.workspace = true
 publish.workspace = true
 
 [package.metadata.psibase]
+server = "mutual-shield"
 postinstall = [
+    { sender = "mut-shield", service = "mut-shield", method = "init", data = {} },
     { sender = "mut-shield", service = "tokens", method = "setUserConf", data = { index = 0, enabled = false } },
 ]
 
