@@ -9,6 +9,7 @@ export type SystemTokenInfo = {
     id: number;
     symbol: string | undefined;
     precision: number;
+    untransferable: boolean;
 };
 
 export type UserBalance = {
@@ -17,6 +18,12 @@ export type UserBalance = {
     symbol: string | undefined;
     precision: number;
     account: string;
+    iconHash: string | undefined;
+};
+
+export type TokenIconImage = {
+    contentType: string;
+    content: Uint8Array;
 };
 
 class Issuer extends PluginInterface {

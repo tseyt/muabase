@@ -42,6 +42,14 @@ export const zAccountFree = accountNameSchema(
     `Account must be at least ${MIN_FREE_ACCOUNT_NAME_LENGTH} characters.`,
 );
 
+/** Node-local app account (`x-…`), e.g. a resource-provider payment portal. */
+export const zLocalAccount = baseNameSchema(
+    MIN_ACCOUNT_NAME_LENGTH,
+    `Account must be at least ${MIN_ACCOUNT_NAME_LENGTH} characters.`,
+).refine((val) => val.startsWith("x-"), {
+    message: "Account must start with 'x-'.",
+});
+
 const zBaseAccountNumber = baseNameSchema(
     MIN_ACCOUNT_NAME_LENGTH,
     `Account must be at least ${MIN_ACCOUNT_NAME_LENGTH} characters.`,
@@ -77,6 +85,15 @@ export const zAccountNumber = z.string().superRefine((val, ctx) => {
     }
 });
 
+/** Root name of a `base+N` account, or null when `account` is not a subaccount. */
+export const rootAccount = (account: string): string | null => {
+    if (!zAccountNumber.safeParse(account).success) return null;
+    const sep = account.indexOf("+");
+    if (sep === -1) return null;
+    return account.slice(0, sep);
+};
+
 export type Account = z.infer<typeof zAccount>;
 export type AccountFree = z.infer<typeof zAccountFree>;
+export type LocalAccount = z.infer<typeof zLocalAccount>;
 export type AccountNumber = z.infer<typeof zAccountNumber>;

@@ -1,4 +1,4 @@
-import { Plus } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 
 import { TokenAmount } from "@shared/lib/plugins/token-swap";
 import {
@@ -13,6 +13,7 @@ import {
 import { Button } from "@shared/shadcn/ui/button";
 
 import { useCreatePool } from "../hooks/use-create-pool";
+import { useToken } from "../hooks/use-token";
 import { AmountSummary } from "./amount-summary";
 
 export const CreatePoolModal = ({
@@ -30,6 +31,9 @@ export const CreatePoolModal = ({
 }) => {
     const { mutateAsync: createPool, isPending } = useCreatePool();
 
+    const { data: firstDepositToken } = useToken(firstDeposit?.tokenId);
+    const { data: secondDepositToken } = useToken(secondDeposit?.tokenId);
+
     const trigger = async () => {
         await createPool([firstDeposit!, secondDeposit!, undefined]);
         if (onSuccess) {
@@ -42,10 +46,10 @@ export const CreatePoolModal = ({
         <AlertDialog open={show}>
             <AlertDialogContent className="max-w-md">
                 <AlertDialogHeader className="text-center">
-                    <AlertDialogTitle className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+                    <AlertDialogTitle className="text-lg font-semibold tracking-tight">
                         Create Pool
                     </AlertDialogTitle>
-                    <AlertDialogDescription className="text-slate-600 dark:text-slate-400">
+                    <AlertDialogDescription className="text-muted-foreground">
                         By proceeding you will be creating a pool and adding
                         your below token amounts. It is important both token
                         deposits are of equal market value.
@@ -55,18 +59,20 @@ export const CreatePoolModal = ({
                 <div className="mt-3 space-y-4">
                     <AmountSummary
                         amount={Number(firstDeposit?.amount).toString() || ""}
-                        avatarSeed={firstDeposit?.tokenId?.toString() ?? "?"}
+                        tokenId={firstDeposit?.tokenId}
+                        iconHash={firstDepositToken?.iconHash}
                         label="Founding deposit #1"
                         title={firstDeposit?.tokenId.toString() ?? "?"}
                     />
 
                     <div className="flex justify-center">
-                        <Plus className="text-slate-600 dark:text-slate-400" />
+                        <Plus className="text-muted-foreground" />
                     </div>
 
                     <AmountSummary
                         amount={Number(secondDeposit?.amount).toString() || ""}
-                        avatarSeed={secondDeposit?.tokenId?.toString() ?? "?"}
+                        tokenId={secondDeposit?.tokenId}
+                        iconHash={secondDepositToken?.iconHash}
                         label="Founding deposit #2"
                         title={secondDeposit?.tokenId?.toString() ?? "?"}
                     />
@@ -91,7 +97,7 @@ export const CreatePoolModal = ({
                     >
                         {isPending ? (
                             <div className="flex items-center gap-2">
-                                <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-500 border-t-transparent"></div>
+                                <Loader2 className="size-4 animate-spin" />
                                 Creating...
                             </div>
                         ) : (

@@ -172,7 +172,7 @@ pub mod tables {
                 .history()
                 .symEvent(symbol, sender, CREATED);
 
-            let new_instance = Self::new(symbol, Nft::call().mint());
+            let new_instance = Self::new(symbol, Nft::call().mint(None));
             new_instance.save();
 
             Nft::call().credit(
@@ -293,7 +293,7 @@ pub mod service {
 
     use psibase::services::events;
 
-    use psibase::services::nft::{NftHolderFlags, Wrapper as Nft};
+    use psibase::services::nft::Wrapper as Nft;
     use psibase::services::tokens::Wrapper as Tokens;
 
     #[action]
@@ -304,7 +304,7 @@ pub mod service {
             table.put(&InitRow {}).unwrap();
 
             Tokens::call().setUserConf(BalanceFlags::AUTO_DEBIT.index(), false);
-            Nft::call().setUserConf(NftHolderFlags::AUTO_DEBIT.index(), false);
+            Nft::call().setAutoDebit(Some(false));
 
             let add_index = |method: &str, column: u8| {
                 events::Wrapper::call().addIndex(

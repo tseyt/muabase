@@ -1,35 +1,34 @@
-import { Avatar } from "@shared/components/avatar";
+import { TokenIcon } from "@shared/components/token-icon";
 
 export const AmountSummary = ({
-    avatarSeed,
+    tokenId,
+    iconHash,
     label,
     title,
     amount,
 }: {
-    avatarSeed: string;
+    tokenId?: number;
+    iconHash?: string | null;
     label: string;
     title: string;
     amount: string;
 }) => (
-    <div className="flex items-center justify-between  rounded-xl border border-gray-300 bg-gray-100/70 p-4 dark:border-gray-800 dark:bg-gray-900/50">
-        <div className="flex items-center gap-4">
-            <div className="shrink-0">
-                <Avatar
-                    account={avatarSeed}
-                    type="glass"
-                    className="h-12 w-12"
-                    alt="From account"
-                />
-            </div>
-            <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
+    <div className="bg-muted/40 flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5">
+        <div className="flex min-w-0 items-center gap-3">
+            <TokenIcon
+                tokenId={tokenId}
+                iconHash={iconHash}
+                className="size-9"
+            />
+            <div className="min-w-0 leading-tight">
+                <p className="text-muted-foreground text-[11px] font-medium uppercase tracking-wider">
                     {label}
                 </p>
-                <div className="wrap-break-word text-lg font-semibold text-slate-900 dark:text-slate-100">
+                <p className="truncate font-mono text-sm font-medium">
                     {title}
-                </div>
+                </p>
             </div>
         </div>
-        <div className="items-center font-mono text-2xl">{amount}</div>
+        <div className="shrink-0 font-mono text-xl tabular-nums">{amount}</div>
     </div>
 );

@@ -24,7 +24,7 @@ pub struct Nft {
 #[graphql(input_name = "NftHolderRecordInput")]
 pub struct NftHolderRecord {
     account: AccountNumber,
-    config: u8,
+    autodebit: bool,
 }
 
 #[derive(
@@ -38,10 +38,6 @@ pub struct CreditRecord {
     debitor: AccountNumber,
 }
 
-crate::define_flags!(NftHolderFlags, u8, {
-    auto_debit,
-});
-
 #[crate::service(name = "nft", dispatch = false, psibase_mod = "crate")]
 #[allow(non_snake_case, unused_variables)]
 mod service {
@@ -54,7 +50,7 @@ mod service {
     }
 
     #[action]
-    fn mint() -> crate::services::nft::NID {
+    fn mint(nftId: Option<crate::services::nft::NID>) -> crate::services::nft::NID {
         unimplemented!()
     }
 
@@ -69,6 +65,11 @@ mod service {
     }
 
     #[action]
+    fn transfer(nftId: crate::services::nft::NID, debitor: AccountNumber, memo: Memo) {
+        unimplemented!()
+    }
+
+    #[action]
     fn uncredit(nftId: crate::services::nft::NID, memo: Memo) {
         unimplemented!()
     }
@@ -79,7 +80,7 @@ mod service {
     }
 
     #[action]
-    fn setUserConf(index: u8, enable: bool) {
+    fn setAutoDebit(autodebit: Option<bool>) {
         unimplemented!()
     }
 
@@ -100,11 +101,6 @@ mod service {
 
     #[action]
     fn exists(nftId: crate::services::nft::NID) -> bool {
-        unimplemented!()
-    }
-
-    #[action]
-    fn getUserConf(account: AccountNumber, index: u8) -> bool {
         unimplemented!()
     }
 

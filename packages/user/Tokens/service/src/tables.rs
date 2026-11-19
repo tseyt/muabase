@@ -4,7 +4,7 @@ pub mod tables {
     use async_graphql::{ComplexObject, SimpleObject};
     use psibase::services::accounts::Wrapper as Accounts;
     use psibase::services::nft::{Wrapper as Nfts, NID};
-    use psibase::services::tokens::{Decimal, Precision, Quantity};
+    use psibase::services::tokens::{icon_hash, Decimal, Precision, Quantity};
     use psibase::{
         abort_message, get_sender, AccountNumber, Checksum256, Memo, ServiceWrapper, TableRecord,
     };
@@ -115,7 +115,7 @@ pub mod tables {
         fn new(precision: Precision, max_issued_supply: Quantity) -> Self {
             Self {
                 id: InitRow::next_token_id(),
-                nft_id: Nfts::call().mint(),
+                nft_id: Nfts::call().mint(None),
                 issued_supply: 0.into(),
                 burned_supply: 0.into(),
                 max_issued_supply,
@@ -137,7 +137,7 @@ pub mod tables {
             Self::get(mapping.tokenId)
         }
 
-        fn check_is_owner(&self, account: AccountNumber) {
+        pub fn check_is_owner(&self, account: AccountNumber) {
             let holder = self.nft_holder();
 
             assert_eq!(account, holder, "Missing required authority");
@@ -286,6 +286,11 @@ pub mod tables {
                 .getByToken(self.id)
                 .map(|s| s.symbolId)
         }
+
+        /// Content hash of the token's icon, or null if it has no icon
+        pub async fn icon_hash(&self) -> Option<Checksum256> {
+            icon_hash(self.id)
+        }
     }
 
     #[table(name = "BalanceTable", index = 2)]
@@ -400,6 +405,11 @@ pub mod tables {
                 .map(|s| s.symbolId)
         }
 
+        /// Content hash of the token's icon, or null if it has no icon
+        pub async fn icon_hash(&self) -> Option<Checksum256> {
+            icon_hash(self.token_id)
+        }
+
         pub async fn precision(&self) -> Precision {
             Token::get_assert(self.token_id)
                 .precision
@@ -450,6 +460,11 @@ pub mod tables {
                 .map(|s| s.symbolId)
         }
 
+        /// Content hash of the token's icon, or null if it has no icon
+        pub async fn icon_hash(&self) -> Option<Checksum256> {
+            icon_hash(self.token_id)
+        }
+
         pub async fn precision(&self) -> Precision {
             Token::get_assert(self.token_id)
                 .precision
@@ -483,7 +498,11 @@ pub mod tables {
             }
         }
 
-        fn get(creditor: AccountNumber, debitor: AccountNumber, token_id: TID) -> Option<Self> {
+        pub fn get(
+            creditor: AccountNumber,
+            debitor: AccountNumber,
+            token_id: TID,
+        ) -> Option<Self> {
             let shared_creditor_bal_ids = UserPendingTable::read()
                 .get_index_pk()
                 .range((creditor, token_id, 0_u64)..(creditor, token_id, u64::MAX))

@@ -6,11 +6,13 @@ import { Layout } from "./components/layout";
 import { NameMarketConfig } from "./pages/account-marketplace";
 import { BlockProduction } from "./pages/block-production";
 import { Branding } from "./pages/branding";
+import { FreezeAccounts } from "./pages/freeze-accounts";
 import { Loader } from "./pages/loader";
 import { Packages } from "./pages/packages";
 import { PendingTransaction } from "./pages/pending-transaction";
 import { PendingTransactions } from "./pages/pending-transactions";
 import { ResourcePricing } from "./pages/resource-pricing";
+import { ResourceProviders } from "./pages/resource-providers";
 import { Resources } from "./pages/resources";
 import { Settings } from "./pages/settings";
 
@@ -80,10 +82,26 @@ export const router = createBrowserRouter([
                 ),
             },
             {
+                path: "resource-providers",
+                element: (
+                    <ProtectedRoute>
+                        <ResourceProviders />
+                    </ProtectedRoute>
+                ),
+            },
+            {
                 path: "account-marketplace",
                 element: (
                     <ProtectedRoute>
                         <NameMarketConfig />
+                    </ProtectedRoute>
+                ),
+            },
+            {
+                path: "freeze",
+                element: (
+                    <ProtectedRoute>
+                        <FreezeAccounts />
                     </ProtectedRoute>
                 ),
             },

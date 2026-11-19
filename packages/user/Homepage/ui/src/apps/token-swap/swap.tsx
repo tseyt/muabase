@@ -92,8 +92,16 @@ export const Swap = ({ onSwitch }: { onSwitch: () => void }) => {
         () =>
             pools
                 ?.flatMap((pool) => [
-                    { id: pool.tokenAId, symbol: pool.tokenASymbol },
-                    { id: pool.tokenBId, symbol: pool.tokenBSymbol },
+                    {
+                        id: pool.tokenAId,
+                        symbol: pool.tokenASymbol,
+                        iconHash: pool.tokenAIconHash,
+                    },
+                    {
+                        id: pool.tokenBId,
+                        symbol: pool.tokenBSymbol,
+                        iconHash: pool.tokenBIconHash,
+                    },
                 ])
                 .filter(
                     (item, index, arr) =>
@@ -213,7 +221,7 @@ export const Swap = ({ onSwitch }: { onSwitch: () => void }) => {
                             <div className="text-muted-foreground space-y-1 text-sm">
                                 <div className="flex justify-between">
                                     <span>Quote error</span>
-                                    <span className="text-red-800 dark:text-red-500">
+                                    <span className="text-destructive">
                                         {quoteError.message}
                                     </span>
                                 </div>
@@ -224,9 +232,10 @@ export const Swap = ({ onSwitch }: { onSwitch: () => void }) => {
             />
 
             {isNoTradingNetwork && (
-                <div className="border-border/50 absolute inset-0 z-20 flex flex-col items-center justify-center rounded-sm border p-6 text-center backdrop-blur-sm sm:p-8">
+                <div className="bg-background/85 absolute inset-0 z-20 flex flex-col items-center justify-center p-6 text-center backdrop-blur-sm sm:p-8">
                     <div className="max-w-sm space-y-4">
-                        <div className="text-xl font-semibold tracking-tight">
+                        <div className="text-base font-semibold tracking-tight">
+                            {" "}
                             Trading not available yet
                         </div>
                         <p className="text-muted-foreground text-sm leading-relaxed">
