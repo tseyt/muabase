@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - muabase
       - "release/*"
   pull_request:
     types: [opened, synchronize, reopened]
@@ -17,6 +18,6 @@ jobs:
     name: Run Builds
     uses: ./.github/workflows/ubuntu-builder.yml
     with:
-      all-platforms: ${{ github.event_name == 'push' }} # Only on pushes to main/release
+      all-platforms: ${{ github.event_name == 'push' }} # Only on pushes to main/muabase/release
     secrets:
-      publish-package-login: ${{ github.ref == 'refs/heads/main' && secrets.PUBLISH_PACKAGE_LOGIN || null }}
+      publish-package-login: ${{ github.repository == 'gofractally/psibase' && github.ref == 'refs/heads/main' && secrets.PUBLISH_PACKAGE_LOGIN || null }}

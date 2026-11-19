@@ -625,6 +625,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(target_family = "wasm"))]
     #[should_panic(expected = "Receiver trust_score 6500 is below the asset minimum 7500")]
     fn test_nft_trust_gate_rejects_unqualified_receiver() {
         enforce_nft_trust_gate(7500, 6500);

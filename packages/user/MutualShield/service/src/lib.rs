@@ -264,6 +264,14 @@ pub mod service {
     }
 }
 
+#[cfg(all(test, target_family = "wasm"))]
+mod wasm_tests {
+    #[psibase::test_case(packages("MutualShield"))]
+    fn package_installs(_chain: psibase::Chain) -> Result<(), psibase::Error> {
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::service::compute_distributable_surplus;

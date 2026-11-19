@@ -28,8 +28,6 @@ ExternalProject_Add(CommonApiCommonLib_js
 set(UI_PROJECTS
     user/Host/LoginPrompt/ui:HostLoginPrompt_js
     user/Evaluations/ui:Evaluations_js
-    user/Fractals/ui:Fractals_js
-    user/FractalCore/ui:FractalCore_js
     user/TokenStream/ui:TokenStream_js
     user/CommonApi/common/packages/plugin-tester/ui:PluginTester_js
     user/Explorer/ui:Explorer_js

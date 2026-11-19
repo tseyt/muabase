@@ -212,7 +212,7 @@ export const CreatePage = () => {
         [template, packages],
     );
     const devTemplate = packages.find((pack) => pack.name === "DevDefault");
-    const prodTemplate = packages.find((pack) => pack.name === "ProdWithFG");
+    const prodTemplate = packages.find((pack) => pack.name === "ProdDefault");
 
     const [
         { dependencies, show: showDependencyDialog, removingPackage },

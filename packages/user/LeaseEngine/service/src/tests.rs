@@ -1,3 +1,11 @@
+#[cfg(all(test, target_family = "wasm"))]
+mod wasm_tests {
+    #[psibase::test_case(packages("LeaseEngine"))]
+    fn package_installs(_chain: psibase::Chain) -> Result<(), psibase::Error> {
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use psibase::account;
@@ -62,6 +70,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(target_family = "wasm"))]
     #[should_panic(expected = "Riba Violation")]
     fn test_riba_violation_triggers_panic_if_lessor_is_sink() {
         let lessor = account!("lessor-1");

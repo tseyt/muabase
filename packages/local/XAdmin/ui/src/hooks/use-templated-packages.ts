@@ -7,7 +7,7 @@ export type BootTemplate = (typeof bootTemplates)[number];
 
 const bootPackageName: Record<BootTemplate, string> = {
     dev: "DevDefault",
-    prod: "ProdWithFG",
+    prod: "ProdDefault",
     priv: "PrivDefault",
 };
 

@@ -67,7 +67,7 @@ jobs:
           BUILDER_IMAGE_2404: a6d8868fe80fb0935858f542f9f8f86124dae3e1
           BUILDER_IMAGE_2604: a6d8868fe80fb0935858f542f9f8f86124dae3e1
         run: |
-          BUILDER_IMAGE="ghcr.io/${{ github.repository_owner }}/psibase-builder-ubuntu-${{ matrix.ubuntu-version }}:$BUILDER_IMAGE_${{ matrix.ubuntu-version }}"
+          BUILDER_IMAGE="ghcr.io/gofractally/psibase-builder-ubuntu-${{ matrix.ubuntu-version }}:$BUILDER_IMAGE_${{ matrix.ubuntu-version }}"
           echo $BUILDER_IMAGE
           bash ${GITHUB_WORKSPACE}/.github/scripts/build.sh ${GITHUB_WORKSPACE} "$BUILDER_IMAGE" ${{ matrix.ubuntu-version }}
       - name: Publish packages

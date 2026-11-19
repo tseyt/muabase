@@ -651,6 +651,7 @@ mod unit_tests {
     }
 
     #[test]
+    #[cfg(not(target_family = "wasm"))]
     #[should_panic(expected = "Receiver trust_score 5500 is below the asset pool minimum 7000")]
     fn test_asset_pool_trust_gate_rejects_unqualified_receiver() {
         crate::service::enforce_asset_pool_trust_gate(7000, 5500);

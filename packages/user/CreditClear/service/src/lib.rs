@@ -503,6 +503,14 @@ pub mod service {
     }
 }
 
+#[cfg(all(test, target_family = "wasm"))]
+mod wasm_tests {
+    #[psibase::test_case(packages("CreditClear"))]
+    fn package_installs(_chain: psibase::Chain) -> Result<(), psibase::Error> {
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::service::{calculate_wajahah_limit, validate_bridge_desk_registration};
@@ -540,6 +548,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(target_family = "wasm"))]
     #[should_panic(
         expected = "Non-Custodial Safe Harbor Violation: BridgeLiquidityDesk must publish at least one client-verifiable Safe, Taproot, or Squads multisig settlement address"
     )]
@@ -557,6 +566,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(target_family = "wasm"))]
     #[should_panic(expected = "exceeds maximum corridor spread cap (1000 bps)")]
     fn test_bridge_liquidity_desk_rejects_excessive_fx_spread() {
         validate_bridge_desk_registration(
