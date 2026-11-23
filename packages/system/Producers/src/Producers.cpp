@@ -309,7 +309,10 @@ namespace SystemService
          .block_height = block_height,
          .tx_hash      = tx_hash,
          .state_root   = state_root,
-         .timestamp    = to<Transact>().currentBlock().time.seconds()
+         .timestamp    = static_cast<uint64_t>(
+            std::chrono::duration_cast<psibase::Seconds>(
+               to<Transact>().currentBlock().time.time_since_epoch())
+               .count())
       });
    }
 
