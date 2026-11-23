@@ -1,0 +1,8 @@
+[
+  {
+    "sender": "studio",
+    "service": "sites",
+    "method": "enablespa",
+    "data": { "enable": true }
+  }
+]

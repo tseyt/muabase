@@ -321,6 +321,14 @@ pub mod service {
     }
 }
 
+#[cfg(all(test, target_family = "wasm"))]
+mod wasm_tests {
+    #[psibase::test_case(packages("ClaimCouncil"))]
+    fn package_installs(_chain: psibase::Chain) -> Result<(), psibase::Error> {
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::service::{apply_damage_claim_vote, compute_fault_penalized_score};
@@ -370,6 +378,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(target_family = "wasm"))]
     #[should_panic(expected = "Respondent cannot vote on own claim")]
     fn test_respondent_cannot_vote_on_own_damage_claim() {
         let claim = DamageClaim {

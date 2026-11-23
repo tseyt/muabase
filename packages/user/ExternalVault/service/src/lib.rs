@@ -666,6 +666,14 @@ pub mod service {
     }
 }
 
+#[cfg(all(test, target_family = "wasm"))]
+mod wasm_tests {
+    #[psibase::test_case(packages("ExternalVault"))]
+    fn package_installs(_chain: psibase::Chain) -> Result<(), psibase::Error> {
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::service::{
@@ -722,6 +730,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(target_family = "wasm"))]
     #[should_panic(
         expected = "Tamlik Violation: ZAKAT_TAMLIK_100 strictly forbids deducting any protocol fee, gas, or FX spread (1) from zakatPrincipalAmount (50000)"
     )]
@@ -735,6 +744,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(target_family = "wasm"))]
     #[should_panic(
         expected = "PII Guard Violation: recipientCommitmentHash must be a non-zero 32-byte salted SHA-256 digest"
     )]
