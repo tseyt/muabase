@@ -1,3 +1,5 @@
+import { useId } from "react";
+
 import { cn } from "@shared/lib/utils";
 import { Input } from "@shared/shadcn/ui/input";
 import { Label } from "@shared/shadcn/ui/label";
@@ -19,16 +21,31 @@ export const NumberField = ({
     disabled?: boolean;
 }) => {
     const { state, handleBlur, handleChange, name } = useFieldContext<number>();
+    const inputId = useId();
+    const descriptionId = `${inputId}-description`;
+    const errorId = `${inputId}-error`;
 
     const isError = state.meta.errors.length > 0;
-    const isBlurred = state.meta.isBlurred;
+    const isTouched = state.meta.isTouched;
+    const showError = isError && isTouched;
+
+    const describedBy = [
+        description ? descriptionId : undefined,
+        showError ? errorId : undefined,
+    ]
+        .filter(Boolean)
+        .join(" ");
 
     return (
         <div className="flex flex-col gap-2">
-            <Label className={cn(isError && isBlurred && "text-destructive")}>
+            <Label
+                htmlFor={inputId}
+                className={cn(showError && "text-destructive")}
+            >
                 {label}
             </Label>
             <Input
+                id={inputId}
                 type="number"
                 name={name}
                 required={required}
@@ -37,13 +54,20 @@ export const NumberField = ({
                 onChange={(e) => handleChange(e.target.valueAsNumber)}
                 onFocus={(e) => e.target.select()}
                 onBlur={handleBlur}
+                aria-invalid={showError}
+                aria-describedby={describedBy || undefined}
                 className={disabled ? "hide-number-input-arrows" : undefined}
                 disabled={disabled}
             />
             {description && (
-                <p className="text-muted-foreground text-sm">{description}</p>
+                <p
+                    id={descriptionId}
+                    className="text-muted-foreground text-sm"
+                >
+                    {description}
+                </p>
             )}
-            <FieldErrors meta={state.meta} />
+            <FieldErrors id={errorId} meta={state.meta} />
         </div>
     );
 };

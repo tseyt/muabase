@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 
 import { CopyButton } from "@shared/components/copy-button";
 import { DownloadKeyFileButton } from "@shared/components/download-key-file-button";
@@ -41,7 +41,12 @@ export const SaveKeyStep = ({
     footerClassName,
 }: SaveKeyStepProps) => {
     const { data: networkName } = useBranding();
+    const displayNetwork = networkName || "Muabase";
+    const accountInputId = useId();
+    const keyInputId = useId();
+    const acknowledgeId = useId();
     const [showPassword, setShowPassword] = useState(false);
+    const [hasSavedKey, setHasSavedKey] = useState(false);
     const [acknowledged, setAcknowledged] = useState(false);
 
     return (
@@ -51,7 +56,7 @@ export const SaveKeyStep = ({
             >
                 <div>
                     <CardTitle className="text-3xl font-normal">
-                        Secure your {networkName} account
+                        Secure your {displayNetwork} account
                     </CardTitle>
                     <CardDescription>
                         Your <span className="font-semibold">Private Key</span>{" "}
@@ -65,10 +70,11 @@ export const SaveKeyStep = ({
                 </div>
                 <div className="flex flex-col gap-4">
                     <div className="flex flex-col gap-2">
-                        <Label>Account Name</Label>
+                        <Label htmlFor={accountInputId}>Account Name</Label>
                         <div className="mb-2 flex gap-2">
                             <div className="relative flex-1">
                                 <Input
+                                    id={accountInputId}
                                     type="text"
                                     value={accountName}
                                     readOnly
@@ -82,10 +88,11 @@ export const SaveKeyStep = ({
                                 </div>
                             </div>
                         </div>
-                        <Label>Private Key</Label>
+                        <Label htmlFor={keyInputId}>Private Key</Label>
                         <div className="flex gap-2">
                             <div className="relative flex-1">
                                 <Input
+                                    id={keyInputId}
                                     type={showPassword ? "text" : "password"}
                                     value={keyB64}
                                     readOnly
@@ -102,19 +109,30 @@ export const SaveKeyStep = ({
                                     <DownloadKeyFileButton
                                         pemContent={b64ToPem(keyB64)}
                                         filename={`${accountName}.pem`}
+                                        onDownload={() => setHasSavedKey(true)}
                                     />
                                     <CopyButton
                                         text={keyB64}
                                         ariaLabel="Copy private key"
+                                        onCopy={() => setHasSavedKey(true)}
                                     />
                                 </div>
                             </div>
                         </div>
+                        {!hasSavedKey && (
+                            <p className="text-muted-foreground text-xs">
+                                Tip: Download the <code>.pem</code> file or copy
+                                your key before continuing.
+                            </p>
+                        )}
                     </div>
 
-                    <Label className="hover:bg-accent/50 flex items-start gap-3 rounded-lg border p-3 has-[[aria-checked=true]]:border-blue-600 has-[[aria-checked=true]]:bg-blue-50 dark:has-[[aria-checked=true]]:border-blue-900 dark:has-[[aria-checked=true]]:bg-blue-950">
+                    <Label
+                        htmlFor={acknowledgeId}
+                        className="hover:bg-accent/50 flex items-start gap-3 rounded-lg border p-3 has-[[aria-checked=true]]:border-blue-600 has-[[aria-checked=true]]:bg-blue-50 dark:has-[[aria-checked=true]]:border-blue-900 dark:has-[[aria-checked=true]]:bg-blue-950"
+                    >
                         <Checkbox
-                            id="acknowledge"
+                            id={acknowledgeId}
                             checked={acknowledged}
                             onCheckedChange={(checked) =>
                                 setAcknowledged(checked === true)
@@ -127,8 +145,8 @@ export const SaveKeyStep = ({
                             </p>
                             <p className="text-muted-foreground text-sm">
                                 I understand that if I lose my private key, I
-                                may permanently lose access to my {networkName}{" "}
-                                account.
+                                may permanently lose access to my{" "}
+                                {displayNetwork} account.
                             </p>
                         </div>
                     </Label>

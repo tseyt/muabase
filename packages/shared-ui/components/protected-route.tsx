@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 
 import { useConnectAccount } from "@shared/hooks/use-connect-account";
 import { useCurrentUser } from "@shared/hooks/use-current-user";
+import { parseError } from "@shared/lib/parse-error-message";
 import { Button } from "@shared/shadcn/ui/button";
 import {
     Dialog,
@@ -11,6 +12,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@shared/shadcn/ui/dialog";
+import { toast } from "@shared/shadcn/ui/sonner";
 
 export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     const [showModal, setShowModal] = useState(false);
@@ -21,10 +23,16 @@ export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     const navigate = useNavigate();
 
     useEffect(() => {
-        if (currentUser === null) {
-            setShowModal(true);
-        }
+        setShowModal(currentUser === null);
     }, [currentUser]);
+
+    const handleLogin = async () => {
+        try {
+            await login();
+        } catch (error) {
+            toast.error(parseError(error));
+        }
+    };
 
     return (
         <Dialog
@@ -38,7 +46,7 @@ export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
                 }
             }}
         >
-            {children}
+            {currentUser ? children : null}
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle>Login required</DialogTitle>
@@ -46,8 +54,11 @@ export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
                         You must be logged in to visit this page.
                     </DialogDescription>
                     <div className="flex w-full justify-end">
-                        <Button disabled={isPending} onClick={() => login()}>
-                            Login
+                        <Button
+                            disabled={isPending}
+                            onClick={() => void handleLogin()}
+                        >
+                            {isPending ? "Signing in..." : "Login"}
                         </Button>
                     </div>
                 </DialogHeader>

@@ -19,11 +19,13 @@ const downloadKeyFile = (pemContent: string, filename: string) => {
 interface DownloadKeyFileButtonProps {
     pemContent: string;
     filename: string;
+    onDownload?: () => void;
 }
 
 export const DownloadKeyFileButton = ({
     pemContent,
     filename,
+    onDownload,
 }: DownloadKeyFileButtonProps) => {
     return (
         <Button
@@ -31,7 +33,10 @@ export const DownloadKeyFileButton = ({
             variant="ghost"
             size="icon"
             className="h-7 w-7"
-            onClick={() => downloadKeyFile(pemContent, filename)}
+            onClick={() => {
+                downloadKeyFile(pemContent, filename);
+                onDownload?.();
+            }}
             aria-label="Download key file"
         >
             <Download className="h-4 w-4" />

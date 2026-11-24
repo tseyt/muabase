@@ -1,9 +1,11 @@
+import { useId } from "react";
+
 import { cn } from "@shared/lib/utils";
 import { Label } from "@shared/shadcn/ui/label";
-
-import { FieldErrors } from "./field-errors";
-import { useFieldContext } from "../app-form";
 import { Switch } from "@shared/shadcn/ui/switch";
+
+import { useFieldContext } from "../app-form";
+import { FieldErrors } from "./field-errors";
 
 export const SwitchField = ({
     label,
@@ -17,26 +19,50 @@ export const SwitchField = ({
     disabled?: boolean;
 }) => {
     const { state, handleChange } = useFieldContext<boolean>();
+    const inputId = useId();
+    const descriptionId = `${inputId}-description`;
+    const errorId = `${inputId}-error`;
 
     const isError = state.meta.errors.length > 0;
-    const isBlurred = state.meta.isBlurred;
+    const showError = isError && state.meta.isTouched;
+
+    const describedBy = [
+        description ? descriptionId : undefined,
+        showError ? errorId : undefined,
+    ]
+        .filter(Boolean)
+        .join(" ");
 
     return (
         <div>
             <div className="flex w-full justify-between">
                 <Label
-                    className={cn(isError && isBlurred && "text-destructive")}
+                    htmlFor={inputId}
+                    className={cn(showError && "text-destructive")}
                 >
                     {label}
                 </Label>
-                <Switch disabled={disabled} required={required} checked={state.value} onCheckedChange={(e) => {
-                    handleChange(e)
-                }} />
+                <Switch
+                    id={inputId}
+                    disabled={disabled}
+                    required={required}
+                    checked={state.value}
+                    aria-invalid={showError}
+                    aria-describedby={describedBy || undefined}
+                    onCheckedChange={(e) => {
+                        handleChange(e);
+                    }}
+                />
             </div>
             {description && (
-                <p className="text-muted-foreground text-sm">{description}</p>
+                <p
+                    id={descriptionId}
+                    className="text-muted-foreground text-sm"
+                >
+                    {description}
+                </p>
             )}
-            <FieldErrors meta={state.meta} />
+            <FieldErrors id={errorId} meta={state.meta} />
         </div>
     );
 };

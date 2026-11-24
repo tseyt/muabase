@@ -1,12 +1,18 @@
-import type { ReactNode } from "react";
+import { type ChangeEvent, type ReactNode, useRef, useState } from "react";
 
+import { Upload } from "lucide-react";
 import { z } from "zod";
 
 import { useAppForm } from "@shared/components/form/app-form";
 import { FieldAccountExisting } from "@shared/components/form/field-account-existing";
+import { PasswordVisibilityButton } from "@shared/components/password-visibility-button";
 import { useBranding } from "@shared/hooks/use-branding";
 import { useImportExisting } from "@shared/hooks/use-import-existing";
-import { b64ToPem, validateB64 } from "@shared/lib/b64-key-utils";
+import {
+    b64ToPem,
+    normalizeKeyToB64,
+    validateB64,
+} from "@shared/lib/b64-key-utils";
 import { zAccount } from "@shared/lib/schemas/account";
 import { Button } from "@shared/shadcn/ui/button";
 import {
@@ -52,6 +58,8 @@ export const ConfirmKeyStep = ({
 }: ConfirmKeyStepProps) => {
     const { data: networkName } = useBranding();
     const importExistingMutation = useImportExisting();
+    const [showPrivateKey, setShowPrivateKey] = useState(false);
+    const pemFileInputRef = useRef<HTMLInputElement>(null);
 
     const form = useAppForm({
         defaultValues: {
@@ -77,11 +85,10 @@ export const ConfirmKeyStep = ({
                     ),
                 }),
                 privateKey: z.string().refine(
-                    (val) => {
-                        return validateB64(val);
-                    },
+                    (val) => validateB64(normalizeKeyToB64(val)),
                     {
-                        message: "Private key must be a valid base64 string",
+                        message:
+                            "Private key must be a valid base64 or PEM private key",
                     },
                 ),
             }),
@@ -89,13 +96,13 @@ export const ConfirmKeyStep = ({
         onSubmit: async (data) => {
             await handleImport(
                 data.value.account.account.trim(),
-                data.value.privateKey,
+                normalizeKeyToB64(data.value.privateKey),
             );
         },
     });
 
     const handleImport = async (account: string, b64: string) => {
-        const pemFormatted = b64ToPem(b64);
+        const pemFormatted = b64ToPem(normalizeKeyToB64(b64));
 
         try {
             await importExistingMutation.mutateAsync({
@@ -115,6 +122,16 @@ export const ConfirmKeyStep = ({
         }
     };
 
+    const handlePemFileSelected = async (
+        event: ChangeEvent<HTMLInputElement>,
+    ) => {
+        const file = event.target.files?.[0];
+        event.target.value = "";
+        if (!file) return;
+        const text = await file.text();
+        form.setFieldValue("privateKey", normalizeKeyToB64(text));
+    };
+
     return (
         <form.AppForm>
             <form
@@ -131,7 +148,8 @@ export const ConfirmKeyStep = ({
                             {title ?? "Sign in"}
                         </CardTitle>
                         <CardDescription>
-                            {description ?? `Use your ${networkName} account`}
+                            {description ??
+                                `Use your ${networkName || "Muabase"} account`}
                         </CardDescription>
                     </div>
                     <div className="flex flex-1 flex-col gap-4">
@@ -150,14 +168,48 @@ export const ConfirmKeyStep = ({
                                 />
                             )}
                         </form.Subscribe>
+                        <input
+                            ref={pemFileInputRef}
+                            type="file"
+                            accept=".pem,.txt"
+                            className="sr-only"
+                            aria-label="Load PEM private key file"
+                            onChange={(e) => void handlePemFileSelected(e)}
+                        />
                         <form.AppField
                             name="privateKey"
                             children={(field) => {
                                 return (
                                     <field.TextField
-                                        type="password"
+                                        type={
+                                            showPrivateKey ? "text" : "password"
+                                        }
                                         label="Private key"
-                                        placeholder="Private key"
+                                        placeholder="Paste base64 key or PEM contents"
+                                        rightLabel={
+                                            <Button
+                                                type="button"
+                                                variant="link"
+                                                size="sm"
+                                                className="h-auto p-0 text-xs"
+                                                onClick={() =>
+                                                    pemFileInputRef.current?.click()
+                                                }
+                                            >
+                                                <Upload className="mr-1 h-3 w-3" />
+                                                Load .pem file
+                                            </Button>
+                                        }
+                                        endContent={
+                                            <PasswordVisibilityButton
+                                                showPassword={showPrivateKey}
+                                                onToggle={() =>
+                                                    setShowPrivateKey(
+                                                        (prev) => !prev,
+                                                    )
+                                                }
+                                            />
+                                        }
                                     />
                                 );
                             }}

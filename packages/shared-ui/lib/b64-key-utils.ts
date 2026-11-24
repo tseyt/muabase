@@ -6,18 +6,19 @@ export const b64ToPem = (b64: string) => {
 };
 
 export const pemToB64 = (pem: string) => {
-    const b64 = pem
-        .replace(/-----BEGIN PRIVATE KEY-----/g, "")
-        .replace(/-----END PRIVATE KEY-----/g, "")
-        .replace(/\n/g, "");
-    return b64;
+    return pem
+        .replace(/-----BEGIN [A-Z0-9 ]+-----/g, "")
+        .replace(/-----END [A-Z0-9 ]+-----/g, "")
+        .replace(/\s+/g, "");
 };
 
+export const normalizeKeyToB64 = (input: string) => pemToB64(input.trim());
+
 export const validateB64 = (b64: string) => {
-    if (!/^[A-Za-z0-9+/]*=*$/.test(b64)) return false;
+    if (b64.length === 0) return false;
+    if (!/^[A-Za-z0-9+/]+={0,2}$/.test(b64)) return false;
     try {
-        atob(b64);
-        return true;
+        return atob(b64).length > 0;
     } catch {
         return false;
     }

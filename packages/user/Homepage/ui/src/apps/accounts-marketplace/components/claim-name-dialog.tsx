@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { useClaimAndSetKey } from "@/apps/accounts-marketplace/hooks/use-claim-and-set-key";
 
@@ -59,6 +59,19 @@ export const ClaimNameDialog = ({ account, open, onClose }: Props) => {
         setKeyB64("");
     };
 
+    const isCaptiveStep = step !== "1_EXPLAIN" || isClaiming;
+
+    useEffect(() => {
+        if (!open || (step !== "2_SAVE" && step !== "3_CONFIRM")) return;
+        const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+            event.preventDefault();
+            event.returnValue = "";
+        };
+        window.addEventListener("beforeunload", handleBeforeUnload);
+        return () =>
+            window.removeEventListener("beforeunload", handleBeforeUnload);
+    }, [open, step]);
+
     const handleContinue = async () => {
         try {
             const privateKey = await claimMutation.mutateAsync([account]);
@@ -70,15 +83,29 @@ export const ClaimNameDialog = ({ account, open, onClose }: Props) => {
     };
 
     return (
-        <Dialog open={open} onOpenChange={() => {}}>
+        <Dialog
+            open={open}
+            onOpenChange={(nextOpen) => {
+                if (!nextOpen && !isCaptiveStep) {
+                    close();
+                }
+            }}
+        >
             <DialogContent
                 className="sm:max-w-xl"
-                showCloseButton={false}
-                onPointerDownOutside={(e) => e.preventDefault()}
-                onInteractOutside={(e) => e.preventDefault()}
-                onEscapeKeyDown={(e) => e.preventDefault()}
+                showCloseButton={!isCaptiveStep}
+                onPointerDownOutside={(e) => {
+                    if (isCaptiveStep) e.preventDefault();
+                }}
+                onInteractOutside={(e) => {
+                    if (isCaptiveStep) e.preventDefault();
+                }}
+                onEscapeKeyDown={(e) => {
+                    if (isCaptiveStep) e.preventDefault();
+                }}
             >
                 <Progress
+                    aria-label="Account claim progress"
                     value={
                         step === "1_EXPLAIN" ? 33 : step === "2_SAVE" ? 67 : 100
                     }

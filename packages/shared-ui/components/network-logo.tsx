@@ -48,9 +48,25 @@ export const NetworkLogo = ({
         networkName = producerName;
     }
 
+    const isInteractive = Boolean(props.onClick);
+
     return (
         <div
-            role="button"
+            role={isInteractive ? "button" : undefined}
+            tabIndex={isInteractive ? 0 : undefined}
+            onKeyDown={(event) => {
+                props.onKeyDown?.(event);
+                if (
+                    isInteractive &&
+                    !event.defaultPrevented &&
+                    (event.key === "Enter" || event.key === " ")
+                ) {
+                    event.preventDefault();
+                    props.onClick?.(
+                        event as unknown as React.MouseEvent<HTMLDivElement>,
+                    );
+                }
+            }}
             className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground inline-flex w-fit cursor-pointer items-center gap-2 rounded-md p-2"
             {...props}
         >

@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { type ReactNode, useId } from "react";
 
 import {
     TextInput,
@@ -27,25 +27,46 @@ export const TextField = ({
     rightLabel,
     startContent,
     endContent,
+    id,
     ...props
 }: TextFieldProps) => {
     const field = useFieldContext<string>();
+    const generatedId = useId();
+    const inputId = id ?? generatedId;
+    const descriptionId = `${inputId}-description`;
+    const errorId = `${inputId}-error`;
 
     const isError = field.state.meta.errors.length > 0;
-    // const isBlurred = field.state.meta.isBlurred;
     const isTouched = field.state.meta.isTouched;
+    const showError = isError && isTouched;
+
+    const describedBy = [
+        description ? descriptionId : undefined,
+        showError ? errorId : undefined,
+        props["aria-describedby"],
+    ]
+        .filter(Boolean)
+        .join(" ");
 
     return (
         <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-                <Label
-                    className={cn(isError && isTouched && "text-destructive")}
-                >
-                    {label}
-                </Label>
-                {rightLabel && rightLabel}
-            </div>
+            {(label || rightLabel) && (
+                <div className="flex items-center justify-between">
+                    {label ? (
+                        <Label
+                            htmlFor={inputId}
+                            className={cn(showError && "text-destructive")}
+                        >
+                            {label}
+                        </Label>
+                    ) : (
+                        <span />
+                    )}
+                    {rightLabel && rightLabel}
+                </div>
+            )}
             <TextInput
+                id={inputId}
                 startContent={startContent}
                 endContent={endContent}
                 value={field.state.value}
@@ -54,13 +75,19 @@ export const TextField = ({
                     field.handleChange(e.target.value);
                 }}
                 onBlur={field.handleBlur}
-                aria-invalid={isError && isTouched}
+                aria-invalid={showError}
+                aria-describedby={describedBy || undefined}
                 {...props}
             />
             {description && (
-                <p className="text-muted-foreground text-sm">{description}</p>
+                <p
+                    id={descriptionId}
+                    className="text-muted-foreground text-sm"
+                >
+                    {description}
+                </p>
             )}
-            <FieldErrors meta={field.state.meta} />
+            <FieldErrors id={errorId} meta={field.state.meta} />
         </div>
     );
 };

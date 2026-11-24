@@ -3,7 +3,7 @@ export const formatThousands = (
     precision: number,
     fullPrecision = false,
 ) =>
-    new Intl.NumberFormat("en-US", {
+    new Intl.NumberFormat(undefined, {
         maximumFractionDigits: precision,
         ...(fullPrecision && { minimumFractionDigits: precision }),
     }).format(Number.isNaN(num) ? 0 : num);

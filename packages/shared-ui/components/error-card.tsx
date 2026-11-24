@@ -16,30 +16,38 @@ interface Props {
     retryLabel?: string;
 }
 
-export const ErrorCard = ({ error, retry, retryLabel = "Login", title = "Uh oh" }: Props) => {
+export const ErrorCard = ({
+    error,
+    retry,
+    retryLabel = "Retry",
+    title = "Something went wrong",
+}: Props) => {
     const message =
-        error?.message ||
-        "Something went wrong. Check the console for more details.";
+        error?.message || "Something went wrong. Please try again.";
     return (
-        <Card className="mx-auto mt-4 w-[350px]">
+        <Card role="alert" className="mx-auto mt-4 w-full max-w-[350px]">
             <CardHeader>
                 <div className="mx-auto">
-                    <TriangleAlert className="text-destructive h-12 w-12" />
+                    <TriangleAlert
+                        aria-hidden="true"
+                        className="text-destructive h-12 w-12"
+                    />
                 </div>
                 <CardTitle>{title}</CardTitle>
                 <CardDescription>{message}</CardDescription>
-                {retry && (
-                    <CardFooter className="flex justify-end">
-                        <Button
-                            onClick={() => {
-                                retry();
-                            }}
-                        >
-                            {retryLabel}
-                        </Button>
-                    </CardFooter>
-                )}
             </CardHeader>
+            {retry && (
+                <CardFooter className="flex justify-end">
+                    <Button
+                        type="button"
+                        onClick={() => {
+                            retry();
+                        }}
+                    >
+                        {retryLabel}
+                    </Button>
+                </CardFooter>
+            )}
         </Card>
     );
 };
