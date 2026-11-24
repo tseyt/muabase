@@ -17,9 +17,17 @@
 #include <boost/log/sinks/syslog_constants.hpp>
 #include <boost/log/sinks/text_file_backend.hpp>
 #include <boost/log/sinks/text_ostream_backend.hpp>
+#if __has_include(<boost/process/v1/child.hpp>)
 #include <boost/process/v1/child.hpp>
 #include <boost/process/v1/io.hpp>
 #include <boost/process/v1/start_dir.hpp>
+namespace psibase_bp = boost::process::v1;
+#else
+#include <boost/process/child.hpp>
+#include <boost/process/io.hpp>
+#include <boost/process/start_dir.hpp>
+namespace psibase_bp = boost::process;
+#endif
 #include <charconv>
 #include <chrono>
 #include <ctime>
@@ -1298,8 +1306,8 @@ namespace psibase::loggers
             pipe << message;
             pipe.flush();
          }
-         boost::process::v1::opstream pipe;
-         boost::process::v1::child    active_child;
+         psibase_bp::opstream pipe;
+         psibase_bp::child    active_child;
       };
 
       struct PipeSinkConfig
@@ -1331,7 +1339,7 @@ namespace psibase::loggers
             if (newCommand)
             {
                backend.pipe.close();
-               backend.pipe = boost::process::v1::opstream{};
+               backend.pipe = psibase_bp::opstream{};
                if (backend.active_child)
                {
                   if (!backend.active_child.wait_for(std::chrono::milliseconds(100)))
@@ -1339,9 +1347,9 @@ namespace psibase::loggers
                      backend.active_child.terminate();
                   }
                }
-               backend.active_child = boost::process::v1::child(
-                   "/bin/sh", "-c", command, boost::process::v1::std_in = backend.pipe,
-                   boost::process::v1::start_dir = log_file_path.native());
+               backend.active_child = psibase_bp::child(
+                   "/bin/sh", "-c", command, psibase_bp::std_in = backend.pipe,
+                   psibase_bp::start_dir = log_file_path.native());
             }
          }
          void        setPrevious(PipeSinkConfig&& prev) { newCommand = (prev.command != command); }
