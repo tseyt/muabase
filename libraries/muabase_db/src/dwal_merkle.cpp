@@ -1,5 +1,8 @@
 #include <muabase_db/dwal_merkle.hpp>
 
+#include "detail/art_codec.hpp"
+#include "detail/bytes.hpp"
+
 #include <openssl/evp.h>
 
 #include <algorithm>
@@ -19,49 +22,18 @@ namespace muabase_db
 {
    namespace
    {
-      int lex_compare(std::span<const std::byte> a, std::span<const std::byte> b) noexcept
-      {
-         const std::size_t n = std::min(a.size(), b.size());
-         if (n > 0)
-         {
-            int c = std::memcmp(a.data(), b.data(), n);
-            if (c != 0)
-               return c;
-         }
-         if (a.size() < b.size())
-            return -1;
-         if (a.size() > b.size())
-            return 1;
-         return 0;
-      }
+      using detail::ByteLess;
+      using detail::DecodedInner;
+      using detail::decode_inner;
+      using detail::decode_leaf;
+      using detail::key_successor;
+      using detail::lex_compare;
+      using detail::prefix_successor;
+      using detail::starts_with;
 
-      bool starts_with(std::span<const std::byte> full, std::span<const std::byte> prefix) noexcept
-      {
-         if (full.size() < prefix.size())
-            return false;
-         return prefix.empty() || std::memcmp(full.data(), prefix.data(), prefix.size()) == 0;
-      }
-
-      struct ByteLess
-      {
-         using is_transparent = void;
-
-         bool operator()(const std::vector<std::byte>& a,
-                         const std::vector<std::byte>& b) const noexcept
-         {
-            return lex_compare(a, b) < 0;
-         }
-         bool operator()(const std::vector<std::byte>& a,
-                         std::span<const std::byte>    b) const noexcept
-         {
-            return lex_compare(a, b) < 0;
-         }
-         bool operator()(std::span<const std::byte>    a,
-                         const std::vector<std::byte>& b) const noexcept
-         {
-            return lex_compare(a, b) < 0;
-         }
-      };
+      constexpr std::uint8_t kMerkleLeafDomainTag  = 0x01u;
+      constexpr std::uint8_t kMerkleSplitDomainTag = 0x02u;
+      constexpr std::uint8_t kMerkleRootDomainTag  = 0x03u;
 
       // Standard IEEE 802.3 CRC32 for WAL frame integrity
       std::uint32_t crc32_ieee(std::span<const std::byte> data) noexcept
@@ -127,30 +99,6 @@ namespace muabase_db
          std::uint64_t             wal_replayed   = 0;
       };
 
-      std::vector<std::byte> key_successor(std::span<const std::byte> k)
-      {
-         std::vector<std::byte> out;
-         out.reserve(k.size() + 1);
-         out.insert(out.end(), k.begin(), k.end());
-         out.push_back(std::byte{0});
-         return out;
-      }
-
-      std::vector<std::byte> prefix_successor(std::span<const std::byte> pfx)
-      {
-         std::vector<std::byte> out(pfx.begin(), pfx.end());
-         while (!out.empty() && std::to_integer<std::uint8_t>(out.back()) == 0xFFu)
-         {
-            out.pop_back();
-         }
-         if (!out.empty())
-         {
-            auto next = static_cast<std::uint8_t>(std::to_integer<std::uint8_t>(out.back()) + 1u);
-            out.back() = static_cast<std::byte>(next);
-         }
-         return out;
-      }
-
       // --- SHA-256 Digest Helpers ---
       class Sha256Hasher
       {
@@ -212,7 +160,7 @@ namespace muabase_db
                                   std::span<const MerkleSibling>  children)
       {
          Sha256Hasher h;
-         h.update_u8(0x02u);
+         h.update_u8(kMerkleSplitDomainTag);
          h.update_u8(has_terminal ? 1u : 0u);
          if (has_terminal)
          {
@@ -235,7 +183,7 @@ namespace muabase_db
                                      const Checksum256&         core_hash)
       {
          Sha256Hasher h;
-         h.update_u8(0x03u);
+         h.update_u8(kMerkleRootDomainTag);
          h.update_u16(static_cast<std::uint16_t>(root_prefix.size()));
          if (!root_prefix.empty())
             h.update(root_prefix.data(), root_prefix.size());
@@ -252,98 +200,6 @@ namespace muabase_db
             h *= 1099511628211ull;
          }
          return h;
-      }
-
-      // Wire decoders matching CowArt's BTreeLeaf and ArtInner node payloads
-      std::vector<KvEntry> decode_leaf_payload(std::span<const std::byte> payload)
-      {
-         if (payload.size() < 4)
-            throw std::runtime_error("Corrupt BTreeLeaf in Merkleizer");
-         std::uint16_t cnt = 0;
-         std::memcpy(&cnt, payload.data(), 2);
-
-         std::vector<KvEntry> entries;
-         entries.reserve(cnt);
-         std::size_t off = 4;
-         for (std::uint16_t i = 0; i < cnt; ++i)
-         {
-            if (off + 8 > payload.size())
-               throw std::runtime_error("Corrupt BTreeLeaf entry header in Merkleizer");
-            std::uint16_t klen = 0;
-            std::uint32_t vlen = 0;
-            std::memcpy(&klen, payload.data() + off, 2);
-            auto tag = static_cast<ValueTag>(std::to_integer<std::uint8_t>(payload[off + 2]));
-            std::memcpy(&vlen, payload.data() + off + 4, 4);
-            off += 8;
-            if (off + klen + vlen > payload.size())
-               throw std::runtime_error("Corrupt BTreeLeaf entry body in Merkleizer");
-
-            KvEntry e;
-            e.tag = tag;
-            e.key.assign(payload.begin() + static_cast<std::ptrdiff_t>(off),
-                         payload.begin() + static_cast<std::ptrdiff_t>(off + klen));
-            off += klen;
-            e.value.assign(payload.begin() + static_cast<std::ptrdiff_t>(off),
-                           payload.begin() + static_cast<std::ptrdiff_t>(off + vlen));
-            off += vlen;
-            entries.push_back(std::move(e));
-         }
-         return entries;
-      }
-
-      struct InnerView
-      {
-         std::uint64_t                                    subtree_count = 0;
-         std::vector<std::byte>                           prefix;
-         bool                                             has_terminal = false;
-         ValueTag                                         terminal_tag = ValueTag::Bytes;
-         std::vector<std::byte>                           terminal_val;
-         std::vector<std::pair<std::uint8_t, PtrAddress>> children;
-      };
-
-      InnerView decode_inner_payload(std::span<const std::byte> payload)
-      {
-         if (payload.size() < 20)
-            throw std::runtime_error("Corrupt ArtInner header in Merkleizer");
-
-         InnerView     out;
-         std::uint16_t plen = 0;
-         std::uint16_t nc   = 0;
-         std::uint32_t tlen = 0;
-         std::memcpy(&out.subtree_count, payload.data(), 8);
-         std::memcpy(&plen, payload.data() + 8, 2);
-         std::memcpy(&nc, payload.data() + 10, 2);
-         out.has_terminal = std::to_integer<std::uint8_t>(payload[12]) != 0;
-         out.terminal_tag = static_cast<ValueTag>(std::to_integer<std::uint8_t>(payload[13]));
-         std::memcpy(&tlen, payload.data() + 16, 4);
-
-         const std::size_t unaligned = 20u + plen + tlen + nc;
-         const std::size_t aligned   = (unaligned + 3u) & ~std::size_t{3u};
-         const std::size_t total     = aligned + static_cast<std::size_t>(nc) * sizeof(std::uint32_t);
-         if (payload.size() < total)
-            throw std::runtime_error("Corrupt ArtInner body in Merkleizer");
-
-         std::size_t off = 20;
-         out.prefix.assign(payload.begin() + static_cast<std::ptrdiff_t>(off),
-                           payload.begin() + static_cast<std::ptrdiff_t>(off + plen));
-         off += plen;
-
-         if (tlen > 0)
-         {
-            out.terminal_val.assign(payload.begin() + static_cast<std::ptrdiff_t>(off),
-                                    payload.begin() + static_cast<std::ptrdiff_t>(off + tlen));
-            off += tlen;
-         }
-
-         out.children.reserve(nc);
-         for (std::uint16_t i = 0; i < nc; ++i)
-         {
-            auto          b        = std::to_integer<std::uint8_t>(payload[off + i]);
-            std::uint32_t raw_addr = 0;
-            std::memcpy(&raw_addr, payload.data() + aligned + i * sizeof(std::uint32_t), 4);
-            out.children.emplace_back(b, PtrAddress{raw_addr});
-         }
-         return out;
       }
 
       // Canonical Patricia node expansion used for generating inclusion & non-inclusion proofs
@@ -493,7 +349,10 @@ namespace muabase_db
             std::memcpy(&klen, body.data() + 12, 4);
             std::memcpy(&vlen, body.data() + 16, 4);
 
-            if (root_id >= kMaxRoots || 20u + klen + vlen != body_len)
+            if (root_id >= kMaxRoots ||
+                std::uint64_t{20} + static_cast<std::uint64_t>(klen) +
+                        static_cast<std::uint64_t>(vlen) !=
+                    body_len)
                break;
 
             max_seen[root_id] = std::max(max_seen[root_id], epoch);
@@ -955,7 +814,7 @@ namespace muabase_db
                                       std::span<const std::byte> value)
    {
       Sha256Hasher h;
-      h.update_u8(0x01u);
+      h.update_u8(kMerkleLeafDomainTag);
       h.update_u32(static_cast<std::uint32_t>(key.size()));
       if (!key.empty())
          h.update(key.data(), key.size());
@@ -1088,12 +947,12 @@ namespace muabase_db
          CachedSummary result;
          if (kind == ObjectKind::BTreeLeaf)
          {
-            auto entries = decode_leaf_payload(raw);
+            auto entries = decode_leaf(raw).entries;
             result       = summarize_slice(summarize_slice, entries, path_buf.size());
          }
          else
          {
-            InnerView         in         = decode_inner_payload(raw);
+            DecodedInner      in         = decode_inner(raw);
             const std::size_t saved_size = path_buf.size();
             path_buf.insert(path_buf.end(), in.prefix.begin(), in.prefix.end());
 
@@ -1246,11 +1105,11 @@ namespace muabase_db
 
          if (kind == ObjectKind::BTreeLeaf)
          {
-            auto entries = decode_leaf_payload(raw);
+            auto entries = decode_leaf(raw).entries;
             return expand_canonical_slice(entries, path_buf.size(), hash_fn);
          }
 
-         InnerView         in         = decode_inner_payload(raw);
+         DecodedInner      in         = decode_inner(raw);
          const std::size_t saved_size = path_buf.size();
          path_buf.insert(path_buf.end(), in.prefix.begin(), in.prefix.end());
 
@@ -1487,12 +1346,12 @@ namespace muabase_db
 
          if (kind == ObjectKind::BTreeLeaf)
          {
-            auto              entries = decode_leaf_payload(raw);
+            auto              entries = decode_leaf(raw).entries;
             const std::size_t start_d = path_buf.size() - carried_prefix.size();
             return build_proof_in_slice(entries, start_d, key, want_inclusion, steps, hash_fn);
          }
 
-         InnerView         in         = decode_inner_payload(raw);
+         DecodedInner      in         = decode_inner(raw);
          const std::size_t saved_path = path_buf.size();
          const std::size_t saved_car  = carried_prefix.size();
          path_buf.insert(path_buf.end(), in.prefix.begin(), in.prefix.end());
@@ -1811,6 +1670,34 @@ namespace muabase_db
       return proof;
    }
 
+   namespace
+   {
+      std::optional<Checksum256> fold_proof_to_root(const MerkleProof&              proof,
+                                                    std::span<const std::byte>      key,
+                                                    const std::vector<std::size_t>& split_positions,
+                                                    Checksum256                     cur_core)
+      {
+         for (std::size_t idx = proof.steps.size() - 1; idx > 0; --idx)
+         {
+            const std::size_t i         = idx - 1;
+            const auto&       step      = proof.steps[i];
+            const auto        b         = std::to_integer<std::uint8_t>(key[split_positions[i]]);
+            bool              dup       = false;
+            MerkleSibling     child_sib = {
+                    .branch_byte = b,
+                    .is_leaf     = false,
+                    .edge_prefix = proof.steps[i + 1].edge_prefix,
+                    .core_hash   = cur_core,
+            };
+            auto merged = insert_sibling_sorted(step.siblings, std::move(child_sib), dup);
+            if (dup || (!step.has_terminal && merged.size() < 2))
+               return std::nullopt;
+            cur_core = hash_split_core(step.has_terminal, step.terminal_hash, merged);
+         }
+         return hash_root_envelope(proof.steps[0].edge_prefix, cur_core);
+      }
+   }  // namespace
+
    bool Merkleizer::verify_inclusion(const Checksum256&         expected_root,
                                      std::span<const std::byte> key,
                                      std::span<const std::byte> value,
@@ -1886,25 +1773,8 @@ namespace muabase_db
          }
       }
 
-      for (std::size_t idx = k - 1; idx > 0; --idx)
-      {
-         const std::size_t i         = idx - 1;
-         const auto&       step      = proof.steps[i];
-         const auto        b         = std::to_integer<std::uint8_t>(key[split_positions[i]]);
-         bool              dup       = false;
-         MerkleSibling     child_sib = {
-                 .branch_byte = b,
-                 .is_leaf     = false,
-                 .edge_prefix = proof.steps[i + 1].edge_prefix,
-                 .core_hash   = cur_core,
-         };
-         auto merged = insert_sibling_sorted(step.siblings, std::move(child_sib), dup);
-         if (dup || (!step.has_terminal && merged.size() < 2))
-            return false;
-         cur_core = hash_split_core(step.has_terminal, step.terminal_hash, merged);
-      }
-
-      return hash_root_envelope(proof.steps[0].edge_prefix, cur_core) == expected_root;
+      auto computed = fold_proof_to_root(proof, key, split_positions, cur_core);
+      return computed.has_value() && *computed == expected_root;
    }
 
    bool Merkleizer::verify_non_inclusion(const Checksum256&         expected_root,
@@ -1993,26 +1863,8 @@ namespace muabase_db
          return false;
 
       Checksum256 cur_core = hash_split_core(last.has_terminal, last.terminal_hash, last.siblings);
-
-      for (std::size_t idx = k - 1; idx > 0; --idx)
-      {
-         const std::size_t i         = idx - 1;
-         const auto&       step      = proof.steps[i];
-         const auto        b         = std::to_integer<std::uint8_t>(key[split_positions[i]]);
-         bool              dup       = false;
-         MerkleSibling     child_sib = {
-                 .branch_byte = b,
-                 .is_leaf     = false,
-                 .edge_prefix = proof.steps[i + 1].edge_prefix,
-                 .core_hash   = cur_core,
-         };
-         auto merged = insert_sibling_sorted(step.siblings, std::move(child_sib), dup);
-         if (dup || (!step.has_terminal && merged.size() < 2))
-            return false;
-         cur_core = hash_split_core(step.has_terminal, step.terminal_hash, merged);
-      }
-
-      return hash_root_envelope(proof.steps[0].edge_prefix, cur_core) == expected_root;
+      auto        computed = fold_proof_to_root(proof, key, split_positions, cur_core);
+      return computed.has_value() && *computed == expected_root;
    }
 
    // =========================================================================

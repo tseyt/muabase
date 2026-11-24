@@ -12,6 +12,8 @@
 #include <cstdlib>
 #include <cstring>
 #include <deque>
+#include <mutex>
+#include <shared_mutex>
 #include <stdexcept>
 
 namespace muabase_db
@@ -452,7 +454,7 @@ namespace muabase_db
          std::uint32_t r = cw.ref_count();
          if (r == 0)
             throw std::runtime_error("SAL retain on released object");
-         if (r + delta > kMaxRefCount)
+         if (delta > kMaxRefCount - r)
             throw std::overflow_error("SAL 21-bit ref_count overflow");
          std::uint64_t next =
              (cur & ~ControlWord::kRefMask) | static_cast<std::uint64_t>(r + delta);

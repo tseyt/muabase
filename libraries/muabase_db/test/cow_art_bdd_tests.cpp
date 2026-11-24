@@ -254,6 +254,38 @@ SCENARIO("COW-ART embeds reference-counted child subtrees and zero-copy leaf vie
    }
 }
 
+SCENARIO("COW-ART stores and updates single entries larger than kMaxLeafBytes without degenerate splits")
+{
+   GIVEN("an empty CowArt over a 64 KiB SAL segment")
+   {
+      ScopedDir        dir{"art_large_leaf"};
+      SegmentAllocator sal{dir.path, SalConfig{.segment_bytes = 64 * 1024}};
+      CowArt           art{sal};
+
+      const std::string big_v1(CowArt::kMaxLeafBytes + 512, 'A');
+      const std::string big_v2(CowArt::kMaxLeafBytes + 1024, 'B');
+
+      WHEN("a single key is inserted and overwritten with values larger than kMaxLeafBytes")
+      {
+         ArtRoot r1 = art.upsert(ArtRoot{}, bspan("large/doc"), bspan(big_v1));
+         ArtRoot r2 = art.upsert(r1, bspan("large/doc"), bspan(big_v2));
+
+         THEN("both snapshots return exact values and count 1 without leaking nodes")
+         {
+            auto g1 = art.get(r1, bspan("large/doc"));
+            auto g2 = art.get(r2, bspan("large/doc"));
+            REQUIRE(g1.has_value() && sview(*g1) == big_v1);
+            REQUIRE(g2.has_value() && sview(*g2) == big_v2);
+            REQUIRE(art.count(r2) == 1);
+
+            auto [r3, removed] = art.remove(r2, bspan("large/doc"));
+            REQUIRE(removed);
+            REQUIRE(art.count(r3) == 0);
+         }
+      }
+   }
+}
+
 int main()
 {
    return bdd_lite::run_all("MuabaseDB COW-ART + Sorted B-Tree Leaf BDD Suite");

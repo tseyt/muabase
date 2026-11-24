@@ -1,5 +1,7 @@
 #include <muabase_db/tx_session.hpp>
 
+#include "detail/bytes.hpp"
+
 #include <algorithm>
 #include <cstring>
 #include <map>
@@ -10,77 +12,15 @@ namespace muabase_db
 {
    namespace
    {
-      int lex_compare(std::span<const std::byte> a, std::span<const std::byte> b) noexcept
-      {
-         const std::size_t n = std::min(a.size(), b.size());
-         if (n > 0)
-         {
-            int c = std::memcmp(a.data(), b.data(), n);
-            if (c != 0)
-               return c;
-         }
-         if (a.size() < b.size())
-            return -1;
-         if (a.size() > b.size())
-            return 1;
-         return 0;
-      }
-
-      bool starts_with(std::span<const std::byte> full, std::span<const std::byte> prefix) noexcept
-      {
-         if (full.size() < prefix.size())
-            return false;
-         return prefix.empty() || std::memcmp(full.data(), prefix.data(), prefix.size()) == 0;
-      }
-
-      struct ByteLess
-      {
-         using is_transparent = void;
-
-         bool operator()(const std::vector<std::byte>& a,
-                         const std::vector<std::byte>& b) const noexcept
-         {
-            return lex_compare(a, b) < 0;
-         }
-         bool operator()(const std::vector<std::byte>& a,
-                         std::span<const std::byte>    b) const noexcept
-         {
-            return lex_compare(a, b) < 0;
-         }
-         bool operator()(std::span<const std::byte>    a,
-                         const std::vector<std::byte>& b) const noexcept
-         {
-            return lex_compare(a, b) < 0;
-         }
-      };
+      using detail::ByteLess;
+      using detail::key_successor;
+      using detail::lex_compare;
+      using detail::prefix_successor;
+      using detail::starts_with;
 
       std::vector<std::byte> key_exact(std::span<const std::byte> k)
       {
          return {k.begin(), k.end()};
-      }
-
-      std::vector<std::byte> key_next(std::span<const std::byte> k)
-      {
-         std::vector<std::byte> out;
-         out.reserve(k.size() + 1);
-         out.insert(out.end(), k.begin(), k.end());
-         out.push_back(std::byte{0});
-         return out;
-      }
-
-      std::vector<std::byte> key_next_prefix(std::span<const std::byte> pfx)
-      {
-         std::vector<std::byte> out(pfx.begin(), pfx.end());
-         while (!out.empty() && std::to_integer<std::uint8_t>(out.back()) == 0xFFu)
-         {
-            out.pop_back();
-         }
-         if (!out.empty())
-         {
-            auto next = static_cast<std::uint8_t>(std::to_integer<std::uint8_t>(out.back()) + 1u);
-            out.back() = static_cast<std::byte>(next);
-         }
-         return out;
       }
 
       // Compare two upper bounds where empty denotes +infinity
@@ -178,7 +118,7 @@ namespace muabase_db
                auto cand = art.lower_bound(dst_root, probe);
                if (!cand.has_value() || !in_raw_range(cand->key, raw_lower, raw_upper))
                   break;
-               auto next_probe = key_next(cand->key);
+               auto next_probe = key_successor(cand->key);
                if (cand->tag == ValueTag::Bytes)
                   dst_root = art.remove(dst_root, cand->key).first;
                probe = std::move(next_probe);
@@ -191,7 +131,7 @@ namespace muabase_db
             auto cand = art.lower_bound(src_root, probe);
             if (!cand.has_value() || !in_raw_range(cand->key, raw_lower, raw_upper))
                break;
-            auto next_probe = key_next(cand->key);
+            auto next_probe = key_successor(cand->key);
             if (!bytes_only || cand->tag == ValueTag::Bytes)
                dst_root = art.upsert(dst_root, cand->key, cand->value, cand->tag);
             probe = std::move(next_probe);
@@ -208,7 +148,7 @@ namespace muabase_db
    {
       _ranges.push_back(AccessRange{
           .lower    = key_exact(key),
-          .upper    = key_next(key),
+          .upper    = key_successor(key),
           .is_write = false,
       });
    }
@@ -217,7 +157,7 @@ namespace muabase_db
    {
       _ranges.push_back(AccessRange{
           .lower    = key_exact(key),
-          .upper    = key_next(key),
+          .upper    = key_successor(key),
           .is_write = true,
       });
    }
@@ -230,7 +170,7 @@ namespace muabase_db
       const std::size_t clamped = std::min(prefix_len, key.size());
       _ranges.push_back(AccessRange{
           .lower    = key_exact(key),
-          .upper    = found ? key_next(result_key) : key_next_prefix(key.subspan(0, clamped)),
+          .upper    = found ? key_successor(result_key) : prefix_successor(key.subspan(0, clamped)),
           .is_write = false,
       });
    }
@@ -254,7 +194,7 @@ namespace muabase_db
    {
       _ranges.push_back(AccessRange{
           .lower    = found ? key_exact(result_key) : key_exact(prefix),
-          .upper    = key_next_prefix(prefix),
+          .upper    = prefix_successor(prefix),
           .is_write = false,
       });
    }
@@ -487,7 +427,7 @@ namespace muabase_db
             res = std::move(cand);
             break;
          }
-         probe = key_next(cand->key);
+         probe = key_successor(cand->key);
       }
       auto scoped_k    = encode_top_key(key);
       auto scoped_plen = 1u + std::min(prefix_len, key.size());

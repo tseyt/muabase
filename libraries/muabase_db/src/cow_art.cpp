@@ -1,5 +1,8 @@
 #include <muabase_db/cow_art.hpp>
 
+#include "detail/art_codec.hpp"
+#include "detail/bytes.hpp"
+
 #include <algorithm>
 #include <cassert>
 #include <cstring>
@@ -9,59 +12,20 @@ namespace muabase_db
 {
    namespace
    {
-      int lex_compare(std::span<const std::byte> a, std::span<const std::byte> b) noexcept
-      {
-         const std::size_t n = std::min(a.size(), b.size());
-         if (n > 0)
-         {
-            int c = std::memcmp(a.data(), b.data(), n);
-            if (c != 0)
-               return c;
-         }
-         if (a.size() < b.size())
-            return -1;
-         if (a.size() > b.size())
-            return 1;
-         return 0;
-      }
-
-      bool starts_with(std::span<const std::byte> full, std::span<const std::byte> prefix) noexcept
-      {
-         if (full.size() < prefix.size())
-            return false;
-         return prefix.empty() || std::memcmp(full.data(), prefix.data(), prefix.size()) == 0;
-      }
-
-      PtrAddress decode_subtree_addr(std::span<const std::byte> val)
-      {
-         if (val.size() != sizeof(std::uint32_t))
-            throw std::runtime_error("Invalid subtree value size");
-         std::uint32_t raw = 0;
-         std::memcpy(&raw, val.data(), sizeof(raw));
-         return PtrAddress{raw};
-      }
-
-      struct DecodedLeaf
-      {
-         std::vector<KvEntry> entries;
-      };
-
-      struct DecodedInner
-      {
-         std::uint64_t                                  subtree_count = 0;
-         std::vector<std::byte>                         prefix;
-         bool                                           has_terminal = false;
-         ValueTag                                       terminal_tag = ValueTag::Bytes;
-         std::vector<std::byte>                         terminal_val;
-         std::vector<std::pair<std::uint8_t, PtrAddress>> children;  // sorted ascending by byte
-      };
+      using detail::DecodedInner;
+      using detail::DecodedLeaf;
+      using detail::decode_inner;
+      using detail::decode_leaf;
+      using detail::decode_subtree_addr;
+      using detail::lex_compare;
+      using detail::starts_with;
 
       std::size_t estimate_leaf_bytes(const std::vector<KvEntry>& entries) noexcept
       {
-         std::size_t total = 4;  // num_entries (u16) + reserved (u16)
+         std::size_t total = detail::kLeafHeaderBytes;
          for (const auto& e : entries)
          {
-            total += 8 + e.key.size() + e.value.size();
+            total += detail::kLeafEntryHeaderBytes + e.key.size() + e.value.size();
          }
          return total;
       }
@@ -78,10 +42,10 @@ namespace muabase_db
 
          for (const auto& e : entries)
          {
-            const auto     klen = static_cast<std::uint16_t>(e.key.size());
-            const auto     tag  = static_cast<std::uint8_t>(e.tag);
-            const uint8_t  zpad = 0;
-            const auto     vlen = static_cast<std::uint32_t>(e.value.size());
+            const auto         klen = static_cast<std::uint16_t>(e.key.size());
+            const auto         tag  = static_cast<std::uint8_t>(e.tag);
+            const std::uint8_t zpad = 0;
+            const auto         vlen = static_cast<std::uint32_t>(e.value.size());
             std::memcpy(p, &klen, 2);
             p[2] = static_cast<std::byte>(tag);
             p[3] = static_cast<std::byte>(zpad);
@@ -99,42 +63,6 @@ namespace muabase_db
             }
          }
          return buf;
-      }
-
-      DecodedLeaf decode_leaf(std::span<const std::byte> payload)
-      {
-         if (payload.size() < 4)
-            throw std::runtime_error("Corrupt BTreeLeaf header");
-         std::uint16_t cnt = 0;
-         std::memcpy(&cnt, payload.data(), 2);
-
-         DecodedLeaf out;
-         out.entries.reserve(cnt);
-         std::size_t off = 4;
-         for (std::uint16_t i = 0; i < cnt; ++i)
-         {
-            if (off + 8 > payload.size())
-               throw std::runtime_error("Corrupt BTreeLeaf entry header");
-            std::uint16_t klen = 0;
-            std::uint32_t vlen = 0;
-            std::memcpy(&klen, payload.data() + off, 2);
-            auto tag = static_cast<ValueTag>(std::to_integer<std::uint8_t>(payload[off + 2]));
-            std::memcpy(&vlen, payload.data() + off + 4, 4);
-            off += 8;
-            if (off + klen + vlen > payload.size())
-               throw std::runtime_error("Corrupt BTreeLeaf entry payload");
-
-            KvEntry e;
-            e.tag = tag;
-            e.key.assign(payload.begin() + static_cast<std::ptrdiff_t>(off),
-                         payload.begin() + static_cast<std::ptrdiff_t>(off + klen));
-            off += klen;
-            e.value.assign(payload.begin() + static_cast<std::ptrdiff_t>(off),
-                           payload.begin() + static_cast<std::ptrdiff_t>(off + vlen));
-            off += vlen;
-            out.entries.push_back(std::move(e));
-         }
-         return out;
       }
 
       // Wire format for ArtInner (fixed 20-byte header):
@@ -197,52 +125,6 @@ namespace muabase_db
          return buf;
       }
 
-      DecodedInner decode_inner(std::span<const std::byte> payload)
-      {
-         if (payload.size() < 20)
-            throw std::runtime_error("Corrupt ArtInner header");
-
-         DecodedInner  out;
-         std::uint16_t plen = 0;
-         std::uint16_t nc   = 0;
-         std::uint32_t tlen = 0;
-         std::memcpy(&out.subtree_count, payload.data() + 0, 8);
-         std::memcpy(&plen, payload.data() + 8, 2);
-         std::memcpy(&nc, payload.data() + 10, 2);
-         out.has_terminal = std::to_integer<std::uint8_t>(payload[12]) != 0;
-         out.terminal_tag = static_cast<ValueTag>(std::to_integer<std::uint8_t>(payload[13]));
-         std::memcpy(&tlen, payload.data() + 16, 4);
-
-         const std::size_t unaligned = 20u + plen + tlen + nc;
-         const std::size_t aligned   = (unaligned + 3u) & ~std::size_t{3u};
-         const std::size_t total     = aligned + static_cast<std::size_t>(nc) * sizeof(std::uint32_t);
-         if (payload.size() < total)
-            throw std::runtime_error("Corrupt ArtInner body");
-
-         std::size_t off = 20;
-         out.prefix.assign(payload.begin() + static_cast<std::ptrdiff_t>(off),
-                           payload.begin() + static_cast<std::ptrdiff_t>(off + plen));
-         off += plen;
-
-         if (tlen > 0)
-         {
-            out.terminal_val.assign(payload.begin() + static_cast<std::ptrdiff_t>(off),
-                                    payload.begin() + static_cast<std::ptrdiff_t>(off + tlen));
-            off += tlen;
-         }
-
-         out.children.reserve(nc);
-         for (std::uint16_t i = 0; i < nc; ++i)
-         {
-            auto          b        = std::to_integer<std::uint8_t>(payload[off + i]);
-            std::uint32_t raw_addr = 0;
-            std::memcpy(&raw_addr, payload.data() + aligned + i * sizeof(std::uint32_t),
-                        sizeof(std::uint32_t));
-            out.children.emplace_back(b, PtrAddress{raw_addr});
-         }
-         return out;
-      }
-
       PtrAddress alloc_leaf_retaining_subtrees(SegmentAllocator&           sal,
                                                const std::vector<KvEntry>& entries,
                                                PtrAddress                  hint = {})
@@ -287,12 +169,16 @@ namespace muabase_db
                          {
                             if (kind == ObjectKind::BTreeLeaf)
                             {
+                               if (payload.size() < detail::kLeafHeaderBytes)
+                                  throw std::runtime_error("Corrupt BTreeLeaf header");
                                std::uint16_t cnt = 0;
                                std::memcpy(&cnt, payload.data(), 2);
                                return cnt;
                             }
                             if (kind == ObjectKind::ArtInner)
                             {
+                               if (payload.size() < detail::kInnerHeaderBytes)
+                                  throw std::runtime_error("Corrupt ArtInner header");
                                std::uint64_t cnt = 0;
                                std::memcpy(&cnt, payload.data(), 8);
                                return cnt;
@@ -342,8 +228,9 @@ namespace muabase_db
                inserted_new = false;
                it->value.assign(val.begin(), val.end());
                it->tag = tag;
-               if (leaf.entries.size() <= CowArt::kMaxLeafEntries &&
-                   estimate_leaf_bytes(leaf.entries) <= CowArt::kMaxLeafBytes)
+               if (leaf.entries.size() == 1 ||
+                   (leaf.entries.size() <= CowArt::kMaxLeafEntries &&
+                    estimate_leaf_bytes(leaf.entries) <= CowArt::kMaxLeafBytes))
                {
                   return alloc_leaf_retaining_subtrees(sal, leaf.entries, hint);
                }
@@ -356,8 +243,9 @@ namespace muabase_db
                                            .value = {val.begin(), val.end()},
                                            .tag   = tag,
                                        });
-               if (leaf.entries.size() <= CowArt::kMaxLeafEntries &&
-                   estimate_leaf_bytes(leaf.entries) <= CowArt::kMaxLeafBytes)
+               if (leaf.entries.size() == 1 ||
+                   (leaf.entries.size() <= CowArt::kMaxLeafEntries &&
+                    estimate_leaf_bytes(leaf.entries) <= CowArt::kMaxLeafBytes))
                {
                   return alloc_leaf_retaining_subtrees(sal, leaf.entries, hint);
                }

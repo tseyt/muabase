@@ -3,13 +3,10 @@
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
-#include <deque>
 #include <filesystem>
 #include <functional>
 #include <memory>
-#include <mutex>
 #include <optional>
-#include <shared_mutex>
 #include <span>
 #include <vector>
 
@@ -174,7 +171,10 @@ namespace muabase_db
 
       SalStats stats() const;
 
-      static constexpr std::size_t sibling_group(PtrAddress a) noexcept { return a.value / 16u; }
+      static constexpr std::size_t sibling_group(PtrAddress a) noexcept
+      {
+         return a.value / kSiblingGroupSlots;
+      }
 
      private:
       std::span<const std::byte> acquire_view(PtrAddress                             addr,
