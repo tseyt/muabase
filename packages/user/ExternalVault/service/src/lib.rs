@@ -177,6 +177,38 @@ pub mod tables {
             (self.attestation_id, self.intent_id)
         }
     }
+
+    /// Tamper-evident double-entry compliance receipt stored on settlement (zero plaintext PII)
+    #[table(name = "CorridorReceiptTable", index = 5)]
+    #[derive(
+        Serialize, Deserialize, SimpleObject, ToSchema, Pack, Unpack, Debug, Clone, PartialEq, Eq,
+    )]
+    pub struct CorridorReceipt {
+        pub intent_id: u64,
+        pub attestation_id: u64,
+        pub corridor_jurisdiction: String,
+        pub recipient_amount: u64,
+        pub sadaqah_tip_amount: u64,
+        pub protocol_fee_deducted: u64,
+        pub recipient_commitment_hash: Checksum256,
+        pub external_tx_ref: String,
+        pub receipt_leaf_hash: Checksum256,
+    }
+    impl CorridorReceipt {
+        #[primary_key]
+        fn pk(&self) -> u64 {
+            self.intent_id
+        }
+    }
+
+    #[derive(Serialize, Deserialize, SimpleObject, Debug, Clone, PartialEq, Eq, Default)]
+    pub struct CorridorConservation {
+        pub corridor_jurisdiction: String,
+        pub settled_count: u64,
+        pub total_principal_delivered: u64,
+        pub total_sadaqah_tips: u64,
+        pub total_fees_deducted: u64,
+    }
 }
 
 #[psibase::service(name = "ext-vault", tables = "tables")]
@@ -462,6 +494,8 @@ pub mod service {
             .get(&intent_id)
             .expect("ZakatRemittanceIntent DNE");
 
+        validate_settlement_caller(get_sender(), intent.donor, SERVICE, intent.settled);
+
         // Re-assert Tamlik 100% principal delivery & dual-witness quorum prior to marking settled
         if intent.mode == CorridorSplitMode::ZAKAT_TAMLIK_100 {
             assert!(
@@ -480,13 +514,99 @@ pub mod service {
             "Remittance settlement confirmation blocked: witness quorum not satisfied"
         );
 
+        let receipt = build_corridor_receipt(&intent, &external_tx_ref);
+
         intent.external_tx_ref = Some(external_tx_ref.clone());
         intent.settled = true;
 
         RemittanceIntentTable::new().put(&intent).unwrap();
+        CorridorReceiptTable::new().put(&receipt).unwrap();
+        Wrapper::emit().history().remitSettled(
+            intent_id,
+            intent.attestation_id,
+            external_tx_ref,
+        );
         Wrapper::emit()
             .history()
-            .remitSettled(intent_id, intent.attestation_id, external_tx_ref);
+            .complianceReceipt(intent_id, receipt.receipt_leaf_hash);
+    }
+
+    pub fn validate_settlement_caller(
+        sender: AccountNumber,
+        donor: AccountNumber,
+        service_acct: AccountNumber,
+        already_settled: bool,
+    ) {
+        assert!(
+            !already_settled,
+            "ZakatRemittanceIntent has already been settled"
+        );
+        assert!(
+            sender == donor || sender == service_acct,
+            "Unauthorized settlement confirmation: caller '{}' must be donor '{}' or '{}'",
+            sender,
+            donor,
+            service_acct
+        );
+    }
+
+    pub fn build_corridor_receipt(
+        intent: &ZakatRemittanceIntent,
+        external_tx_ref: &str,
+    ) -> CorridorReceipt {
+        use muabase_institutional::{JournalEntry, JournalLine};
+
+        let total_out = intent
+            .recipient_amount
+            .saturating_add(intent.sadaqah_tip_amount)
+            .saturating_add(intent.protocol_fee_deducted);
+        let mut lines = vec![
+            JournalLine {
+                account: format!("donor:{}", intent.donor),
+                delta: -(total_out as i64),
+            },
+            JournalLine {
+                account: format!("bridge:{}", intent.recipient_bridge_vault),
+                delta: intent.recipient_amount as i64,
+            },
+        ];
+        if intent.sadaqah_tip_amount > 0 {
+            lines.push(JournalLine {
+                account: format!(
+                    "ops:{}",
+                    intent.infra_ops_vault.as_deref().unwrap_or("charity-sink")
+                ),
+                delta: intent.sadaqah_tip_amount as i64,
+            });
+        }
+        if intent.protocol_fee_deducted > 0 {
+            lines.push(JournalLine {
+                account: "protocol:fee".to_string(),
+                delta: intent.protocol_fee_deducted as i64,
+            });
+        }
+
+        let entry = JournalEntry {
+            entry_id: intent.intent_id,
+            category: format!("corridor:{}", intent.corridor_jurisdiction),
+            lines,
+            commitment_hash: intent.recipient_commitment_hash.0,
+        };
+        let leaf = entry
+            .receipt_leaf_hash("receipt/corridor")
+            .expect("Double-entry corridor conservation violated");
+
+        CorridorReceipt {
+            intent_id: intent.intent_id,
+            attestation_id: intent.attestation_id,
+            corridor_jurisdiction: intent.corridor_jurisdiction.clone(),
+            recipient_amount: intent.recipient_amount,
+            sadaqah_tip_amount: intent.sadaqah_tip_amount,
+            protocol_fee_deducted: intent.protocol_fee_deducted,
+            recipient_commitment_hash: intent.recipient_commitment_hash.clone(),
+            external_tx_ref: external_tx_ref.to_string(),
+            receipt_leaf_hash: Checksum256::from(leaf),
+        }
     }
 
     #[event(history)]
@@ -510,6 +630,9 @@ pub mod service {
 
     #[event(history)]
     pub fn remitSettled(intent_id: u64, attestation_id: u64, external_ref: String) {}
+
+    #[event(history)]
+    pub fn complianceReceipt(intent_id: u64, receipt_leaf_hash: Checksum256) {}
 
     struct Query;
 
@@ -540,6 +663,29 @@ pub mod service {
                         .map_or(true, |code| row.corridor_jurisdiction == code)
                 })
                 .collect()
+        }
+
+        async fn corridor_receipt(&self, intent_id: u64) -> Option<CorridorReceipt> {
+            CorridorReceiptTable::read().get_index_pk().get(&intent_id)
+        }
+
+        async fn corridor_conservation(
+            &self,
+            corridor_jurisdiction: String,
+        ) -> CorridorConservation {
+            let mut agg = CorridorConservation {
+                corridor_jurisdiction: corridor_jurisdiction.clone(),
+                ..Default::default()
+            };
+            for r in CorridorReceiptTable::read().get_index_pk().iter() {
+                if r.corridor_jurisdiction == corridor_jurisdiction {
+                    agg.settled_count += 1;
+                    agg.total_principal_delivered += r.recipient_amount;
+                    agg.total_sadaqah_tips += r.sadaqah_tip_amount;
+                    agg.total_fees_deducted += r.protocol_fee_deducted;
+                }
+            }
+            agg
         }
     }
 
@@ -774,5 +920,59 @@ mod tests {
             let decoded = CorridorSplitMode::unpacked(&bytes).unwrap();
             assert_eq!(decoded, mode);
         }
+    }
+
+    #[test]
+    fn given_unsettled_zakat_intent_when_donor_confirms_then_deterministic_receipt_is_built() {
+        use crate::service::{build_corridor_receipt, validate_settlement_caller};
+        use crate::tables::ZakatRemittanceIntent;
+        use psibase::account;
+
+        let donor = account!("donor");
+        let svc = account!("ext-vault");
+        validate_settlement_caller(donor, donor, svc, false);
+        validate_settlement_caller(svc, donor, svc, false);
+
+        let intent = ZakatRemittanceIntent {
+            intent_id: 9,
+            attestation_id: 3,
+            donor,
+            mode: CorridorSplitMode::ZAKAT_TAMLIK_100,
+            rail_type: "evm_safe".into(),
+            corridor_jurisdiction: "TR".into(),
+            recipient_bridge_vault: "0xSafeBridge".into(),
+            infra_ops_vault: Some("0xOpsSink".into()),
+            zakat_principal_amount: 100_000,
+            recipient_amount: 100_000,
+            sadaqah_tip_amount: 1_500,
+            protocol_fee_deducted: 0,
+            recipient_commitment_hash: Checksum256::from([0x7a; 32]),
+            payload_json: "{}".into(),
+            external_tx_ref: None,
+            settled: false,
+        };
+        let r1 = build_corridor_receipt(&intent, "0xtxhash");
+        let r2 = build_corridor_receipt(&intent, "0xtxhash");
+        assert_eq!(r1.receipt_leaf_hash, r2.receipt_leaf_hash);
+        assert_ne!(r1.receipt_leaf_hash, Checksum256::from([0u8; 32]));
+        assert_eq!(r1.protocol_fee_deducted, 0);
+    }
+
+    #[test]
+    #[cfg(not(target_family = "wasm"))]
+    #[should_panic(expected = "Unauthorized settlement confirmation")]
+    fn given_zakat_intent_when_unrelated_caller_confirms_then_rejected() {
+        use crate::service::validate_settlement_caller;
+        use psibase::account;
+        validate_settlement_caller(account!("intruder"), account!("donor"), account!("ext-vault"), false);
+    }
+
+    #[test]
+    #[cfg(not(target_family = "wasm"))]
+    #[should_panic(expected = "already been settled")]
+    fn given_settled_zakat_intent_when_reconfirmed_then_rejected() {
+        use crate::service::validate_settlement_caller;
+        use psibase::account;
+        validate_settlement_caller(account!("donor"), account!("donor"), account!("ext-vault"), true);
     }
 }
