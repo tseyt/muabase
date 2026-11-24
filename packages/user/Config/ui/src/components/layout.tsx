@@ -1,4 +1,4 @@
-import { Outlet, useLocation, useParams } from "react-router-dom";
+import { Link, Outlet, useLocation, useParams } from "react-router-dom";
 
 import { AppSidebar } from "@/components/app-sidebar";
 
@@ -41,14 +41,22 @@ export const Layout = () => {
                         />
                         <Breadcrumb>
                             <BreadcrumbList>
-                                <BreadcrumbItem className="hidden md:block">
-                                    <BreadcrumbLink>
-                                        {selectedPage?.title}
-                                    </BreadcrumbLink>
+                                <BreadcrumbItem>
+                                    {id && selectedPage ? (
+                                        <BreadcrumbLink asChild>
+                                            <Link to={`/${selectedPage.path}`}>
+                                                {selectedPage.title}
+                                            </Link>
+                                        </BreadcrumbLink>
+                                    ) : (
+                                        <BreadcrumbPage>
+                                            {selectedPage?.title}
+                                        </BreadcrumbPage>
+                                    )}
                                 </BreadcrumbItem>
                                 {id && (
                                     <>
-                                        <BreadcrumbSeparator className="hidden md:block" />
+                                        <BreadcrumbSeparator />
                                         <BreadcrumbItem>
                                             <BreadcrumbPage>
                                                 {id}

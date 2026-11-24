@@ -1,5 +1,5 @@
 import { Ban, Check, Trash } from "lucide-react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 import { LoadingBlock } from "@/components/loading-block";
 
@@ -9,12 +9,24 @@ import { useRejectStaged } from "@/hooks/use-reject-staged";
 import { useRemoveStaged } from "@/hooks/use-remove-staged";
 import { useStagedTransaction } from "@/hooks/use-staged-transaction";
 import { useTxHistory } from "@/hooks/use-tx-history";
+import { formatApprovalPercent } from "@/lib/approval";
 
 import { ErrorCard } from "@shared/components/error-card";
 import { PageContainer } from "@shared/components/page-container";
 import { useChainId } from "@shared/hooks/use-chain-id";
 import { useCurrentUser } from "@shared/hooks/use-current-user";
 import { generateAvatar } from "@shared/lib/create-identicon";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@shared/shadcn/ui/alert-dialog";
 import { Avatar, AvatarImage } from "@shared/shadcn/ui/avatar";
 import { Button } from "@shared/shadcn/ui/button";
 import { Skeleton } from "@shared/shadcn/ui/skeleton";
@@ -28,12 +40,12 @@ import {
 } from "@shared/shadcn/ui/table";
 
 const capitalizeFirstLetter = (word: string) =>
-    word[0].toUpperCase() + word.slice(1);
+    word ? word[0].toUpperCase() + word.slice(1) : "";
 
 const MiniCard = ({ title, amount }: { title: string; amount: string }) => {
     return (
         <div className="border-sm w-full rounded-sm border py-2 text-center">
-            <div className="2xl font-semibold">{amount}</div>
+            <div className="text-2xl font-semibold">{amount}</div>
             <div className="text-muted-foreground text-sm">{title}</div>
         </div>
     );
@@ -41,6 +53,7 @@ const MiniCard = ({ title, amount }: { title: string; amount: string }) => {
 
 export const PendingTransaction = () => {
     const { id } = useParams();
+    const navigate = useNavigate();
     const stagedId = Number(id);
     const { data: currentUser } = useCurrentUser();
 
@@ -73,14 +86,22 @@ export const PendingTransaction = () => {
     const noResponses =
         data?.responses.nodes.filter((res) => !res.accepted) || [];
 
-    const approvalPercent =
-        yesResponses.length / yesResponses.length + noResponses.length;
+    const approvalLabel = formatApprovalPercent(
+        yesResponses.length,
+        noResponses.length,
+    );
+
+    const handleRemove = async () => {
+        await remove([stagedId]);
+        navigate("/pending-transactions");
+    };
 
     if (data?.details) {
+        const allResponses = [...yesResponses, ...noResponses];
         return (
             <PageContainer className="space-y-6">
                 <div className="flex flex-col justify-between rounded-sm border p-4">
-                    <div className="flex w-full justify-between">
+                    <div className="flex w-full flex-wrap items-center justify-between gap-2">
                         <div className="flex flex-col">
                             <div className="text-2xl">
                                 <span className="text-muted-foreground">#</span>
@@ -96,8 +117,8 @@ export const PendingTransaction = () => {
                         </div>
                     </div>
 
-                    <div className="flex justify-between pt-5">
-                        <div>
+                    <div className="flex flex-col justify-between gap-3 pt-5 sm:flex-row sm:items-center">
+                        <div className="min-w-0">
                             <div className="flex items-center gap-2 py-1 text-sm">
                                 {chainId && data.details.proposer ? (
                                     <Avatar className="h-6 w-6 rounded-sm">
@@ -113,15 +134,16 @@ export const PendingTransaction = () => {
                                 )}
                                 {data.details.proposer}
                             </div>
-                            <div className="text-muted-foreground rounded-sm border px-1 font-mono text-sm italic">
+                            <div className="text-muted-foreground break-all rounded-sm border px-1 font-mono text-sm italic">
                                 {data.details.txid}
                             </div>
                         </div>
 
-                        <div className="flex flex-row gap-3">
+                        <div className="flex flex-wrap gap-2">
                             <Button
+                                type="button"
                                 onClick={() => {
-                                    accept([stagedId]);
+                                    void accept([stagedId]);
                                 }}
                                 disabled={isPending}
                             >
@@ -129,8 +151,9 @@ export const PendingTransaction = () => {
                                 Accept
                             </Button>
                             <Button
+                                type="button"
                                 onClick={() => {
-                                    reject([stagedId]);
+                                    void reject([stagedId]);
                                 }}
                                 variant="secondary"
                                 disabled={isPending}
@@ -140,8 +163,9 @@ export const PendingTransaction = () => {
                             </Button>
                             {!data.details.autoExec && (
                                 <Button
+                                    type="button"
                                     onClick={() => {
-                                        execute([stagedId]);
+                                        void execute([stagedId]);
                                     }}
                                     variant="outline"
                                     disabled={isPending}
@@ -150,15 +174,47 @@ export const PendingTransaction = () => {
                                 </Button>
                             )}
                             {userIsProposer && (
-                                <div>
-                                    <Button
-                                        variant="destructive"
-                                        onClick={() => remove([stagedId])}
-                                        disabled={isPending}
-                                    >
-                                        <Trash />
-                                    </Button>
-                                </div>
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button
+                                            type="button"
+                                            variant="destructive"
+                                            aria-label="Delete staged transaction"
+                                            disabled={isPending}
+                                        >
+                                            <Trash />
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>
+                                                Delete staged transaction #{data.details.id}?
+                                            </AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                This removes the pending
+                                                proposal and all collected
+                                                votes. This cannot be undone.
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel
+                                                disabled={isPendingRemove}
+                                            >
+                                                Cancel
+                                            </AlertDialogCancel>
+                                            <AlertDialogAction
+                                                disabled={isPendingRemove}
+                                                onClick={() =>
+                                                    void handleRemove()
+                                                }
+                                            >
+                                                {isPendingRemove
+                                                    ? "Deleting..."
+                                                    : "Delete"}
+                                            </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
                             )}
                         </div>
                     </div>
@@ -174,14 +230,7 @@ export const PendingTransaction = () => {
                                 amount={noResponses.length.toString()}
                                 title="No"
                             />
-                            <MiniCard
-                                amount={
-                                    Math.floor(
-                                        approvalPercent * 100,
-                                    ).toString() + "%"
-                                }
-                                title="Approval"
-                            />
+                            <MiniCard amount={approvalLabel} title="Approval" />
                         </div>
                         <div className="rounded-sm border">
                             <Table>
@@ -196,13 +245,22 @@ export const PendingTransaction = () => {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {[...yesResponses, ...noResponses].map(
-                                        (item, index) => (
-                                            <TableRow className="text-muted-foreground">
-                                                <TableCell
-                                                    key={index}
-                                                    className="text-center"
-                                                >
+                                    {allResponses.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell
+                                                colSpan={2}
+                                                className="text-muted-foreground text-center"
+                                            >
+                                                No votes recorded yet.
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : (
+                                        allResponses.map((item) => (
+                                            <TableRow
+                                                key={`${item.account}-${item.accepted}`}
+                                                className="text-muted-foreground"
+                                            >
+                                                <TableCell className="text-center">
                                                     {item.account}
                                                 </TableCell>
                                                 <TableCell className="text-center">
@@ -211,7 +269,7 @@ export const PendingTransaction = () => {
                                                         : "No"}
                                                 </TableCell>
                                             </TableRow>
-                                        ),
+                                        ))
                                     )}
                                 </TableBody>
                             </Table>
@@ -226,23 +284,37 @@ export const PendingTransaction = () => {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {history?.map((item, index) => (
-                                        <TableRow className="text-muted-foreground">
-                                            <TableCell>
-                                                {new Date(
-                                                    item.datetime,
-                                                ).toLocaleString()}
-                                            </TableCell>
-                                            <TableCell key={index} className="">
-                                                {item.actor}
-                                            </TableCell>
-                                            <TableCell>
-                                                {capitalizeFirstLetter(
-                                                    item.eventType,
-                                                )}
+                                    {!history || history.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell
+                                                colSpan={3}
+                                                className="text-muted-foreground text-center"
+                                            >
+                                                No history events yet.
                                             </TableCell>
                                         </TableRow>
-                                    ))}
+                                    ) : (
+                                        history.map((item, index) => (
+                                            <TableRow
+                                                key={`${item.datetime}-${item.actor}-${index}`}
+                                                className="text-muted-foreground"
+                                            >
+                                                <TableCell>
+                                                    {new Date(
+                                                        item.datetime,
+                                                    ).toLocaleString()}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {item.actor}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {capitalizeFirstLetter(
+                                                        item.eventType,
+                                                    )}
+                                                </TableCell>
+                                            </TableRow>
+                                        ))
+                                    )}
                                 </TableBody>
                             </Table>
                         </div>
@@ -259,8 +331,11 @@ export const PendingTransaction = () => {
                             <TableBody>
                                 {data.details.actionList.actions.map(
                                     (action, index) => (
-                                        <TableRow className="text-muted-foreground">
-                                            <TableCell key={index} className="">
+                                        <TableRow
+                                            key={`${action.sender}-${action.service}-${action.method}-${index}`}
+                                            className="text-muted-foreground"
+                                        >
+                                            <TableCell>
                                                 {action.sender}
                                             </TableCell>
                                             <TableCell>

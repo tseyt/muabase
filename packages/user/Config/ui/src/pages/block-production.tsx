@@ -15,7 +15,13 @@ import { FieldErrors } from "@shared/components/form/internal/field-errors";
 import { PageContainer } from "@shared/components/page-container";
 import { useCurrentUser } from "@shared/hooks/use-current-user";
 import { Button } from "@shared/shadcn/ui/button";
-import { Dialog, DialogContent } from "@shared/shadcn/ui/dialog";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from "@shared/shadcn/ui/dialog";
 import { Input } from "@shared/shadcn/ui/input";
 import { Label } from "@shared/shadcn/ui/label";
 import {
@@ -213,8 +219,10 @@ export const BlockProduction = () => {
                                         Producer {field.state.value[index]}
                                     </Label>
                                     <Button
+                                        type="button"
                                         variant="destructive"
                                         size={"icon"}
+                                        aria-label={`Remove producer ${value}`}
                                         onClick={() => {
                                             producersForm.setFieldValue(
                                                 "prods",
@@ -254,17 +262,17 @@ export const BlockProduction = () => {
 
             <Dialog onOpenChange={(e) => setShowModal(e)} open={showModal}>
                 <DialogContent className="sm:max-w-2xl">
-                    <div className="gap-2">
-                        <h2 className="text-lg font-medium">
+                    <DialogHeader>
+                        <DialogTitle>
                             Producer Candidate Registration
-                        </h2>
-                        <p className="text-muted-foreground text-sm">
+                        </DialogTitle>
+                        <DialogDescription>
                             {authenticatedCandidate
                                 ? "Update registration"
                                 : "Register yourself as a new producer candidate"}
                             .
-                        </p>
-                    </div>
+                        </DialogDescription>
+                    </DialogHeader>
 
                     <form
                         onSubmit={(e) => {
@@ -387,6 +395,7 @@ export const BlockProduction = () => {
                         <TableRow>
                             <TableHead>Account Name</TableHead>
                             <TableHead>Endpoint</TableHead>
+                            <TableHead>Actions</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -401,8 +410,10 @@ export const BlockProduction = () => {
                                 <TableCell>
                                     {producers.includes(candidate.account) ? (
                                         <Button
+                                            type="button"
                                             variant="outline"
                                             size={"icon"}
+                                            aria-label={`Remove ${candidate.account} from producers`}
                                             onClick={() => {
                                                 producersForm.setFieldValue(
                                                     "prods",
@@ -419,8 +430,10 @@ export const BlockProduction = () => {
                                         </Button>
                                     ) : (
                                         <Button
+                                            type="button"
                                             variant="outline"
                                             size={"icon"}
+                                            aria-label={`Add ${candidate.account} to producers`}
                                             onClick={() => {
                                                 producersForm.setFieldValue(
                                                     "prods",
@@ -440,7 +453,7 @@ export const BlockProduction = () => {
                         {(!candidates || candidates.length === 0) && (
                             <TableRow>
                                 <TableCell
-                                    colSpan={2}
+                                    colSpan={3}
                                     className="text-muted-foreground text-center"
                                 >
                                     No candidates registered

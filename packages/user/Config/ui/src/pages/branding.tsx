@@ -157,9 +157,10 @@ export const Branding = () => {
 
             <div className="rounded-lg border p-4">
                 <div className="space-y-0.5 pb-3">
-                    <Label className="text-base">Metadata</Label>
+                    <Label className="text-base">Network Identity</Label>
                     <div className="text-muted-foreground text-sm">
-                        Explain the mission of the network.
+                        Set the public display name for this network (lowercase
+                        letters, digits, and hyphens).
                     </div>
                 </div>
                 <div className="w-full">
@@ -183,7 +184,11 @@ export const Branding = () => {
                                     validators={{
                                         onChange: z
                                             .string()
-                                            .min(1, "Network must have a name"),
+                                            .min(1, "Network must have a name")
+                                            .regex(
+                                                /^[a-z][a-z0-9-]{0,17}$/,
+                                                "Use lowercase letters, digits, or hyphens (starting with a letter)",
+                                            ),
                                     }}
                                 />
                                 <div className="mt-6 flex flex-row-reverse font-medium">

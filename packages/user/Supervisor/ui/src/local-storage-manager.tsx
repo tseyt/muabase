@@ -34,6 +34,15 @@ export function LocalStorageManager() {
     };
 
     const deleteSelectedIds = (): void => {
+        if (selectedIds.size === 0) return;
+        const includesCurrent =
+            currentChainId !== null && selectedIds.has(currentChainId);
+        const warning = includesCurrent
+            ? `WARNING: You selected the CURRENT chain (${currentChainId}). Deleting it will remove your active local session and keys.\n\nDelete ${selectedIds.size} selected chain(s)?`
+            : `Delete local storage for ${selectedIds.size} selected chain(s)? This cannot be undone.`;
+
+        if (!window.confirm(warning)) return;
+
         const keysToDelete = Object.keys(localStorage).filter((key) => {
             const parts = key.split(":");
             return parts.length >= 1 && selectedIds.has(parts[0]);
@@ -65,8 +74,16 @@ export function LocalStorageManager() {
 
     return (
         <div style={{ padding: "20px", fontFamily: "monospace" }}>
-            <div style={{ marginBottom: "20px", display: "flex", gap: "8px" }}>
+            <div
+                style={{
+                    marginBottom: "20px",
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: "8px",
+                }}
+            >
                 <button
+                    type="button"
                     onClick={selectAll}
                     style={{
                         padding: "8px 16px",
@@ -80,6 +97,7 @@ export function LocalStorageManager() {
                     Select All Except Current Chain
                 </button>
                 <button
+                    type="button"
                     onClick={selectNone}
                     style={{
                         padding: "8px 16px",
@@ -93,6 +111,7 @@ export function LocalStorageManager() {
                     Select None
                 </button>
                 <button
+                    type="button"
                     onClick={deleteSelectedIds}
                     disabled={selectedIds.size === 0}
                     style={{
@@ -101,6 +120,7 @@ export function LocalStorageManager() {
                         color: "white",
                         border: "none",
                         borderRadius: "4px",
+                        opacity: selectedIds.size === 0 ? 0.5 : 1,
                         cursor:
                             selectedIds.size === 0 ? "not-allowed" : "pointer",
                     }}

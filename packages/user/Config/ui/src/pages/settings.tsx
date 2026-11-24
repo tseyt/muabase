@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+
 import { siblingUrl } from "@psibase/common-lib";
 
 import { useSetSnapshot } from "@/hooks/use-set-snapshot";
@@ -13,13 +15,14 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@shared/shadcn/ui/select";
+import { Skeleton } from "@shared/shadcn/ui/skeleton";
 
 const oneDay = 86400;
 
 export const Settings = () => {
     const { mutateAsync: setSnapshot } = useSetSnapshot();
 
-    const { data: seconds } = useSnapshotSeconds();
+    const { data: seconds, isLoading } = useSnapshotSeconds();
 
     const form = useAppForm({
         defaultValues: {
@@ -33,6 +36,12 @@ export const Settings = () => {
             });
         },
     });
+
+    useEffect(() => {
+        if (seconds !== undefined) {
+            form.reset({ seconds });
+        }
+    }, [seconds, form]);
 
     return (
         <PageContainer className="space-y-6">
@@ -54,9 +63,11 @@ export const Settings = () => {
                 <div className="rounded-lg  border p-4 ">
                     <div className="flex justify-between">
                         <div className="w-full space-y-0.5 pb-3">
-                            <Label className="text-base">Snapshots</Label>
+                            <Label htmlFor="mode" className="text-base">
+                                Snapshots
+                            </Label>
                             <a
-                                className="hover:text-primary text-muted-foreground text-sm underline underline-offset-2"
+                                className="hover:text-primary text-muted-foreground block text-sm underline underline-offset-2"
                                 href={siblingUrl(
                                     undefined,
                                     "docs",
@@ -69,18 +80,23 @@ export const Settings = () => {
                             </a>
                         </div>
                         <div className="flex w-full justify-end">
-                            <form.Field name="seconds">
-                                {(field) => (
-                                    <div className="flex gap-2">
-                                        <Select
-                                            onValueChange={(value) => {
-                                                field.setValue(Number(value));
-                                            }}
-                                            value={field.state.value.toString()}
-                                        >
-                                            <SelectTrigger id="mode">
-                                                <SelectValue placeholder="Select mode" />
-                                            </SelectTrigger>
+                            {isLoading ? (
+                                <Skeleton className="h-9 w-36" />
+                            ) : (
+                                <form.Field name="seconds">
+                                    {(field) => (
+                                        <div className="flex gap-2">
+                                            <Select
+                                                onValueChange={(value) => {
+                                                    field.setValue(
+                                                        Number(value),
+                                                    );
+                                                }}
+                                                value={field.state.value.toString()}
+                                            >
+                                                <SelectTrigger id="mode">
+                                                    <SelectValue placeholder="Select mode" />
+                                                </SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value={"0"}>
                                                     Never
@@ -113,9 +129,10 @@ export const Settings = () => {
                                                 </SelectItem>
                                             </SelectContent>
                                         </Select>
-                                    </div>
-                                )}
-                            </form.Field>
+                                        </div>
+                                    )}
+                                </form.Field>
+                            )}
                         </div>
                     </div>
                     <div className="mt-6 flex flex-row-reverse font-medium">

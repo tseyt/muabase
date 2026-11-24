@@ -94,20 +94,26 @@ export function NavMain() {
             <SidebarGroupLabel>Network configuration</SidebarGroupLabel>
             <SidebarMenu>
                 {menus.map((item) => (
-                    <NavLink to={`/${item.path}`}>
-                        {({ isActive }) => (
-                            <SidebarMenuItem
-                                className={cn({
-                                    "bg-muted/50 rounded-sm ": isActive,
-                                })}
-                            >
-                                <SidebarMenuButton tooltip={item.title}>
-                                    {item.icon && <item.icon />}
-                                    <span>{item.title}</span>
+                    <SidebarMenuItem key={item.path}>
+                        <NavLink to={`/${item.path}`}>
+                            {({ isActive }) => (
+                                <SidebarMenuButton
+                                    asChild
+                                    isActive={isActive}
+                                    tooltip={item.title}
+                                >
+                                    <span
+                                        className={cn({
+                                            "bg-muted/50 rounded-sm": isActive,
+                                        })}
+                                    >
+                                        {item.icon && <item.icon />}
+                                        <span>{item.title}</span>
+                                    </span>
                                 </SidebarMenuButton>
-                            </SidebarMenuItem>
-                        )}
-                    </NavLink>
+                            )}
+                        </NavLink>
+                    </SidebarMenuItem>
                 ))}
             </SidebarMenu>
         </SidebarGroup>

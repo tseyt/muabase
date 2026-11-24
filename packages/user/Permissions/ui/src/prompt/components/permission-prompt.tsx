@@ -53,7 +53,14 @@ export const PermissionPrompt = ({ permissionRequest }: Props) => {
     };
 
     if (approveMutation.isError) {
-        return <ErrorCard error={approveMutation.error} />;
+        return (
+            <ErrorCard
+                title="Authorization failed"
+                error={approveMutation.error}
+                retry={() => approveMutation.reset()}
+                retryLabel="Try again"
+            />
+        );
     }
 
     return (
@@ -92,8 +99,8 @@ export const PermissionPrompt = ({ permissionRequest }: Props) => {
 
                             return (
                                 <Alert
-                                    key={`${level}-info-alert`}
-                                    data-level={level}
+                                    key={`${levelLabel}-info-alert`}
+                                    data-level={levelLabel}
                                     variant={
                                         level.alertVariant
                                     }
@@ -133,7 +140,7 @@ export const PermissionPrompt = ({ permissionRequest }: Props) => {
                                 htmlFor="permanent"
                                 className="cursor-pointer font-normal"
                             >
-                                Permanently (unless updated/deleted later)
+                                Permanently on this device
                             </Label>
                         </div>
                     </RadioGroup>
@@ -154,13 +161,22 @@ export const PermissionPrompt = ({ permissionRequest }: Props) => {
 
             <CardFooter className="flex justify-center gap-4">
                 <Button
+                    type="button"
                     onClick={() => approveMutation.mutate(duration)}
                     disabled={approveMutation.isPending}
                     size="lg"
                 >
-                    Trust {permissionRequest.caller} app
+                    {approveMutation.isPending
+                        ? "Authorizing..."
+                        : `Trust ${permissionRequest.caller} app`}
                 </Button>
-                <Button onClick={cancel} variant="outline" size="lg">
+                <Button
+                    type="button"
+                    onClick={cancel}
+                    disabled={approveMutation.isPending}
+                    variant="outline"
+                    size="lg"
+                >
                     Cancel
                 </Button>
             </CardFooter>

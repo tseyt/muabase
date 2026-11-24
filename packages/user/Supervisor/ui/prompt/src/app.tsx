@@ -63,7 +63,11 @@ export const App = () => {
 
                 setIframeUrl(iframeUrl.toString());
             } catch (e) {
-                setError("Prompt error: " + e);
+                setError(
+                    e instanceof Error
+                        ? e.message
+                        : "Unable to open application prompt.",
+                );
             }
         };
 
@@ -99,12 +103,18 @@ export const App = () => {
 
     if (error) {
         return (
-            <div className="flex min-h-screen items-center justify-center">
+            <div className="flex min-h-screen items-center justify-center p-4">
                 <ErrorCard
                     error={new Error(error)}
-                    title="Error"
+                    title="Prompt Error"
                     retryLabel="Go back"
-                    retry={() => window.history.back()}
+                    retry={() => {
+                        if (window.history.length > 1) {
+                            window.history.back();
+                        } else {
+                            window.location.href = siblingUrl(null, null, "/");
+                        }
+                    }}
                 />
             </div>
         );
@@ -120,8 +130,9 @@ export const App = () => {
                 alignItems: "center",
             }}
         >
-            {iframeUrl && (
+            {iframeUrl ? (
                 <iframe
+                    title="Application prompt"
                     src={iframeUrl}
                     allow="clipboard-read; clipboard-write"
                     style={{
@@ -130,6 +141,13 @@ export const App = () => {
                         border: "none",
                     }}
                 />
+            ) : (
+                <p
+                    role="status"
+                    className="text-muted-foreground text-sm"
+                >
+                    Loading prompt...
+                </p>
             )}
         </div>
     );
