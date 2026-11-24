@@ -731,6 +731,19 @@ namespace psibase::http
             }
             runNativeHandlerNoContent(server.http_config->lock_keyring);
          }
+         else if (req_target == "/native/proof/state" && server.http_config->get_state_proof)
+         {
+            if (req.method() != bhttp::verb::post)
+            {
+               return send(builder.methodNotAllowed(req.target(), req.method_string(), "POST"));
+            }
+            if (req[bhttp::field::content_type] != "application/json")
+            {
+               return send(builder.error(bhttp::status::unsupported_media_type,
+                                         "Content-Type must be application/json\n"));
+            }
+            runNativeHandlerGeneric(server.http_config->get_state_proof, "application/json");
+         }
          else
          {
             return send(builder.notFound(req.target()));

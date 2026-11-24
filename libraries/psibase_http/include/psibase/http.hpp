@@ -227,6 +227,7 @@ namespace psibase::http
       unlock_keyring_t    unlock_keyring    = {};
       lock_keyring_t      lock_keyring      = {};
       get_pkcs11_tokens_t get_pkcs11_tokens = {};
+      generic_json_t      get_state_proof   = {};
       // This contains some cached state that the reader thread might modify
       mutable std::atomic<http_status> status;
 

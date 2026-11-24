@@ -10,6 +10,7 @@ add_executable(psinode main.cpp init.cpp)
 target_link_libraries(psinode
     services_system
     psibase_http
+    muabase_db
     debug_eos_vm
     psibase_net
 )

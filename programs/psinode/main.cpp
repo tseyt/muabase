@@ -1,3 +1,4 @@
+#include <muabase_db/dwal_merkle.hpp>
 #include <psibase/ConfigFile.hpp>
 #include <psibase/LogSocket.hpp>
 #include <psibase/Mount.hpp>
@@ -424,6 +425,16 @@ struct LockKeyringRequest
    std::string device;
 };
 PSIO_REFLECT(LockKeyringRequest, device);
+
+struct StateProofRequest
+{
+   std::string                db         = "service";
+   std::optional<std::string> keyHex     = {};
+   std::optional<std::string> keyUtf8    = {};
+   std::optional<std::string> prefixHex  = {};
+   std::optional<std::string> prefixUtf8 = {};
+};
+PSIO_REFLECT(StateProofRequest, db, keyHex, keyUtf8, prefixHex, prefixUtf8);
 
 std::vector<char> pkcs11TokenKey(const std::string& uri)
 {
@@ -1830,6 +1841,124 @@ void run(const std::string&              db_path,
                                  callback(e.what());
                               }
                            });
+      };
+
+      http_config->get_state_proof = [sharedState](std::vector<char> json, auto callback)
+      {
+         try
+         {
+            json.push_back('\0');
+            psio::json_token_stream stream(json.data());
+            auto                    req = psio::from_json<StateProofRequest>(stream);
+
+            DbId target_db = DbId::service;
+            if (req.db == "service" || req.db.empty())
+               target_db = DbId::service;
+            else if (req.db == "native")
+               target_db = DbId::native;
+            else
+               throw std::runtime_error("Unsupported db (expected 'service' or 'native')");
+
+            std::vector<std::byte> target_key;
+            if (req.keyHex && !req.keyHex->empty())
+            {
+               auto decoded = muabase_db::hex_to_bytes(*req.keyHex);
+               if (!decoded)
+                  throw std::runtime_error("Invalid keyHex");
+               target_key = std::move(*decoded);
+            }
+            else if (req.keyUtf8)
+            {
+               target_key.resize(req.keyUtf8->size());
+               if (!target_key.empty())
+                  std::memcpy(target_key.data(), req.keyUtf8->data(), target_key.size());
+            }
+            else
+            {
+               throw std::runtime_error("keyHex or keyUtf8 is required");
+            }
+
+            std::vector<char> prefix;
+            if (req.prefixHex && !req.prefixHex->empty())
+            {
+               auto decoded = muabase_db::hex_to_bytes(*req.prefixHex);
+               if (!decoded)
+                  throw std::runtime_error("Invalid prefixHex");
+               prefix.resize(decoded->size());
+               if (!prefix.empty())
+                  std::memcpy(prefix.data(), decoded->data(), prefix.size());
+            }
+            else if (req.prefixUtf8)
+            {
+               prefix.assign(req.prefixUtf8->begin(), req.prefixUtf8->end());
+            }
+
+            auto system  = sharedState->getSystemContext();
+            auto rev     = system->sharedDatabase.getHead();
+            Database db{system->sharedDatabase, rev};
+            auto     session = db.startRead();
+            auto     status  = db.kvGet<StatusRow>(DbId::native, statusKey());
+
+            static std::atomic<std::uint64_t> proof_seq{0};
+            auto tmp_dir = std::filesystem::temp_directory_path() /
+                           ("muabase_proof_" + std::to_string(::getpid()) + "_" +
+                            std::to_string(++proof_seq));
+            std::filesystem::create_directories(tmp_dir);
+            auto cleanup = psio::finally(
+                [&tmp_dir]()
+                {
+                   std::error_code ec;
+                   std::filesystem::remove_all(tmp_dir, ec);
+                });
+
+            muabase_db::SegmentAllocator sal{tmp_dir,
+                                             muabase_db::SalConfig{.segment_bytes = 256 * 1024}};
+            muabase_db::CowArt           art{sal};
+            muabase_db::ArtRoot          root;
+
+            std::vector<char> cursor = prefix;
+            while (auto kv = db.kvGreaterEqualRaw(target_db, cursor, prefix.size()))
+            {
+               root = art.upsert(
+                   root,
+                   {reinterpret_cast<const std::byte*>(kv->key.pos), kv->key.remaining()},
+                   {reinterpret_cast<const std::byte*>(kv->value.pos), kv->value.remaining()});
+               cursor.assign(kv->key.pos, kv->key.end);
+               cursor.push_back('\0');
+            }
+
+            muabase_db::Merkleizer          merkle{art};
+            muabase_db::Checksum256         state_root = merkle.compute_root(root);
+            muabase_db::AnchoredMerkleProof bundle;
+            bundle.anchor.state_root = state_root;
+            if (status && status->head)
+            {
+               bundle.anchor.block_num = status->head->header.blockNum;
+               bundle.anchor.block_id  = muabase_db::bytes_to_hex(
+                   {reinterpret_cast<const std::byte*>(status->head->blockId.data()),
+                     status->head->blockId.size()});
+               bundle.anchor.producer = status->head->header.producer.str();
+            }
+
+            if (auto found = art.get(root, target_key))
+            {
+               bundle.value = std::move(*found);
+               bundle.proof = merkle.prove_inclusion(root, target_key);
+            }
+            else
+            {
+               bundle.proof = merkle.prove_non_inclusion(root, target_key);
+            }
+
+            std::string body = muabase_db::anchored_proof_to_json(bundle);
+            callback(
+                [body = std::move(body)]() mutable
+                { return std::vector<char>(body.begin(), body.end()); });
+         }
+         catch (std::exception& e)
+         {
+            callback(e.what());
+         }
       };
 
       auto& service =

@@ -30,3 +30,7 @@ add_executable(muabase-db-tx-tests test/tx_session_bdd_tests.cpp)
 target_link_libraries(muabase-db-tx-tests PUBLIC muabase_db)
 set_target_properties(muabase-db-tx-tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${ROOT_BINARY_DIR})
 native_test(muabase-db-tx-tests)
+
+add_executable(muabase-proof-tool tools/muabase_proof_tool.cpp)
+target_link_libraries(muabase-proof-tool PUBLIC muabase_db)
+set_target_properties(muabase-proof-tool PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${ROOT_BINARY_DIR})
