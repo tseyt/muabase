@@ -18,7 +18,7 @@ pub mod tables {
     impl Default for NetworkName {
         fn default() -> Self {
             NetworkName {
-                name: String::from("psibase"),
+                name: String::from("muabase"),
             }
         }
     }
@@ -167,7 +167,30 @@ pub mod tables {
                 institutional: "Non-Commercial P2P Personal Remittance Attestation".to_string(),
                 muamalat: "Hawalah Shakhsiyyah & Iqrar Ghayr Tijari".to_string(),
             },
+            TerminologyMapping {
+                key: "waqf_treasury".to_string(),
+                institutional: "Programmable Endowment & Masjid Treasury OS".to_string(),
+                muamalat: "Waqf & Masjid Treasury OS (Hifz Asl al-Waqf)".to_string(),
+            },
+            TerminologyMapping {
+                key: "muamalat_tahkim".to_string(),
+                institutional: "Commercial Milestone Escrow & 2-of-3 Arbitration".to_string(),
+                muamalat: "Commercial Muamalat & Native Tahkim Arbitration".to_string(),
+            },
         ]
+    }
+
+    pub fn validate_locale_update(
+        sender_is_service: bool,
+        locale: &str,
+    ) -> Result<(), &'static str> {
+        if !sender_is_service {
+            return Err("Only the 'branding' account is authorized to set terminology locale");
+        }
+        if locale != "institutional" && locale != "muamalat" {
+            return Err("Locale must be either 'institutional' or 'muamalat'");
+        }
+        Ok(())
     }
 
     pub fn resolve_term_for_locale(term: &str, current_locale: &str) -> String {
@@ -192,6 +215,8 @@ pub mod tables {
             "bridge_corridor" | "bridge_desk" => "bridge_liquidity_desk",
             "sadaqah_tip_amount" | "infra_ops_tip" => "sadaqah_tip",
             "personal_remittance_attestation" | "remittance_attestation" => "personal_remittance",
+            "waqf_treas" | "masjid_treasury" => "waqf_treasury",
+            "tahkim" | "istisna_escrow" | "mudarabah_escrow" => "muamalat_tahkim",
             _ => term,
         };
         for mapping in get_canonical_terminology_mappings() {
@@ -255,10 +280,9 @@ mod service {
     #[action]
     #[allow(non_snake_case)]
     fn setTerminologyLocale(locale: String) {
-        assert!(
-            locale == "institutional" || locale == "muamalat",
-            "Locale must be either 'institutional' or 'muamalat'"
-        );
+        if let Err(msg) = validate_locale_update(get_sender() == SERVICE, &locale) {
+            panic!("{}", msg);
+        }
 
         let table = LocaleTable::new();
         table.put(&TerminologyLocale { locale: locale.clone() }).unwrap();

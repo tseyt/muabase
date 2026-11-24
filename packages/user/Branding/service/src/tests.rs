@@ -8,7 +8,20 @@ mod tests {
 
 #[cfg(test)]
 mod unit_tests {
-    use crate::tables::resolve_term_for_locale;
+    use crate::tables::{resolve_term_for_locale, validate_locale_update, NetworkName};
+
+    #[test]
+    fn test_default_network_name_is_muabase() {
+        assert_eq!(NetworkName::default().name, "muabase");
+    }
+
+    #[test]
+    fn test_locale_update_requires_service_auth_and_valid_locale() {
+        assert!(validate_locale_update(true, "institutional").is_ok());
+        assert!(validate_locale_update(true, "muamalat").is_ok());
+        assert!(validate_locale_update(false, "muamalat").is_err());
+        assert!(validate_locale_update(true, "unknown").is_err());
+    }
 
     #[test]
     fn test_muamalat_and_institutional_humanitarian_corridor_terminology() {
@@ -27,6 +40,14 @@ mod unit_tests {
         assert_eq!(
             resolve_term_for_locale("zakat_tamlik_vault", "institutional"),
             "Zero-Fee Direct Principal Vault (100% Beneficiary Delivery)"
+        );
+        assert_eq!(
+            resolve_term_for_locale("waqf_treasury", "muamalat"),
+            "Waqf & Masjid Treasury OS (Hifz Asl al-Waqf)"
+        );
+        assert_eq!(
+            resolve_term_for_locale("muamalat_tahkim", "institutional"),
+            "Commercial Milestone Escrow & 2-of-3 Arbitration"
         );
     }
 }
