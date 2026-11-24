@@ -1,7 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import {
   buildCheckpointAnchorBundle,
+  evmFunctionSelector,
+  keccak256Hex,
   verifyCheckpointAnchorBundle,
 } from './checkpoint-anchor.mjs';
 
@@ -21,9 +24,34 @@ test('GIVEN a signed block header and dwal_merkle root WHEN building a checkpoin
   assert.equal(bundle.recordExternalAnchorAction[0].method, 'recordExternalAnchor');
   assert.equal(verifyCheckpointAnchorBundle(bundle).valid, true);
 
-  const tampered = structuredClone(bundle);
-  tampered.stateRoot = 'c'.repeat(64);
-  assert.equal(verifyCheckpointAnchorBundle(tampered).valid, false);
+  const tamperedRoot = structuredClone(bundle);
+  tamperedRoot.stateRoot = 'c'.repeat(64);
+  assert.equal(verifyCheckpointAnchorBundle(tamperedRoot).valid, false);
+
+  const tamperedAction = structuredClone(bundle);
+  tamperedAction.recordExternalAnchorAction[0].data.tx_hash = 'f'.repeat(64);
+  assert.equal(verifyCheckpointAnchorBundle(tamperedAction).valid, false);
+});
+
+test('GIVEN Ethereum ABI signatures WHEN hashing with keccak256Hex THEN standard Keccak-256 vectors match Solidity selectors', () => {
+  // Canonical Ethereum Keccak-256("") and ERC-20 transfer(address,uint256) selector
+  assert.equal(
+    keccak256Hex(''),
+    'c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470',
+  );
+  assert.equal(evmFunctionSelector('transfer(address,uint256)'), 'a9059cbb');
+});
+
+test('GIVEN CLI tools invoked with --help or invalid flags WHEN executed THEN --help exits 0 to stdout and bad flags fail cleanly without stack traces', () => {
+  for (const script of ['tools/checkpoint-anchor.mjs', 'tools/verify-merkle-proof.mjs']) {
+    const help = spawnSync(process.execPath, [script, '--help'], { encoding: 'utf8' });
+    assert.equal(help.status, 0, `${script} --help should exit 0`);
+    assert.match(help.stdout, /Usage:/);
+
+    const bad = spawnSync(process.execPath, [script, '--unknown-flag'], { encoding: 'utf8' });
+    assert.notEqual(bad.status, 0, `${script} --unknown-flag should fail`);
+    assert.doesNotMatch(bad.stderr, /TypeError|at runCli/);
+  }
 });
 
 test('GIVEN invalid blockNum, version, byte length, or tampered action fields WHEN building or verifying checkpoint anchors THEN rejected', () => {

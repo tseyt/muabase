@@ -384,20 +384,28 @@ function parseCliArgs(args) {
   return { inputPath, options };
 }
 
+const USAGE =
+  'Usage: node tools/verify-merkle-proof.mjs <proof.json|--stdin> ' +
+  '[--expected-root <hex>] [--expected-key-utf8 <str>|--expected-key-hex <hex>] ' +
+  '[--expected-value-utf8 <str>|--expected-value-hex <hex>]';
+
 function runCli() {
   const args = process.argv.slice(2);
-  if (args.length === 0 || args.includes('--help') || args.includes('-h')) {
-    console.error(
-      'Usage: node tools/verify-merkle-proof.mjs <proof.json|--stdin> [--expected-root <hex>] [--expected-key-utf8 <str>|--expected-key-hex <hex>] [--expected-value-utf8 <str>|--expected-value-hex <hex>]'
-    );
+  if (args.includes('--help') || args.includes('-h')) {
+    console.log(USAGE);
+    process.exit(0);
+  }
+  if (args.length === 0) {
+    console.error(USAGE);
     process.exit(2);
   }
 
   const { inputPath, options } = parseCliArgs(args);
+
   const raw = inputPath === '--stdin' ? readFileSync(0, 'utf8') : readFileSync(inputPath, 'utf8');
   const bundle = JSON.parse(raw);
   const res = verifyAnchoredProof(bundle, options);
-  console.log(JSON.stringify(res));
+  console.log(JSON.stringify(res, null, 2));
   process.exit(res.valid ? 0 : 1);
 }
 

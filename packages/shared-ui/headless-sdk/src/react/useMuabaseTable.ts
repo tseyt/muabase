@@ -44,6 +44,7 @@ export function useMuabaseTable<T = any>({
   const [data, setData] = useState<T[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | null>(null);
+  const [activeTransport, setActiveTransport] = useState<"sse" | "ws" | "poll">("poll");
 
   const filterRef = useRef(filter);
   filterRef.current = filter;
@@ -53,8 +54,16 @@ export function useMuabaseTable<T = any>({
 
   const mountedRef = useRef(true);
   const requestSeqRef = useRef(0);
+  const pushLiveRef = useRef(false);
 
-  const variablesKey = variables ? JSON.stringify(variables) : "";
+  let variablesKey = "";
+  if (variables) {
+    try {
+      variablesKey = JSON.stringify(variables);
+    } catch {
+      variablesKey = String(variables);
+    }
+  }
 
   const fetchTableData = useCallback(async () => {
     const seq = ++requestSeqRef.current;
@@ -81,11 +90,11 @@ export function useMuabaseTable<T = any>({
 
   useEffect(() => {
     mountedRef.current = true;
+    pushLiveRef.current = false;
     let sse: EventSource | null = null;
     let ws: WebSocket | null = null;
 
-    // Initial fetch
-    fetchTableData();
+    void fetchTableData();
 
     const connectWebSocket = () => {
       try {
@@ -93,38 +102,63 @@ export function useMuabaseTable<T = any>({
           return;
         }
         ws = new WebSocket(buildTableWsUrl(client.endpoint, service, table));
+        ws.onopen = () => {
+          if (mountedRef.current) {
+            pushLiveRef.current = true;
+            setActiveTransport("ws");
+          }
+        };
         ws.onmessage = () => {
           if (mountedRef.current) {
-            fetchTableData();
+            void fetchTableData();
           }
         };
         ws.onerror = () => {
-          // Polling fallback remains active
+          pushLiveRef.current = false;
+          ws?.close();
+          ws = null;
+          if (mountedRef.current) {
+            setActiveTransport("poll");
+          }
+        };
+        ws.onclose = () => {
+          pushLiveRef.current = false;
+          if (mountedRef.current) {
+            setActiveTransport("poll");
+          }
         };
       } catch {
-        // WebSocket unavailable in current runtime
+        pushLiveRef.current = false;
       }
     };
 
-    // Prefer Server-Sent Events (SSE) when transport is "sse" or "auto"
     if ((transport === "sse" || transport === "auto") && typeof EventSource !== "undefined") {
       try {
         sse = new EventSource(buildTableSseUrl(client.endpoint, service, table));
+        sse.onopen = () => {
+          if (mountedRef.current) {
+            pushLiveRef.current = true;
+            setActiveTransport("sse");
+          }
+        };
         sse.onmessage = () => {
           if (mountedRef.current) {
-            fetchTableData();
+            void fetchTableData();
           }
         };
         sse.addEventListener("tableUpdate", () => {
           if (mountedRef.current) {
-            fetchTableData();
+            void fetchTableData();
           }
         });
         sse.onerror = () => {
+          pushLiveRef.current = false;
+          sse?.close();
+          sse = null;
           if (transport === "auto" && !ws && mountedRef.current) {
-            sse?.close();
-            sse = null;
             connectWebSocket();
+          } else if (mountedRef.current) {
+            setActiveTransport("poll");
           }
         };
       } catch {
@@ -136,18 +170,19 @@ export function useMuabaseTable<T = any>({
       connectWebSocket();
     }
 
-    // Polling fallback / background refresher (disabled when pollIntervalMs <= 0)
+    // Polling fallback when live push transport is inactive (disabled when pollIntervalMs <= 0)
     const timer =
       pollIntervalMs > 0
         ? setInterval(() => {
-            if (mountedRef.current) {
-              fetchTableData();
+            if (mountedRef.current && !pushLiveRef.current) {
+              void fetchTableData();
             }
           }, pollIntervalMs)
         : null;
 
     return () => {
       mountedRef.current = false;
+      pushLiveRef.current = false;
       requestSeqRef.current++;
       if (timer !== null) {
         clearInterval(timer);
@@ -165,6 +200,7 @@ export function useMuabaseTable<T = any>({
     data,
     loading,
     error,
+    activeTransport,
     refresh: fetchTableData,
   };
 }

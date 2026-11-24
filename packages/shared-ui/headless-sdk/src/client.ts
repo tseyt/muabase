@@ -1,4 +1,4 @@
-import {
+import type {
   MuabaseConfig,
   TerminologyLocale,
   AssetPoolConfig,
@@ -91,6 +91,16 @@ export class MuabaseClient {
   public resolveGraphqlUrl(service: string): string {
     if (this.transport === "subdomain") {
       const parsed = new URL(this.endpoint);
+      const isRawIp =
+        /^(\d{1,3}\.){3}\d{1,3}$/.test(parsed.hostname) ||
+        parsed.hostname.startsWith("[") ||
+        parsed.hostname.includes(":");
+      if (isRawIp) {
+        throw new Error(
+          `Subdomain transport cannot prepend "${service}." to IP endpoint "${parsed.hostname}". ` +
+            `Use a hostname like "http://muabase.localhost:${parsed.port || 8080}" or transport: "gateway".`,
+        );
+      }
       parsed.hostname = `${service}.${parsed.hostname}`;
       parsed.pathname = "/graphql";
       parsed.search = "";
@@ -113,12 +123,16 @@ export class MuabaseClient {
     });
 
     if (!res.ok) {
-      throw new Error(`Muabase Query Failed [${res.status}]: ${res.statusText}`);
+      const body = await res.text().catch(() => "");
+      throw new Error(
+        `Muabase Query Failed [${res.status} ${res.statusText}] (${url}): ${body || "empty response"}`,
+      );
     }
 
     const json = await res.json();
     if (json.errors && json.errors.length > 0) {
-      throw new Error(`GraphQL Error: ${json.errors[0].message}`);
+      const messages = json.errors.map((e: any) => e.message).join("; ");
+      throw new Error(`GraphQL Error: ${messages}`);
     }
     return json.data;
   }
@@ -156,12 +170,57 @@ export class MuabaseClient {
     });
 
     if (!res.ok) {
-      const err = await res.text();
-      throw new Error(`Transaction Execution Reverted: ${err}`);
+      const err = await res.text().catch(() => "");
+      throw new Error(
+        `Transaction Execution Reverted [${res.status}] (${service}::${method}): ${err || res.statusText}`,
+      );
     }
 
     return await res.json();
   }
+
+  /**
+   * Canonical Branding & Dual-Locale Terminology namespace ("branding")
+   */
+  public branding = {
+    getNetworkName: async (): Promise<string> => {
+      const data = await this.query<{ networkName: string }>(
+        "branding",
+        "{ networkName }",
+      );
+      return data.networkName;
+    },
+
+    getTerminologyLocale: async (): Promise<TerminologyLocale> => {
+      const data = await this.query<{ terminologyLocale: TerminologyLocale }>(
+        "branding",
+        "{ terminologyLocale }",
+      );
+      return data.terminologyLocale;
+    },
+
+    getTerminologyDictionary: async (): Promise<
+      Array<{ key: string; institutional: string; muamalat: string }>
+    > => {
+      const data = await this.query<{
+        terminologyDictionary: Array<{
+          key: string;
+          institutional: string;
+          muamalat: string;
+        }>;
+      }>("branding", "{ terminologyDictionary { key institutional muamalat } }");
+      return data.terminologyDictionary;
+    },
+
+    translateTerm: async (term: string): Promise<string> => {
+      const data = await this.query<{ translateTerm: string }>(
+        "branding",
+        "query ($term: String!) { translateTerm(term: $term) }",
+        { term },
+      );
+      return data.translateTerm;
+    },
+  };
 
   /**
    * =========================================================================
@@ -739,21 +798,21 @@ export class MuabaseClient {
     claims: {
       submitEvidence: async (input: DamageClaimInput) => {
         return this.transact(MUABASE_SERVICES.CLAIM_COUNCIL, "submitDamageClaim", {
-          leaseId: parseInt(input.leaseId, 10),
+          lease_id: parseInt(input.leaseId, 10),
           respondent: "renter-account",
-          poolId: 1,
-          claimedAmount: { value: input.claimedAmountUsd * 10000 },
-          preConditionEvidenceHash: input.preConditionEvidenceHash,
-          postConditionEvidenceHash: input.postConditionEvidenceHash,
-          repairQuoteHash: input.repairQuoteHash,
+          pool_id: 1,
+          claimed_amount: { value: Math.round(input.claimedAmountUsd * 10000) },
+          pre_condition_evidence_hash: input.preConditionEvidenceHash,
+          post_condition_evidence_hash: input.postConditionEvidenceHash,
+          repair_quote_hash: input.repairQuoteHash,
         });
       },
 
       voteTriage: async (input: { claimId: string; approve: boolean; payoutUsd: number }) => {
         return this.transact(MUABASE_SERVICES.CLAIM_COUNCIL, "voteDamageClaim", {
-          claimId: parseInt(input.claimId, 10),
+          claim_id: parseInt(input.claimId, 10),
           approve: input.approve,
-          approvedPayout: { value: input.payoutUsd * 10000 },
+          approved_payout: { value: Math.round(input.payoutUsd * 10000) },
         });
       },
     },
@@ -761,8 +820,8 @@ export class MuabaseClient {
     credit: {
       netInvoices: async (invoice1: string, invoice2: string) => {
         return this.transact(MUABASE_SERVICES.CREDIT_CLEAR, "executeBilateralNetting", {
-          invoice1Id: parseInt(invoice1, 10),
-          invoice2Id: parseInt(invoice2, 10),
+          invoice_1_id: parseInt(invoice1, 10),
+          invoice_2_id: parseInt(invoice2, 10),
         });
       },
     },
@@ -780,8 +839,8 @@ export class MuabaseClient {
             legalWrapperHash: input.legalWrapperHash,
             maxHolders: 499,
             minTrustScore: 6000,
-            tangibleRatioBps: input.tangibleRatioBps || 10000,
-            priorityWindowSec: input.priorityWindowSec || 86400,
+            tangibleRatioBps: input.tangibleRatioBps ?? 10000,
+            priorityWindowSec: input.priorityWindowSec ?? 86400,
             custodianAccount: input.custodianAccount || "mizan-custodian",
             custodianFeeBps: 200, // 2% annual management fee
             charitySinkAccount: "waqf-sadaqah",
@@ -833,14 +892,14 @@ export class MuabaseClient {
         });
 
         return {
-          distributionId: String(res.distributionId || "dist-1"),
+          distributionId: String(res.distributionId ?? ""),
           poolId: params.poolId,
           grossYieldBps,
           netYieldBps,
           effectivePayoutBps,
           reserveSurplusAddedCents,
           reserveDrawCents,
-          reserveTotalBalanceCents: res.reserveTotalBalanceCents || 25000000,
+          reserveTotalBalanceCents: Number(res.reserveTotalBalanceCents ?? 0),
         };
       },
     },
@@ -904,12 +963,12 @@ export class MuabaseClient {
         });
 
         return {
-          positionId: String(result.positionId || "pos-1"),
+          positionId: String(result.positionId ?? ""),
           marketId: input.marketId,
           account: this.account,
           outcomeIndex: input.outcomeIndex,
           principalAmountUsd: input.principalAmountUsd,
-          prizeShares: input.principalAmountUsd * 86400, // Amount * Duration (stake_seconds)
+          prizeShares: Math.round(input.principalAmountUsd * 86400),
           allocationTimestamp: Math.floor(Date.now() / 1000),
           status: "Active",
         };
@@ -924,8 +983,8 @@ export class MuabaseClient {
         return {
           positionId,
           principalRefundUsd: res.principalRefundUsd, // 100% of user principal returned
-          yieldPrizeRewardUsd: res.yieldPrizeRewardUsd || 0, // Pro-rata share of redirected yield
-          skillPointsEarned: res.skillPointsEarned || 250, // Soulbound trust_score addition
+          yieldPrizeRewardUsd: res.yieldPrizeRewardUsd ?? 0,
+          skillPointsEarned: res.skillPointsEarned ?? 0,
         };
       },
     },
@@ -943,7 +1002,7 @@ export class MuabaseClient {
             legalWrapperHash: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
             maxHolders: 10000,
             minTrustScore: input.minTrustScore || 6500,
-            tangibleRatioBps: input.tangibleRatioBps || 10000,
+            tangibleRatioBps: input.tangibleRatioBps ?? 10000,
             priorityWindowSec: 86400,
             custodianAccount: "restaurant-registry",
             custodianFeeBps: 0,
@@ -982,34 +1041,34 @@ export class MuabaseClient {
 
     supperClubs: {
       book: async (input: SupperClubBookingInput): Promise<SupperClubBookingResult> => {
-        const totalAmountCents = input.seats * input.pricePerSeatCents;
+        const totalAmountCents = Math.round(input.seats * input.pricePerSeatCents);
         const split = computeCommercialSplitCents(totalAmountCents);
         const result = await this.transact(MUABASE_SERVICES.LEASE_ENGINE, "createLease", {
           lessor: "host-chef",
-          tokenId: input.clubId,
-          nftId: null,
-          durationSec: 14400, // 4-hour dining usufruct
-          grossPayment: { value: totalAmountCents * 100 },
-          paymentTokenId: 1,
-          preConditionEvidenceHash: input.preConditionEvidenceHash || "0x0",
-          isProgressiveBuyout: false,
-          buyoutEquityUnits: { value: 0 },
-          custodianAccount: "supper-host",
-          custodianFeeBps: 0,
-          charitySinkAccount: "waqf-sadaqah",
+          token_id: input.clubId,
+          nft_id: null,
+          duration_sec: 14400, // 4-hour dining usufruct
+          gross_payment: { value: totalAmountCents * 100 },
+          payment_token_id: 1,
+          pre_condition_evidence_hash: input.preConditionEvidenceHash || "0x" + "0".repeat(64),
+          is_progressive_buyout: false,
+          buyout_equity_units: { value: 0 },
+          custodian_account: "supper-host",
+          custodian_fee_bps: 0,
+          charity_sink_account: "waqf-sadaqah",
         });
 
         if (input.rail === "stripe_connect") {
           await this.transact(MUABASE_SERVICES.EXTERNAL_VAULT, "generateSplitIntent", {
-            leaseId: result.leaseId || 401,
-            railType: "stripe_connect",
-            grossAmountCents: totalAmountCents,
-            lenderAccount: "host-chef",
+            lease_id: result.leaseId || 401,
+            rail_type: "stripe_connect",
+            gross_amount_cents: totalAmountCents,
+            lender_account: "host-chef",
           });
         }
 
         return {
-          bookingId: String(result.leaseId || 401),
+          bookingId: String(result.leaseId ?? ""),
           clubId: input.clubId,
           diner: this.account,
           seats: input.seats,
@@ -1024,11 +1083,11 @@ export class MuabaseClient {
       },
 
       cancelWithEthicalDeterrence: async (input: BookingCancellationInput) => {
-        return this.transact(MUABASE_SERVICES.LEASE_ENGINE, "settleCancellation", {
-          leaseId: parseInt(input.bookingId, 10),
-          actualKitchenRestitution: { value: input.actualKitchenCostCents * 100 },
-          punitivePenalty: { value: input.punitiveLateFeeCents * 100 },
-          charitySinkAccount: "waqf-sadaqah",
+        return this.transact(MUABASE_SERVICES.LEASE_ENGINE, "processLateReturn", {
+          lease_id: parseInt(input.bookingId, 10),
+          actual_cost: { value: Math.round(input.actualKitchenCostCents * 100) },
+          late_deterrent_penalty: { value: Math.round(input.punitiveLateFeeCents * 100) },
+          post_condition_evidence_hash: "0x" + "0".repeat(64),
         });
       },
     },
