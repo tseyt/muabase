@@ -165,7 +165,7 @@ pub mod service {
         InitTable::read()
             .get_index_pk()
             .get(&())
-            .expect("creditclear service not initialized");
+            .expect("cred-clear service not initialized");
     }
 
     /// Registers a B2B commercial invoice for netting
@@ -180,6 +180,8 @@ pub mod service {
         let creditor = get_sender();
         assert_ne!(creditor, debtor, "Creditor and debtor cannot be identical");
         assert!(gross_amount.value > 0, "Invoice amount must be positive");
+        muabase_institutional::validate_non_zero_digest(&invoice_hash.0, "invoice_hash")
+            .unwrap_or_else(|e| panic!("{e}"));
 
         let invoice_id = ClearIdRow::next_id();
         let invoice = B2BInvoice {
@@ -262,6 +264,25 @@ pub mod service {
         std::cmp::min(volume_capacity, reserve_capacity) as u64
     }
 
+    pub fn apply_bilateral_netting(inv1: &mut B2BInvoice, inv2: &mut B2BInvoice) -> u64 {
+        assert_eq!(inv1.token_id, inv2.token_id, "Invoices must use identical denomination token");
+        assert_eq!(inv1.creditor, inv2.debtor, "Invoices must be reciprocal counter-parties");
+        assert_eq!(inv1.debtor, inv2.creditor, "Invoices must be reciprocal counter-parties");
+        assert!(!inv1.settled && !inv2.settled, "Invoices already settled");
+
+        let net_cancel = std::cmp::min(inv1.remaining_balance.value, inv2.remaining_balance.value);
+        inv1.remaining_balance = inv1.remaining_balance - net_cancel.into();
+        inv2.remaining_balance = inv2.remaining_balance - net_cancel.into();
+
+        if inv1.remaining_balance.value == 0 {
+            inv1.settled = true;
+        }
+        if inv2.remaining_balance.value == 0 {
+            inv2.settled = true;
+        }
+        net_cancel
+    }
+
     /// Executes bilateral/multilateral set-off (Muqassah), cancelling reciprocal debt obligations
     #[action]
     pub fn executeBilateralNetting(invoice_1_id: u64, invoice_2_id: u64) {
@@ -274,28 +295,23 @@ pub mod service {
             .get(&invoice_2_id)
             .expect("Invoice 2 DNE");
 
-        assert_eq!(inv1.token_id, inv2.token_id, "Invoices must use identical denomination token");
-        assert_eq!(inv1.creditor, inv2.debtor, "Invoices must be reciprocal counter-parties");
-        assert_eq!(inv1.debtor, inv2.creditor, "Invoices must be reciprocal counter-parties");
-        assert!(!inv1.settled && !inv2.settled, "Invoices already settled");
-
-        // Netting amount is the min of the two balances (extinguishing mutual obligations)
-        let net_cancel = std::cmp::min(inv1.remaining_balance.value, inv2.remaining_balance.value);
-
-        inv1.remaining_balance = inv1.remaining_balance - net_cancel.into();
-        inv2.remaining_balance = inv2.remaining_balance - net_cancel.into();
-
-        if inv1.remaining_balance.value == 0 {
-            inv1.settled = true;
-        }
-        if inv2.remaining_balance.value == 0 {
-            inv2.settled = true;
-        }
+        let net_cancel = apply_bilateral_netting(&mut inv1, &mut inv2);
 
         B2BInvoiceTable::new().put(&inv1).unwrap();
         B2BInvoiceTable::new().put(&inv2).unwrap();
 
         Wrapper::emit().history().invoicesNetted(invoice_1_id, invoice_2_id, net_cancel.into());
+    }
+
+    pub fn validate_bridge_spread_and_cap(fx_spread_bps: u32, max_per_tx_usdc_cents: u64) {
+        assert!(
+            fx_spread_bps <= MAX_BRIDGE_FX_SPREAD_BPS,
+            "fx_spread_bps {fx_spread_bps} exceeds maximum corridor spread cap ({MAX_BRIDGE_FX_SPREAD_BPS} bps)"
+        );
+        assert!(
+            max_per_tx_usdc_cents > 0,
+            "max_per_tx_usdc_cents must be strictly positive"
+        );
     }
 
     pub fn validate_bridge_desk_registration(
@@ -308,20 +324,20 @@ pub mod service {
         fx_spread_bps: u32,
         max_per_tx_usdc_cents: u64,
     ) {
-        assert!(
-            corridor_jurisdiction.len() == 2
-                && corridor_jurisdiction.chars().all(|c| c.is_ascii_uppercase()),
-            "corridorJurisdiction '{}' must be a 2-letter uppercase ISO-3166-1 alpha-2 bridge code (e.g. TR, AE, UA, UZ)",
-            corridor_jurisdiction
-        );
+        muabase_institutional::validate_iso_country_code(
+            corridor_jurisdiction,
+            "corridor_jurisdiction",
+        )
+        .unwrap_or_else(|e| panic!("{e}"));
         assert!(
             !desk_label.trim().is_empty() && desk_label.len() <= 96,
             "desk_label must be between 1 and 96 characters"
         );
-        assert!(
-            *license_registry_hash != Checksum256::from([0u8; 32]),
-            "license_registry_hash must be a non-zero 32-byte SHA-256 digest"
-        );
+        muabase_institutional::validate_non_zero_digest(
+            &license_registry_hash.0,
+            "license_registry_hash",
+        )
+        .unwrap_or_else(|e| panic!("{e}"));
         let has_non_custodial_vault = !evm_safe_address.trim().is_empty()
             || !btc_taproot_descriptor.trim().is_empty()
             || !solana_squads_pda.trim().is_empty();
@@ -329,16 +345,7 @@ pub mod service {
             has_non_custodial_vault,
             "Non-Custodial Safe Harbor Violation: BridgeLiquidityDesk must publish at least one client-verifiable Safe, Taproot, or Squads multisig settlement address"
         );
-        assert!(
-            fx_spread_bps <= MAX_BRIDGE_FX_SPREAD_BPS,
-            "fx_spread_bps {} exceeds maximum corridor spread cap ({} bps)",
-            fx_spread_bps,
-            MAX_BRIDGE_FX_SPREAD_BPS
-        );
-        assert!(
-            max_per_tx_usdc_cents > 0,
-            "max_per_tx_usdc_cents must be strictly positive"
-        );
+        validate_bridge_spread_and_cap(fx_spread_bps, max_per_tx_usdc_cents);
     }
 
     /// Registers a licensed bridge-country exchange desk publishing non-custodial Safe/Taproot/Squads
@@ -410,16 +417,7 @@ pub mod service {
             desk.operator, caller,
             "Only the registered desk operator can update corridor spread metadata"
         );
-        assert!(
-            fx_spread_bps <= MAX_BRIDGE_FX_SPREAD_BPS,
-            "fx_spread_bps {} exceeds maximum corridor spread cap ({} bps)",
-            fx_spread_bps,
-            MAX_BRIDGE_FX_SPREAD_BPS
-        );
-        assert!(
-            max_per_tx_usdc_cents > 0,
-            "max_per_tx_usdc_cents must be strictly positive"
-        );
+        validate_bridge_spread_and_cap(fx_spread_bps, max_per_tx_usdc_cents);
 
         desk.fx_spread_bps = fx_spread_bps;
         desk.max_per_tx_usdc_cents = max_per_tx_usdc_cents;
@@ -579,5 +577,43 @@ mod tests {
             1250,
             1_000_000,
         );
+    }
+
+    #[test]
+    fn given_reciprocal_invoices_when_bilateral_netting_runs_then_cancels_minimum_and_settles_zeroed_side() {
+        use crate::service::apply_bilateral_netting;
+        use crate::tables::B2BInvoice;
+        use psibase::{account, TimePointSec};
+
+        let mut inv1 = B2BInvoice {
+            invoice_id: 1,
+            creditor: account!("alice"),
+            debtor: account!("bob"),
+            token_id: 1,
+            gross_amount: 10_000.into(),
+            remaining_balance: 10_000.into(),
+            due_date: TimePointSec::from(0),
+            invoice_hash: Checksum256::from([0x11; 32]),
+            settled: false,
+        };
+        let mut inv2 = B2BInvoice {
+            invoice_id: 2,
+            creditor: account!("bob"),
+            debtor: account!("alice"),
+            token_id: 1,
+            gross_amount: 6_000.into(),
+            remaining_balance: 6_000.into(),
+            due_date: TimePointSec::from(0),
+            invoice_hash: Checksum256::from([0x22; 32]),
+            settled: false,
+        };
+
+        let cancelled = apply_bilateral_netting(&mut inv1, &mut inv2);
+        assert_eq!(cancelled, 6_000);
+        assert_eq!(inv1.remaining_balance.value, 4_000);
+        assert!(!inv1.settled);
+        assert_eq!(inv2.remaining_balance.value, 0);
+        assert!(inv2.settled);
+        assert_eq!(calculate_wajahah_limit(0, 0, 50_000), 0);
     }
 }

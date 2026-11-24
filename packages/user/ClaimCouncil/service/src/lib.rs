@@ -100,8 +100,6 @@ pub mod service {
     /// trust_score deduction (bps) applied to a respondent found at fault by the triage quorum
     const FAULT_TRUST_PENALTY_BPS: u32 = 500;
 
-    pub const MUTUAL_SHIELD: AccountNumber = account!("mut-shield");
-
     #[action]
     fn init() {
         let table = InitTable::new();
@@ -127,7 +125,7 @@ pub mod service {
         InitTable::read()
             .get_index_pk()
             .get(&())
-            .expect("claimcouncil service not initialized");
+            .expect("claim-coun service not initialized");
     }
 
     /// Mode A: Submits a damage claim with photographic & invoice proof hashes (Bayyinah)
@@ -142,6 +140,8 @@ pub mod service {
         repair_quote_hash: Checksum256,
     ) -> u64 {
         let claimant = get_sender();
+        assert_ne!(claimant, respondent, "Claimant and respondent must be distinct");
+        assert!(claimed_amount.value > 0, "Claimed amount must be positive");
         let claim_id = CouncilIdRow::next_id();
 
         let claim = DamageClaim {
@@ -213,6 +213,13 @@ pub mod service {
         deliverable_hash: Checksum256,
     ) {
         let sponsor = get_sender();
+        assert_ne!(sponsor, contractor, "Sponsor and contractor must be distinct");
+        assert!(reward_amount.value > 0, "Reward amount must be positive");
+        let table = BountyEvaluationTable::new();
+        assert!(
+            table.get_index_pk().get(&bounty_id).is_none(),
+            "Bounty already exists"
+        );
         let bounty = BountyEvaluation {
             bounty_id,
             sponsor,
@@ -223,28 +230,25 @@ pub mod service {
             condorcet_score: 0,
             finalized: false,
         };
-        BountyEvaluationTable::new().put(&bounty).unwrap();
+        table.put(&bounty).unwrap();
     }
 
     /// Mode B: Attests as witness to bounty deliverable (Binary Bayyinah - 2 witnesses required)
     #[action]
     pub fn attestBountyWitness(bounty_id: u64) {
         let witness = get_sender();
-        let mut bounty = BountyEvaluationTable::read()
+        let bounty = BountyEvaluationTable::read()
             .get_index_pk()
             .get(&bounty_id)
             .expect("Bounty DNE");
 
-        assert_ne!(witness, bounty.sponsor, "Sponsor cannot witness");
-        assert_ne!(witness, bounty.contractor, "Contractor cannot witness");
-        assert!(!bounty.witnesses.contains(&witness), "Already witnessed");
-
-        bounty.witnesses.push(witness);
-
-        // Once 2 witnesses attest, bounty is verified for release
-        if bounty.witnesses.len() >= 2 {
-            bounty.finalized = true;
-            Wrapper::emit().history().bountyFinalized(bounty_id, bounty.contractor, bounty.reward_amount);
+        let bounty = apply_bounty_witness(bounty, witness);
+        if bounty.finalized {
+            Wrapper::emit().history().bountyFinalized(
+                bounty_id,
+                bounty.contractor,
+                bounty.reward_amount,
+            );
         }
 
         BountyEvaluationTable::new().put(&bounty).unwrap();
@@ -301,6 +305,10 @@ pub mod service {
         );
 
         if approve {
+            assert!(
+                approved_payout.value > 0 && approved_payout.value <= claim.claimed_amount.value,
+                "Approved payout must be within 1..=claimed_amount"
+            );
             claim.approvals.push(voter);
             if claim.approved_amount.value == 0
                 || approved_payout.value < claim.approved_amount.value
@@ -319,6 +327,22 @@ pub mod service {
 
         claim
     }
+
+    pub fn apply_bounty_witness(
+        mut bounty: BountyEvaluation,
+        witness: AccountNumber,
+    ) -> BountyEvaluation {
+        assert!(!bounty.finalized, "Bounty already finalized");
+        assert_ne!(witness, bounty.sponsor, "Sponsor cannot witness");
+        assert_ne!(witness, bounty.contractor, "Contractor cannot witness");
+        assert!(!bounty.witnesses.contains(&witness), "Already witnessed");
+
+        bounty.witnesses.push(witness);
+        if bounty.witnesses.len() >= 2 {
+            bounty.finalized = true;
+        }
+        bounty
+    }
 }
 
 #[cfg(all(test, target_family = "wasm"))]
@@ -331,11 +355,32 @@ mod wasm_tests {
 
 #[cfg(test)]
 mod tests {
-    use super::service::{apply_damage_claim_vote, compute_fault_penalized_score};
+    use super::service::{
+        apply_bounty_witness, apply_damage_claim_vote, compute_fault_penalized_score,
+    };
     use crate::tables::{
-        DamageClaim, CLAIM_STATUS_APPROVED, CLAIM_STATUS_PENDING,
+        BountyEvaluation, DamageClaim, CLAIM_STATUS_APPROVED, CLAIM_STATUS_PENDING,
+        CLAIM_STATUS_REJECTED,
     };
     use psibase::{account, Checksum256};
+
+    fn sample_claim(claim_id: u64, claimed_amount: u64) -> DamageClaim {
+        DamageClaim {
+            claim_id,
+            lease_id: 100 + claim_id,
+            claimant: account!("alice"),
+            respondent: account!("bob"),
+            pool_id: 1,
+            claimed_amount: claimed_amount.into(),
+            approved_amount: 0.into(),
+            pre_condition_evidence_hash: Checksum256::from([0x11; 32]),
+            post_condition_evidence_hash: Checksum256::from([0x22; 32]),
+            repair_quote_hash: Checksum256::from([0x33; 32]),
+            status: CLAIM_STATUS_PENDING,
+            approvals: Vec::new(),
+            rejections: Vec::new(),
+        }
+    }
 
     #[test]
     fn test_fault_penalty_decrements_relative_to_current_score() {
@@ -351,21 +396,7 @@ mod tests {
 
     #[test]
     fn test_two_of_three_approvals_clamp_payout_to_minimum_and_approve_claim() {
-        let claim = DamageClaim {
-            claim_id: 1,
-            lease_id: 101,
-            claimant: account!("alice"),
-            respondent: account!("bob"),
-            pool_id: 1,
-            claimed_amount: 50_000.into(),
-            approved_amount: 0.into(),
-            pre_condition_evidence_hash: Checksum256::default(),
-            post_condition_evidence_hash: Checksum256::default(),
-            repair_quote_hash: Checksum256::default(),
-            status: CLAIM_STATUS_PENDING,
-            approvals: Vec::new(),
-            rejections: Vec::new(),
-        };
+        let claim = sample_claim(1, 50_000);
 
         let after_first = apply_damage_claim_vote(claim, account!("peer1"), true, 45_000.into());
         assert_eq!(after_first.status, CLAIM_STATUS_PENDING);
@@ -378,25 +409,44 @@ mod tests {
     }
 
     #[test]
+    fn given_pending_claim_when_two_peers_reject_then_claim_is_rejected_with_zero_payout() {
+        let c1 = apply_damage_claim_vote(sample_claim(3, 20_000), account!("peer1"), false, 0.into());
+        let c2 = apply_damage_claim_vote(c1, account!("peer2"), false, 0.into());
+        assert_eq!(c2.status, CLAIM_STATUS_REJECTED);
+        assert_eq!(c2.approved_amount.value, 0);
+    }
+
+    #[test]
+    #[cfg(not(target_family = "wasm"))]
+    #[should_panic(expected = "Approved payout must be within 1..=claimed_amount")]
+    fn given_pending_claim_when_approving_payout_exceeds_claimed_or_is_zero_then_rejected() {
+        let _ = apply_damage_claim_vote(sample_claim(4, 10_000), account!("peer1"), true, 10_001.into());
+    }
+
+    #[test]
     #[cfg(not(target_family = "wasm"))]
     #[should_panic(expected = "Respondent cannot vote on own claim")]
     fn test_respondent_cannot_vote_on_own_damage_claim() {
-        let claim = DamageClaim {
-            claim_id: 2,
-            lease_id: 102,
-            claimant: account!("alice"),
-            respondent: account!("bob"),
-            pool_id: 1,
-            claimed_amount: 10_000.into(),
-            approved_amount: 0.into(),
-            pre_condition_evidence_hash: Checksum256::default(),
-            post_condition_evidence_hash: Checksum256::default(),
-            repair_quote_hash: Checksum256::default(),
-            status: CLAIM_STATUS_PENDING,
-            approvals: Vec::new(),
-            rejections: Vec::new(),
-        };
+        let _ = apply_damage_claim_vote(sample_claim(2, 10_000), account!("bob"), false, 0.into());
+    }
 
-        let _ = apply_damage_claim_vote(claim, account!("bob"), false, 0.into());
+    #[test]
+    #[cfg(not(target_family = "wasm"))]
+    #[should_panic(expected = "Bounty already finalized")]
+    fn given_finalized_bounty_when_extra_witness_attests_then_rejected() {
+        let b = BountyEvaluation {
+            bounty_id: 1,
+            sponsor: account!("sponsor"),
+            contractor: account!("dev"),
+            reward_amount: 5_000.into(),
+            deliverable_hash: Checksum256::from([0xaa; 32]),
+            witnesses: Vec::new(),
+            condorcet_score: 0,
+            finalized: false,
+        };
+        let b1 = apply_bounty_witness(b, account!("w1"));
+        let b2 = apply_bounty_witness(b1, account!("w2"));
+        assert!(b2.finalized);
+        let _ = apply_bounty_witness(b2, account!("w3"));
     }
 }

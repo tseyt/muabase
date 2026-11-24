@@ -117,7 +117,7 @@ pub mod service {
         InitTable::read()
             .get_index_pk()
             .get(&())
-            .expect("mutualshield service not initialized");
+            .expect("mut-shield service not initialized");
     }
 
     /// Receives Tabarru' protection contribution from LeaseEngine or guild members
@@ -164,6 +164,11 @@ pub mod service {
             sender == CLAIM_COUNCIL || sender == SERVICE,
             "Only ClaimCouncil is authorized to disburse Takaful claims"
         );
+        assert!(amount.value > 0, "Payout amount must be positive");
+        assert!(
+            PayoutRecordTable::read().get_index_pk().get(&claim_id).is_none(),
+            "Payout already disbursed for claim_id"
+        );
 
         let mut pool = ShieldPoolTable::read()
             .get_index_pk()
@@ -195,6 +200,11 @@ pub mod service {
     /// Distributes underwriting surplus pro-rata back to zero-incident members at epoch end
     #[action]
     pub fn distributeSurplus(pool_id: u32, epoch_id: u32) {
+        assert_eq!(
+            get_sender(),
+            SERVICE,
+            "Only mut-shield governance may settle epoch surplus"
+        );
         let mut pool = ShieldPoolTable::read()
             .get_index_pk()
             .get(&pool_id)
@@ -223,9 +233,13 @@ pub mod service {
         total_out: u64,
         surplus_rebate_bps: u16,
     ) -> u64 {
+        assert!(
+            surplus_rebate_bps <= 10_000,
+            "surplus_rebate_bps must be within 0..=10000"
+        );
         if total_in > total_out {
             let surplus = total_in - total_out;
-            (surplus as u128 * surplus_rebate_bps as u128 / 10000) as u64
+            (surplus as u128 * surplus_rebate_bps as u128 / 10_000) as u64
         } else {
             0
         }
@@ -286,5 +300,12 @@ mod tests {
     fn test_surplus_distribution_zero_when_claims_equal_or_exceed_contributions() {
         assert_eq!(compute_distributable_surplus(5_000, 5_000, 5000), 0);
         assert_eq!(compute_distributable_surplus(4_000, 6_000, 5000), 0);
+    }
+
+    #[test]
+    #[cfg(not(target_family = "wasm"))]
+    #[should_panic(expected = "surplus_rebate_bps must be within 0..=10000")]
+    fn given_rebate_bps_over_10000_when_computing_surplus_then_rejected() {
+        let _ = compute_distributable_surplus(10_000, 1_000, 10_001);
     }
 }
