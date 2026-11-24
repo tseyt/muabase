@@ -44,6 +44,7 @@ pub fn compute_split_amounts(gross_amount_cents: u64) -> (u64, u64, u64) {
     (split.net_owner_amount, split.shield_amount, split.saas_amount)
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn build_commercial_split_payload(
     lease_id: u64,
     rail_type: &str,
@@ -159,6 +160,7 @@ pub fn validate_zakat_remittance_split(
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn build_remittance_multisig_payload(
     mode: CorridorSplitMode,
     rail_type: &str,

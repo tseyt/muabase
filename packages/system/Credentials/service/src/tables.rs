@@ -130,7 +130,9 @@ pub mod tables {
             self.account
         }
     }
+    #[allow(dead_code)]
     pub type AdalahRecord = TrustScoreRecord;
+    #[allow(dead_code)]
     pub type AdalahTable = TrustScoreTable;
 
     /// Soulbound (non-transferable) domain competence credential (domain_badge / Ikhtisas)
@@ -159,7 +161,9 @@ pub mod tables {
             (self.domain.clone(), self.account)
         }
     }
+    #[allow(dead_code)]
     pub type IkhtisasRecord = DomainBadgeRecord;
+    #[allow(dead_code)]
     pub type IkhtisasTable = DomainBadgeTable;
 
     /// Accredited institutional issuers authorized to grant domain badges and update scores.

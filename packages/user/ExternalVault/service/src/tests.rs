@@ -7,7 +7,7 @@ mod wasm_tests {
 }
 
 #[cfg(test)]
-mod tests {
+mod unit_tests {
     use crate::domain::{
         build_commercial_split_payload, build_corridor_receipt, build_remittance_multisig_payload,
         compute_corridor_split, compute_split_amounts, validate_rail_type,

@@ -7,6 +7,7 @@ mod tests;
 
 pub use tables::tables as external_vault_tables;
 
+#[allow(clippy::too_many_arguments)]
 #[psibase::service(name = "ext-vault", tables = "tables::tables")]
 pub mod service {
     pub use crate::domain::{

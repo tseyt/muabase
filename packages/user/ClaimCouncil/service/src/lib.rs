@@ -89,6 +89,7 @@ pub mod tables {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 #[psibase::service(name = "claim-coun", tables = "tables")]
 pub mod service {
     use crate::tables::*;

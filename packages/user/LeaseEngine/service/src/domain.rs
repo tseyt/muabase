@@ -9,6 +9,7 @@ use psibase::{AccountNumber, Checksum256};
 pub const DEFAULT_PROTOCOL_SAAS_FEE_BPS: u16 = 300;
 pub const DEFAULT_MUTUAL_SHIELD_FEE_BPS: u16 = 400;
 
+#[allow(clippy::too_many_arguments)]
 pub fn validate_lease_creation(
     lessee: AccountNumber,
     lessor: AccountNumber,

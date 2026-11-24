@@ -1,4 +1,5 @@
 #[psibase::service_tables]
+#[allow(clippy::module_inception)]
 pub mod tables {
     use async_graphql::SimpleObject;
     use psibase::services::tokens::{Quantity, TID};

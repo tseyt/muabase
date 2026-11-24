@@ -7,6 +7,7 @@ mod tests;
 
 pub use tables::tables as waqf_tables;
 
+#[allow(clippy::too_many_arguments)]
 #[psibase::service(name = "waqf-treas", tables = "tables::tables")]
 pub mod service {
     pub use crate::domain::{

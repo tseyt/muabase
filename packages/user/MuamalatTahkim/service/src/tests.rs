@@ -7,7 +7,7 @@ mod wasm_tests {
 }
 
 #[cfg(test)]
-mod tests {
+mod unit_tests {
     use crate::domain::{
         apply_milestone_release, apply_raise_dispute, apply_tahkim_vote, build_validated_contract,
         parse_ruling, CONTRACT_KIND_ISTISNA, MAX_MILESTONES_PER_CONTRACT, RULING_AWARD_CONTRACTOR,

@@ -7,7 +7,7 @@ mod wasm_tests {
 }
 
 #[cfg(test)]
-mod tests {
+mod unit_tests {
     use crate::domain::{
         validate_late_return, validate_lease_creation, validate_return_finalization,
         validate_settlement_and_compute_split, DEFAULT_MUTUAL_SHIELD_FEE_BPS,

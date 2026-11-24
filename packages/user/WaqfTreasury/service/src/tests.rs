@@ -7,7 +7,7 @@ mod wasm_tests {
 }
 
 #[cfg(test)]
-mod tests {
+mod unit_tests {
     use crate::domain::{
         apply_disbursement_approval, apply_key_recovery_approval, validate_disbursement_rules,
         validate_endowment_params, validate_key_recovery_proposal,

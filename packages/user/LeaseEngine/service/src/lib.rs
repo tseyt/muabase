@@ -7,6 +7,7 @@ mod tests;
 
 pub use tables::tables as lease_tables;
 
+#[allow(clippy::too_many_arguments)]
 #[psibase::service(name = "lease-eng", tables = "tables::tables")]
 pub mod service {
     pub use crate::domain::{

@@ -98,7 +98,7 @@ fn record_board_approval(
     approver: AccountNumber,
     excluded_member: Option<AccountNumber>,
 ) -> bool {
-    let is_excluded = excluded_member.map_or(false, |ex| ex == approver);
+    let is_excluded = excluded_member == Some(approver);
     assert!(
         endowment.board_members.contains(&approver) && !is_excluded,
         "Only an eligible active board member may approve this proposal"
@@ -110,9 +110,7 @@ fn record_board_approval(
     approvals.push(approver);
     let active_approvals = approvals
         .iter()
-        .filter(|m| {
-            endowment.board_members.contains(m) && excluded_member.map_or(true, |ex| ex != **m)
-        })
+        .filter(|m| endowment.board_members.contains(m) && excluded_member != Some(**m))
         .count();
     (active_approvals as u32) >= endowment.quorum_threshold
 }

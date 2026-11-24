@@ -53,6 +53,7 @@ pub fn parse_ruling(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn build_validated_contract(
     contract_id: u64,
     tpl: &ContractTemplate,

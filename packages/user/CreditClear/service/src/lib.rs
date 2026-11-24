@@ -126,6 +126,7 @@ pub mod tables {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 #[psibase::service(name = "cred-clear", tables = "tables")]
 pub mod service {
     use crate::tables::*;
@@ -248,11 +249,9 @@ pub mod service {
 
         // Compute dispute discount factor: (1 - D_A)^2
         // D_A = min(v_disputed / max(1, v_settled), 1)
-        let dispute_ratio_ppm = if v_settled > 0 {
-            std::cmp::min(1_000_000, (v_disputed * 1_000_000) / v_settled)
-        } else {
-            1_000_000
-        };
+        let dispute_ratio_ppm = (v_disputed * 1_000_000)
+            .checked_div(v_settled)
+            .map_or(1_000_000, |r| r.min(1_000_000));
 
         let trust_factor_ppm = 1_000_000 - dispute_ratio_ppm;
         // (1 - D_A)^2
