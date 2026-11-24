@@ -1,6 +1,6 @@
 import type { Conversation } from "../hooks/use-conversations";
 
-import { ArrowLeft, Coins, Lock } from "lucide-react";
+import { ArrowLeft, Coins, LockOpen } from "lucide-react";
 import { Fragment, useLayoutEffect, useMemo, useRef } from "react";
 import { Link } from "react-router-dom";
 
@@ -222,8 +222,8 @@ const ThreadIntro = ({
                 ? "Jot down notes, links and reminders. They'll be here in any app that uses Chain mail."
                 : `This is the start of your conversation with ${title}. It follows you into any app that uses Chain mail.`}
         </p>
-        <p className="text-muted-foreground/80 inline-flex items-center gap-1 text-[11px]">
-            <Lock className="size-3" />
+        <p className="inline-flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400">
+            <LockOpen className="size-3" aria-hidden="true" />
             Messages are not encrypted.
         </p>
     </div>

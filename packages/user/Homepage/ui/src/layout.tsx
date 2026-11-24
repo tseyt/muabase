@@ -21,6 +21,12 @@ export const Layout = () => {
 
     return (
         <div className="flex h-svh flex-col overflow-hidden">
+            <a
+                href="#main-content"
+                className="bg-background text-foreground focus:ring-ring sr-only fixed left-2 top-2 z-50 rounded-md border px-3 py-1.5 text-sm font-medium focus:not-sr-only focus:outline-none focus:ring-2"
+            >
+                Skip to content
+            </a>
             <header className="bg-background/80 supports-[backdrop-filter]:bg-background/60 z-20 flex h-14 shrink-0 items-center gap-1 border-b px-2 backdrop-blur md:px-4">
                 <Link to="/" aria-label="Home" className="shrink-0">
                     <NetworkLogo role={undefined} />
@@ -31,21 +37,32 @@ export const Layout = () => {
             </header>
 
             {isLoginRequired ? (
-                <div className="grid-bg flex flex-1 items-center justify-center p-4">
+                <main
+                    id="main-content"
+                    className="grid-bg flex flex-1 items-center justify-center p-4"
+                >
                     <AppSplashScreen />
-                </div>
+                </main>
             ) : currentApp && isPendingCurrentUser ? (
-                <Loading className="flex-1" />
+                <main id="main-content" className="flex flex-1 flex-col">
+                    <Loading className="flex-1" />
+                </main>
             ) : isFill ? (
-                <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                <main
+                    id="main-content"
+                    className="flex min-h-0 flex-1 flex-col overflow-hidden"
+                >
                     <Outlet />
-                </div>
+                </main>
             ) : (
-                <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto">
+                <main
+                    id="main-content"
+                    className="scrollbar-thin min-h-0 flex-1 overflow-y-auto"
+                >
                     <div className="mx-auto flex w-full max-w-screen-2xl flex-col gap-4 p-4 md:p-6">
                         <Outlet />
                     </div>
-                </div>
+                </main>
             )}
             <AccountSheet />
         </div>

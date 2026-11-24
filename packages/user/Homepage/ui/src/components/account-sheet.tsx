@@ -41,7 +41,6 @@ export const AccountSheet = () => {
             <SheetContent
                 side="right"
                 className="w-full gap-0 p-0 sm:max-w-xl"
-                onOpenAutoFocus={(e) => e.preventDefault()}
             >
                 <SheetHeader className="grid-bg gap-0 border-b p-0">
                     <div className="flex items-center gap-3 px-5 pb-4 pt-5">

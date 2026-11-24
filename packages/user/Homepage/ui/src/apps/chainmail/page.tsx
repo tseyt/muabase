@@ -1,7 +1,7 @@
 import type { OutgoingMessage } from "./components/composer";
 import type { PendingMessage } from "./components/thread";
 
-import { Lock, MessagesSquare, SquarePen } from "lucide-react";
+import { LockOpen, MessagesSquare, SquarePen } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useMediaQuery } from "usehooks-ts";
@@ -152,6 +152,15 @@ export default function ChatPage() {
                     ) : peer ? (
                         <EmptyState
                             detail={`"${peer}" isn't a valid account name.`}
+                            action={
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => select(null)}
+                                >
+                                    Back to chats
+                                </Button>
+                            }
                         >
                             Can&apos;t open this chat
                         </EmptyState>
@@ -194,8 +203,8 @@ const NoChatSelected = ({ onNewChat }: { onNewChat: () => void }) => {
                 <SquarePen className="size-3.5" />
                 Start a chat
             </Button>
-            <p className="text-muted-foreground/80 inline-flex items-center gap-1 text-[11px]">
-                <Lock className="size-3" />
+            <p className="inline-flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400">
+                <LockOpen className="size-3" aria-hidden="true" />
                 Messages are not encrypted.
             </p>
         </div>

@@ -12,6 +12,7 @@ import { useAmount } from "./hooks/use-amount";
 import { usePools } from "./hooks/use-pools";
 import { useQuoteSwap } from "./hooks/use-quote-swap";
 import { useSlippageTolerance } from "./hooks/use-slippage-tolerance";
+import { canSubmitSwap, formatSlippagePercent } from "./slippage";
 
 export const Swap = ({ onSwitch }: { onSwitch: () => void }) => {
     const { setValue: setShowSwap, value: showSwap } = useBoolean();
@@ -119,8 +120,14 @@ export const Swap = ({ onSwitch }: { onSwitch: () => void }) => {
     const isNoTradingNetwork =
         uniqueTradeableTokens.length < 2 && !isLoadingPools;
 
-    const fromAmountIsValid =
-        !Number.isNaN(fromAmountNumber) && fromAmountNumber !== undefined;
+    const swapAllowed = canSubmitSwap({
+        fromAmountNumber,
+        isFromOverMaxBalance,
+        fromId,
+        toId,
+        hasQuote: Boolean(quotedSwap),
+        hasQuoteError: Boolean(quoteError),
+    });
     const fromToken = uniqueTradeableTokens.find((t) => t.id === fromId);
     const toToken = uniqueTradeableTokens.find((t) => t.id === toId);
 
@@ -158,78 +165,87 @@ export const Swap = ({ onSwitch }: { onSwitch: () => void }) => {
                 poolIds={swapQuotePoolIds}
                 onSuccess={onSuccess}
             />
-            <DualTokens
-                disableTrigger={!fromAmountIsValid || isFromOverMaxBalance}
-                onCenterClick={() => {
-                    setFromId(toId);
-                    setToId(fromId);
-                    setFromAmount(toAmount);
-                    setToAmount("");
-                }}
-                onTrigger={() => {
-                    setShowSwap(true);
-                }}
-                token1={{
-                    id: fromId || 0,
-                    label: "From",
-                    symbol: fromToken?.symbol || undefined,
-                    disabled: isNoTradingNetwork,
-                    amount: fromAmount,
-                    balance: fromBalance,
-                    setAmount: function (amount) {
-                        setFromAmount(amount);
-                    },
-                    onSelect: function () {
-                        onFromSelect();
-                        setPickTokenModal(true);
-                    },
-                }}
-                token2={{
-                    id: toId || 0,
-                    label: "To",
-                    symbol: toToken?.symbol || undefined,
-                    disabled: true,
-                    amount: toAmount,
-                    balance: toBalance,
-                    setAmount: function (amount) {
-                        setToAmount(amount);
-                    },
-                    onSelect: function () {
-                        onToSelect();
-                        setPickTokenModal(true);
-                    },
-                }}
-                triggerLabel={
-                    isFromOverMaxBalance ? "Insufficient balance" : "Swap"
-                }
-                center={<ArrowDownUp className="h-5 w-5" />}
-                footer={
-                    <div className="text-muted-foreground space-y-1 text-sm">
-                        <div className="flex justify-between">
-                            <span>Minimum output</span>
-                            <span>~{quotedSwap?.minimumReturn}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span>Slippage tolerance</span>
-                            <span>{slippage * 100}%</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span>Price impact</span>
-                            <span>{priceImpact.toFixed(2)}%</span>
-                        </div>
-                        {quoteError && (
-                            <div className="text-muted-foreground space-y-1 text-sm">
-                                <div className="flex justify-between">
-                                    <span>Quote error</span>
-                                    <span className="text-destructive">
-                                        {quoteError.message}
-                                    </span>
-                                </div>
+            <div inert={isNoTradingNetwork ? true : undefined}>
+                <DualTokens
+                    disableTrigger={!swapAllowed}
+                    onCenterClick={() => {
+                        setFromId(toId);
+                        setToId(fromId);
+                        setFromAmount(toAmount);
+                        setToAmount("");
+                    }}
+                    onTrigger={() => {
+                        setShowSwap(true);
+                    }}
+                    token1={{
+                        id: fromId || 0,
+                        label: "From",
+                        symbol: fromToken?.symbol || undefined,
+                        disabled: isNoTradingNetwork,
+                        amount: fromAmount,
+                        balance: fromBalance,
+                        setAmount: function (amount) {
+                            setFromAmount(amount);
+                        },
+                        onSelect: function () {
+                            onFromSelect();
+                            setPickTokenModal(true);
+                        },
+                    }}
+                    token2={{
+                        id: toId || 0,
+                        label: "To",
+                        symbol: toToken?.symbol || undefined,
+                        disabled: true,
+                        amount: toAmount,
+                        balance: toBalance,
+                        setAmount: function (amount) {
+                            setToAmount(amount);
+                        },
+                        onSelect: function () {
+                            onToSelect();
+                            setPickTokenModal(true);
+                        },
+                    }}
+                    triggerLabel={
+                        isFromOverMaxBalance ? "Insufficient balance" : "Swap"
+                    }
+                    center={<ArrowDownUp className="h-5 w-5" />}
+                    footer={
+                        <div className="text-muted-foreground space-y-1 text-sm">
+                            <div className="flex justify-between">
+                                <span>Minimum output</span>
+                                <span>
+                                    {quotedSwap?.minimumReturn
+                                        ? `~${quotedSwap.minimumReturn}`
+                                        : "—"}
+                                </span>
                             </div>
-                        )}
-                    </div>
-                }
-            />
+                            <div className="flex justify-between">
+                                <span>Slippage tolerance</span>
+                                <span>{formatSlippagePercent(slippage)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span>Price impact</span>
+                                <span>{priceImpact.toFixed(2)}%</span>
+                            </div>
+                            {quoteError && (
+                                <div className="text-muted-foreground space-y-1 text-sm">
+                                    <div className="flex justify-between">
+                                        <span>Quote error</span>
+                                        <span
+                                            role="alert"
+                                            className="text-destructive"
+                                        >
+                                            {quoteError.message}
+                                        </span>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    }
+                />
+            </div>
 
             {isNoTradingNetwork && (
                 <div className="bg-background/85 absolute inset-0 z-20 flex flex-col items-center justify-center p-6 text-center backdrop-blur-sm sm:p-8">

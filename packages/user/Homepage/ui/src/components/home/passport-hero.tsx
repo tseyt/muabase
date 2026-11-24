@@ -49,7 +49,7 @@ export const PassportHero = ({ user }: { user: string }) => {
             </button>
             <div className="min-w-0 flex-1">
                 <div className="text-muted-foreground text-[11px] font-medium uppercase tracking-[0.2em]">
-                    {greeting()} · {networkName || "psibase"}
+                    {greeting()} · {networkName || "Muabase"}
                 </div>
                 {isPending ? (
                     <Skeleton className="mt-1.5 h-9 w-56" />

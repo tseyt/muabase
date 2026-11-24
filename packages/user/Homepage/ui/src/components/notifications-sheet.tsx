@@ -38,7 +38,6 @@ export const NotificationsSheet = ({ open, onOpenChange }: Props) => {
             <SheetContent
                 side="right"
                 className="w-full gap-0 p-0 sm:max-w-sm"
-                onOpenAutoFocus={(e) => e.preventDefault()}
             >
                 <SheetHeader className="gap-0.5 border-b px-4 py-3 pr-12">
                     <SheetTitle className="flex items-center gap-2 text-sm">

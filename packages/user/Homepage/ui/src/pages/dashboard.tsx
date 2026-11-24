@@ -10,12 +10,17 @@ import { PassportHero } from "@/components/home/passport-hero";
 
 import { useExplorerInstalled } from "@/hooks/use-explorer-chain";
 
+import { useBranding } from "@shared/hooks/use-branding";
+import { useConnectAccount } from "@shared/hooks/use-connect-account";
 import { useCurrentUser } from "@shared/hooks/use-current-user";
 import { cn } from "@shared/lib/utils";
+import { Button } from "@shared/shadcn/ui/button";
 import { Skeleton } from "@shared/shadcn/ui/skeleton";
 
 const Dashboard = () => {
     const { data: user, isPending } = useCurrentUser();
+    const { data: networkName } = useBranding();
+    const { mutate: login, isPending: isLoggingIn } = useConnectAccount();
     const explorerInstalled = useExplorerInstalled();
     const explorerPending = explorerInstalled === undefined;
     const showExplorer = explorerInstalled !== false;
@@ -25,21 +30,42 @@ const Dashboard = () => {
 
     return (
         <div className="flex flex-col gap-8">
-            {(isPending || user) && (
-                <div className="grid-bg -mx-4 -mt-4 flex flex-col gap-8 px-4 pb-2 pt-5 md:-mx-6 md:-mt-6 md:px-6 md:pt-8">
-                    {isPending ? (
-                        <div className="flex items-center gap-5">
-                            <Skeleton className="size-24 rounded-full" />
-                            <div className="flex flex-col gap-2">
-                                <Skeleton className="h-3 w-40" />
-                                <Skeleton className="h-8 w-64" />
-                            </div>
+            <div className="grid-bg -mx-4 -mt-4 flex flex-col gap-8 px-4 pb-2 pt-5 md:-mx-6 md:-mt-6 md:px-6 md:pt-8">
+                {isPending ? (
+                    <div className="flex items-center gap-5">
+                        <Skeleton className="size-24 rounded-full" />
+                        <div className="flex flex-col gap-2">
+                            <Skeleton className="h-3 w-40" />
+                            <Skeleton className="h-8 w-64" />
                         </div>
-                    ) : (
-                        user && <PassportHero user={user} />
-                    )}
-                </div>
-            )}
+                    </div>
+                ) : user ? (
+                    <PassportHero user={user} />
+                ) : (
+                    <div className="flex flex-col items-start justify-between gap-4 pb-4 sm:flex-row sm:items-center">
+                        <div className="space-y-1">
+                            <p className="text-muted-foreground text-[11px] font-medium uppercase tracking-[0.2em]">
+                                {networkName || "Muabase"}
+                            </p>
+                            <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+                                Welcome to {networkName || "Muabase"}
+                            </h1>
+                            <p className="text-muted-foreground max-w-xl text-sm">
+                                Sign in to access your wallet, encrypted
+                                selective-disclosure workflows, contacts, and
+                                community apps.
+                            </p>
+                        </div>
+                        <Button
+                            type="button"
+                            disabled={isLoggingIn}
+                            onClick={() => login()}
+                        >
+                            {isLoggingIn ? "Signing in..." : "Sign in"}
+                        </Button>
+                    </div>
+                )}
+            </div>
 
             {isPending ? <AppCardsSkeleton /> : <AppCards signedIn={!!user} />}
 

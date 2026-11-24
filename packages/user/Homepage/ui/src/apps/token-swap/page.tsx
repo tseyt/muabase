@@ -22,6 +22,7 @@ import { TradeSettingsModal } from "./components/trade-settings-modal";
 import { type EnrichedPool, usePools } from "./hooks/use-pools";
 import { useSlippageTolerance } from "./hooks/use-slippage-tolerance";
 import { Liquidity } from "./liquidity";
+import { formatSlippagePercent } from "./slippage";
 import { Swap } from "./swap";
 
 const zCurrentTab = z.enum(["Swap", "Liquidity"]);
@@ -230,7 +231,7 @@ export const SwapPage = () => {
                                     <Settings className="size-3.5" />
                                     Slippage{" "}
                                     <span className="font-mono tabular-nums">
-                                        {slippage * 100}%
+                                        {formatSlippagePercent(slippage)}
                                     </span>
                                 </Button>
                             </TooltipTrigger>

@@ -89,7 +89,7 @@ const TransferPageContents = () => {
                 description:
                     e instanceof Error
                         ? e.message
-                        : `Unrecognised error, see logs.`,
+                        : "Something went wrong while sending this transfer.",
             });
         }
     };
@@ -116,10 +116,9 @@ const TransferPageContents = () => {
     const disableForm =
         !currentUser || isLoading || selectedToken?.isTransferable === false;
 
-    const onSubmitPreflight = async (
-        e: React.MouseEvent<HTMLButtonElement>,
-    ) => {
+    const onSubmitPreflight = async (e: React.SyntheticEvent) => {
         e.preventDefault();
+        if (disableForm) return;
 
         // this triggers the root level validation
         const errors = await form.validate("submit");
@@ -201,7 +200,10 @@ const TransferPageContents = () => {
                 bodyClassName="@container p-4"
             >
                 <form.AppForm>
-                    <form className="flex flex-col gap-4">
+                    <form
+                        className="flex flex-col gap-4"
+                        onSubmit={(e) => void onSubmitPreflight(e)}
+                    >
                         <div className="@xl:flex-row flex w-full flex-col gap-4">
                             <div className="flex-1">
                                 <FieldAccount
@@ -244,7 +246,6 @@ const TransferPageContents = () => {
                             <div className="flex justify-end">
                                 <form.SubmitButton
                                     labels={["Send", "Sending..."]}
-                                    onClick={onSubmitPreflight}
                                     disabled={disableForm}
                                 />
                             </div>

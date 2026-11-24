@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+
 import { ArrowDown, Loader2 } from "lucide-react";
 import { useBoolean } from "usehooks-ts";
 import z from "zod";
@@ -44,9 +46,16 @@ export const ConfirmSwapModal = ({
 
     const {
         toggle: toggleUserAcceptsSlippage,
+        setFalse: resetUserAcceptsSlippage,
         value: isUserAcceptingOfSlippage,
     } = useBoolean(false);
     const blockDueToSlippage = isHighSlippage && !isUserAcceptingOfSlippage;
+
+    useEffect(() => {
+        if (!show) {
+            resetUserAcceptsSlippage();
+        }
+    }, [show, resetUserAcceptsSlippage]);
 
     const { data: fromToken } = useToken(fromTokenId);
     const { data: toToken } = useToken(toTokenId);
@@ -67,7 +76,14 @@ export const ConfirmSwapModal = ({
     };
 
     return (
-        <AlertDialog open={show}>
+        <AlertDialog
+            open={show}
+            onOpenChange={(nextOpen) => {
+                if (!isPending) {
+                    openChange(nextOpen);
+                }
+            }}
+        >
             <AlertDialogContent className="max-w-md">
                 <AlertDialogHeader className="text-center">
                     <AlertDialogTitle className="text-lg font-semibold tracking-tight">
@@ -81,7 +97,7 @@ export const ConfirmSwapModal = ({
                 <div className="mt-3 space-y-4">
                     {/* From Account */}
                     <AmountSummary
-                        amount={Number(fromAmount).toString() || ""}
+                        amount={fromAmount ?? ""}
                         tokenId={fromTokenId}
                         iconHash={fromToken?.iconHash}
                         label="From"
@@ -95,7 +111,7 @@ export const ConfirmSwapModal = ({
 
                     {/* To Account */}
                     <AmountSummary
-                        amount={Number(expectedReturn).toString() ?? ""}
+                        amount={expectedReturn ?? ""}
                         tokenId={toTokenId}
                         iconHash={toToken?.iconHash}
                         label="To"
@@ -129,6 +145,7 @@ export const ConfirmSwapModal = ({
 
                 <AlertDialogFooter className="mt-6 flex-col gap-3 sm:flex-row">
                     <AlertDialogCancel
+                        disabled={isPending}
                         onClick={() => {
                             openChange(false);
                         }}
@@ -139,7 +156,7 @@ export const ConfirmSwapModal = ({
                     <Button
                         type="button"
                         onClick={() => {
-                            triggerSwap();
+                            void triggerSwap();
                         }}
                         disabled={isPending || blockDueToSlippage}
                         className="order-1 sm:order-2"

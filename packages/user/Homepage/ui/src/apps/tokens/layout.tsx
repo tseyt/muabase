@@ -12,6 +12,7 @@ import {
 import { Loading } from "@/components/loading";
 import { PageHeader } from "@/components/page-header";
 
+import { ErrorCard } from "@shared/components/error-card";
 import { useCurrentUser } from "@shared/hooks/use-current-user";
 import { cn } from "@shared/lib/utils";
 
@@ -69,8 +70,13 @@ export const TokensLayout = () => {
     const isPendingTab =
         useMatch({ path: "/tokens/Pending", end: false }) !== null;
     const { data: currentUserData, isSuccess } = useCurrentUser();
-    const { data, isLoading: isLoadingBalances } =
-        useUserTokenBalances(currentUserData);
+    const {
+        data,
+        isLoading: isLoadingBalances,
+        isError: isBalancesError,
+        error: balancesError,
+        refetch: refetchBalances,
+    } = useUserTokenBalances(currentUserData);
 
     const currentUser = isSuccess ? currentUserData : null;
 
@@ -164,6 +170,17 @@ export const TokensLayout = () => {
 
     if (isLoading) {
         return <Loading className="flex-1" label="Loading wallet…" />;
+    }
+
+    if (isBalancesError) {
+        return (
+            <ErrorCard
+                title="Couldn't load wallet balances"
+                error={balancesError ?? undefined}
+                retry={() => void refetchBalances()}
+                retryLabel="Try again"
+            />
+        );
     }
 
     return (

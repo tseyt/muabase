@@ -25,15 +25,14 @@ export const GenerateInviteDialogContent = ({
 }) => {
     const onCopyClick = async () => {
         if (!generateInvite.data) {
-            toast("No invite link.");
+            toast.error("No invite link available yet.");
             return;
         }
-        if ("clipboard" in navigator) {
+        try {
             await navigator.clipboard.writeText(generateInvite.data);
             toast("Copied to clipboard.");
-        } else {
-            toast("Copying failed, not in secure context?");
-            generateInvite.mutate();
+        } catch {
+            toast.error("Failed to copy link. Copy it manually from the field.");
         }
     };
 
@@ -74,7 +73,16 @@ export const GenerateInviteDialogContent = ({
                         <Input
                             id="link"
                             className={cn({ italic: generateInvite.isPending })}
-                            value={inviteUrl || "Loading"}
+                            value={
+                                generateInvite.isPending
+                                    ? "Generating invite..."
+                                    : inviteUrl || ""
+                            }
+                            placeholder={
+                                generateInvite.error
+                                    ? "Unable to generate invite"
+                                    : undefined
+                            }
                             readOnly
                         />
                     </div>
@@ -82,7 +90,8 @@ export const GenerateInviteDialogContent = ({
                         type="button"
                         size="sm"
                         className="px-3"
-                        onClick={() => onCopyClick()}
+                        disabled={!inviteUrl || generateInvite.isPending}
+                        onClick={() => void onCopyClick()}
                     >
                         <span className="sr-only">Copy</span>
                         <Copy className="h-4 w-4" />
@@ -92,6 +101,7 @@ export const GenerateInviteDialogContent = ({
                         size="sm"
                         variant="outline"
                         className="px-3"
+                        disabled={generateInvite.isPending}
                         onClick={() => generateInvite.mutate()}
                     >
                         <span className="sr-only">Refresh</span>

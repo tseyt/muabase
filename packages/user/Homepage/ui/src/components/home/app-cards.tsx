@@ -38,6 +38,7 @@ const STUDIO: AppLink = {
         "SpacetimeDB & Supabase-style console for real-time Triedent tables, Wasm reducers, commercial invariants, and headless SDK generation.",
     icon: Database,
     color: "hsl(172 72% 45%)",
+    packageName: "Studio",
 };
 
 const EXPLORER: AppLink = {

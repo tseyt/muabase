@@ -10,6 +10,10 @@ import { Button } from "@shared/shadcn/ui/button";
 
 export const InviteResponse = () => {
     const { data: networkName, isLoading } = useBranding();
+    const displayNetwork = networkName || "Muabase";
+    const prefersReducedMotion =
+        typeof window !== "undefined" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     return (
         <div className="grid-bg -m-4 flex flex-1 items-center justify-center p-4 md:-m-6 md:p-6">
@@ -17,15 +21,17 @@ export const InviteResponse = () => {
                 <Loading />
             ) : (
                 <div className="relative">
-                    <div className="pointer-events-none absolute left-1/2 top-0">
-                        <ConfettiExplosion />
-                    </div>
+                    {!prefersReducedMotion && (
+                        <div className="pointer-events-none absolute left-1/2 top-0">
+                            <ConfettiExplosion />
+                        </div>
+                    )}
                     <NoticeCard
                         icon={CircleCheck}
                         tone="success"
-                        eyebrow={networkName || "psibase"}
+                        eyebrow={displayNetwork}
                         title="Invitation accepted"
-                        description={`Welcome to ${networkName}. Your account is ready to use.`}
+                        description={`Welcome to ${displayNetwork}. Your account is ready to use.`}
                         footer={
                             <Button asChild size="sm" className="h-8">
                                 <Link to="/">Go to dashboard</Link>
