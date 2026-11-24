@@ -302,10 +302,15 @@ namespace SystemService
       auto sender = getSender();
       check(sender == Producers::service || sender == producerAccountWeak || sender == producerAccountStrong,
             "Only authorized producers can record state anchor checkpoints");
+      check(!chain_type.empty(), "chain_type must not be empty");
+      check(tx_hash != psibase::Checksum256{}, "tx_hash must be non-zero");
+      check(state_root != psibase::Checksum256{}, "state_root must be non-zero");
 
       auto table = open<AnchorCheckpointTable>();
+      check(!table.getIndex<0>().get(std::tuple<std::string, uint64_t>{chain_type, block_height}),
+            "Anchor checkpoint already recorded for (chain_type, block_height)");
       table.put(AnchorCheckpoint{
-         .chain_type   = chain_type,
+         .chain_type   = std::move(chain_type),
          .block_height = block_height,
          .tx_hash      = tx_hash,
          .state_root   = state_root,
