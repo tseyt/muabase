@@ -1,6 +1,5 @@
 #include <muabase_db/dwal_merkle.hpp>
 
-#include <cstdio>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -79,16 +78,18 @@ namespace
       absent.proof  = merkle.prove_non_inclusion(root, bspan("receipt/0003"));
 
       // 5) Single-entry inclusion
-      ArtRoot             solo;
-      solo                    = art.upsert(solo, bspan("waqf/corpus"), bspan("locked:1000000"));
-      Checksum256 solo_root   = merkle.compute_root(solo);
-      AnchoredMerkleProof s_inc;
-      s_inc.anchor = BlockHeaderAnchor{.block_num  = 101,
-                                       .block_id   = "00000065" + checksum_to_hex(solo_root).substr(8),
-                                       .producer   = "masjid-prod-1",
-                                       .state_root = solo_root};
-      s_inc.value  = art.get(solo, bspan("waqf/corpus")).value();
-      s_inc.proof  = merkle.prove_inclusion(solo, bspan("waqf/corpus"));
+      EphemeralProofBuilder solo{64 * 1024};
+      solo.upsert(bspan("waqf/corpus"), bspan("locked:1000000"));
+      Checksum256         solo_root = solo.state_root();
+      AnchoredMerkleProof s_inc     = solo.prove(
+          bspan("waqf/corpus"),
+          BlockHeaderAnchor{
+              .block_num        = 101,
+              .block_id         = "00000065" + checksum_to_hex(solo_root).substr(8),
+              .producer         = "masjid-prod-1",
+              .state_root       = solo_root,
+              .header_signature = "",
+          });
 
       std::cout << "{\"leafInclusion\":" << anchored_proof_to_json(leaf_inc)
                 << ",\"terminalInclusion\":" << anchored_proof_to_json(term_inc)

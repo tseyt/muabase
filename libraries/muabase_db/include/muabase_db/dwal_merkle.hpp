@@ -127,23 +127,48 @@ namespace muabase_db
       std::string   header_signature;
    };
 
+   inline constexpr std::string_view kAnchoredProofVersion = "muabase.dwal_merkle.v1";
+
    struct AnchoredMerkleProof
    {
-      std::string            version   = "muabase.dwal_merkle.v1";
+      std::string            version   = std::string(kAnchoredProofVersion);
       BlockHeaderAnchor      anchor{};
       ValueTag               value_tag = ValueTag::Bytes;
       std::vector<std::byte> value     = {};
       MerkleProof            proof{};
    };
 
-   std::string                          bytes_to_hex(std::span<const std::byte> data);
-   std::string                          checksum_to_hex(const Checksum256& digest);
+   std::string                           bytes_to_hex(std::span<const std::byte> data);
+   std::string                           checksum_to_hex(const Checksum256& digest);
    std::optional<std::vector<std::byte>> hex_to_bytes(std::string_view hex);
-   std::optional<Checksum256>           hex_to_checksum(std::string_view hex);
+   std::optional<Checksum256>            hex_to_checksum(std::string_view hex);
 
    std::string                        anchored_proof_to_json(const AnchoredMerkleProof& bundle);
    std::optional<AnchoredMerkleProof> anchored_proof_from_json(std::string_view json);
    bool                               verify_anchored_proof(const AnchoredMerkleProof& bundle);
+
+   // Non-leaky RAII helper for building anchored inclusion/non-inclusion proofs over an
+   // ephemeral snapshot without exposing temp-dir, SAL, CowArt, or Merkleizer plumbing.
+   class EphemeralProofBuilder
+   {
+     public:
+      explicit EphemeralProofBuilder(std::size_t segment_bytes = 256 * 1024);
+      ~EphemeralProofBuilder();
+
+      EphemeralProofBuilder(const EphemeralProofBuilder&)            = delete;
+      EphemeralProofBuilder& operator=(const EphemeralProofBuilder&) = delete;
+
+      void upsert(std::span<const std::byte> key,
+                  std::span<const std::byte> value,
+                  ValueTag                   tag = ValueTag::Bytes);
+
+      Checksum256         state_root();
+      AnchoredMerkleProof prove(std::span<const std::byte> target_key, BlockHeaderAnchor anchor);
+
+     private:
+      struct Impl;
+      std::unique_ptr<Impl> _impl;
+   };
 
    struct MerkleStats
    {

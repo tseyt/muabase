@@ -396,6 +396,49 @@ SCENARIO("Anchored JSON Merkle proofs round-trip cleanly and reject tampering")
    }
 }
 
+SCENARIO("EphemeralProofBuilder emits verified inclusion/non-inclusion proofs and JSON parser rejects incomplete payloads")
+{
+   GIVEN("an EphemeralProofBuilder populated with two receipt entries")
+   {
+      EphemeralProofBuilder builder{64 * 1024};
+      builder.upsert(bspan("receipt/1"), bspan("{\"amount\":100}"));
+      builder.upsert(bspan("receipt/2"), bspan("{\"amount\":200}"));
+
+      BlockHeaderAnchor anchor{
+          .block_num        = 77,
+          .block_id         = "0000004d" + checksum_to_hex(builder.state_root()).substr(8),
+          .producer         = "prod-1",
+          .state_root       = {},
+          .header_signature = "SIG_K1_77",
+      };
+
+      WHEN("proving a present key and an absent key")
+      {
+         auto inc = builder.prove(bspan("receipt/1"), anchor);
+         auto abs = builder.prove(bspan("receipt/9"), anchor);
+
+         THEN("both round-trip through JSON, verify offline, and malformed/incomplete JSON is rejected")
+         {
+            REQUIRE(inc.proof.is_inclusion);
+            REQUIRE(!abs.proof.is_inclusion);
+            REQUIRE(verify_anchored_proof(inc));
+            REQUIRE(verify_anchored_proof(abs));
+
+            auto parsed_abs = anchored_proof_from_json(anchored_proof_to_json(abs));
+            REQUIRE(parsed_abs.has_value());
+            REQUIRE(verify_anchored_proof(*parsed_abs));
+
+            // Incomplete / malformed payloads must be rejected
+            REQUIRE(!anchored_proof_from_json("{\"version\":\"muabase.dwal_merkle.v1\"}").has_value());
+            REQUIRE(!anchored_proof_from_json("{\"version\":\"muabase.dwal_merkle.v99\",\"anchor\":{},\"proof\":{}}").has_value());
+            REQUIRE(!anchored_proof_from_json("{\"version\":\"muabase.dwal_merkle.v1\",\"anchor\":{\"blockNum\":0042,\"stateRoot\":\"" +
+                                              std::string(64, 'a') + "\"},\"proof\":{\"isInclusion\":false}}")
+                         .has_value());
+         }
+      }
+   }
+}
+
 int main()
 {
    return bdd_lite::run_all("MuabaseDB DWAL + Batch-Boundary Merkle Proofs BDD Suite");

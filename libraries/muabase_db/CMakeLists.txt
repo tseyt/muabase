@@ -7,6 +7,7 @@ add_library(muabase_db
    src/sal.cpp
    src/cow_art.cpp
    src/dwal_merkle.cpp
+   src/proof_json.cpp
    src/tx_session.cpp)
 target_include_directories(muabase_db PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(muabase_db PUBLIC Threads::Threads OpenSSL::Crypto)
