@@ -2292,6 +2292,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "muamalat-tahkim"
+version = "0.29.0"
+dependencies = [
+ "async-graphql",
+ "muabase_institutional",
+ "muamalat-tahkim-pkg",
+ "psibase",
+ "psibase-user-workspace-hack",
+ "psibase_macros",
+ "psibase_service",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "muamalat-tahkim-pkg"
+version = "0.29.0"
+dependencies = [
+ "muamalat-tahkim",
+ "psibase",
+ "psibase-user-workspace-hack",
+]
+
+[[package]]
 name = "multer"
 version = "3.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -74,6 +74,8 @@ members = [
     "ExternalVault/service",
     "WaqfTreasury",
     "WaqfTreasury/service",
+    "MuamalatTahkim",
+    "MuamalatTahkim/service",
 ]
 
 exclude = [
