@@ -230,6 +230,24 @@ pub mod service {
     }
 
     const PRODS_STRONG: AccountNumber = psibase::account!("producers+3");
+    const GLOBAL_ISSUER_DOMAIN: &str = "*";
+
+    fn lookup_issuer_accreditation(
+        table: &AuthorizedIssuerTable,
+        issuer: AccountNumber,
+        domain: Option<&str>,
+    ) -> (bool, bool) {
+        let pk = table.get_index_pk();
+        let global_ok = pk
+            .get(&(issuer, GLOBAL_ISSUER_DOMAIN.to_string()))
+            .map(|r| r.active)
+            .unwrap_or(false);
+        let domain_ok = domain
+            .and_then(|d| pk.get(&(issuer, d.to_string())))
+            .map(|r| r.active)
+            .unwrap_or(false);
+        (global_ok, domain_ok)
+    }
 
     fn enforce_issuer_policy(sender: AccountNumber, domain: Option<&str>) {
         if sender == SERVICE || sender == PRODS_STRONG {
@@ -241,20 +259,12 @@ pub mod service {
             // Uninitialized governance bootstrap mode
             return;
         }
-        let global_ok = table
-            .get_index_pk()
-            .get(&(sender, "*".to_string()))
-            .map(|r| r.active)
-            .unwrap_or(false);
-        let domain_ok = domain
-            .and_then(|d| table.get_index_pk().get(&(sender, d.to_string())))
-            .map(|r| r.active)
-            .unwrap_or(false);
+        let (global_ok, domain_ok) = lookup_issuer_accreditation(&table, sender, domain);
         assert!(
             validate_authorized_issuer(sender, any_configured, global_ok, domain_ok),
             "Unauthorized credential issuer: sender '{}' is not accredited for domain '{}'",
             sender,
-            domain.unwrap_or("*")
+            domain.unwrap_or(GLOBAL_ISSUER_DOMAIN)
         );
     }
 
@@ -300,16 +310,8 @@ pub mod service {
     #[allow(non_snake_case)]
     fn isAuthorizedIssuer(issuer: AccountNumber, domain: String) -> bool {
         let table = AuthorizedIssuerTable::read();
-        table
-            .get_index_pk()
-            .get(&(issuer, "*".to_string()))
-            .map(|r| r.active)
-            .unwrap_or(false)
-            || table
-                .get_index_pk()
-                .get(&(issuer, domain))
-                .map(|r| r.active)
-                .unwrap_or(false)
+        let (global_ok, domain_ok) = lookup_issuer_accreditation(&table, issuer, Some(&domain));
+        global_ok || domain_ok
     }
 
     /// Updates or initializes a soulbound trust score (Adalah) reliability record
@@ -475,7 +477,10 @@ pub mod service {
     pub fn validate_trust_score_update(sender: AccountNumber, account: AccountNumber, score: u32) {
         // A soulbound reputation is only meaningful if it is attested by someone else
         assert!(sender != account, "Cannot report on your own trust score");
-        assert!(score <= 10000, "trust_score must be within 0..=10000 bps");
+        assert!(
+            score <= psibase::services::credentials::MAX_TRUST_SCORE,
+            "trust_score must be within 0..=10000 bps"
+        );
     }
 
     pub fn apply_trust_score_update(
@@ -529,7 +534,7 @@ pub mod service {
             "Cannot update precision_score on an inactive domain badge"
         );
         assert!(
-            score <= 10000,
+            score <= psibase::services::credentials::MAX_TRUST_SCORE,
             "precision_score must be within 0..=10000 bps"
         );
 

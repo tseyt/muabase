@@ -134,4 +134,22 @@ mod unit_tests {
         // Unconfigured bootstrap mode remains open
         assert!(validate_authorized_issuer(majlis, false, false, false));
     }
+
+    #[test]
+    #[cfg(not(target_family = "wasm"))]
+    #[should_panic(expected = "Cannot update precision_score on an inactive domain badge")]
+    fn given_revoked_domain_badge_when_updating_precision_score_then_rejected() {
+        let badge = DomainBadgeRecord {
+            account: account!("alice"),
+            domain: "humanitarian_verifier".to_string(),
+            issuer: account!("majlis"),
+            issued_at: TimePointSec { seconds: 100 },
+            cert_hash: Checksum256::from([0x11; 32]),
+            active: false,
+            precision_score: DEFAULT_INITIAL_PRECISION_SCORE,
+            accurate_deliveries: 0,
+            regressions_recorded: 0,
+        };
+        let _ = apply_precision_score_update(account!("majlis"), badge, 9000, true);
+    }
 }

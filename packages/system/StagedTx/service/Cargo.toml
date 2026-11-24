@@ -20,7 +20,6 @@ psibase_service.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2 = { version = "0.10" }
-pem = { version = "3.0.4" }
 psibase-system-workspace-hack.workspace = true
 
 [dev-dependencies]

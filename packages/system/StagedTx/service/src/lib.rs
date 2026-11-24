@@ -324,6 +324,23 @@ pub mod service {
         new_tx.id
     }
 
+    fn try_auto_execute(staged_tx: StagedTx) {
+        if staged_tx.auto_exec && staged_tx.can_witness_execute() {
+            let authorized = staged_tx
+                .invocations()
+                .iter()
+                .all(|(sender, service_method)| {
+                    StagedTxPolicy::new(*sender).map_or(true, |policy| {
+                        policy.does_auth(staged_tx.accepters(), *service_method)
+                    })
+                });
+
+            if authorized {
+                execute_impl(staged_tx);
+            }
+        }
+    }
+
     /// Proposes a new staged transaction with Ricardian legal hash and witness quorum
     ///
     /// * `required_witnesses`: Number of qualified witnesses that must attest before execution
@@ -337,6 +354,7 @@ pub mod service {
         required_witnesses: u8,
         required_domain: Option<String>,
     ) -> u32 {
+        ensure_not_rejected(&actions);
         let new_tx = StagedTx::add_with_ricardian(
             actions,
             auto_exec,
@@ -365,6 +383,7 @@ pub mod service {
         required_domain: Option<String>,
         parent_txid: Option<Checksum256>,
     ) -> u32 {
+        ensure_not_rejected(&actions);
         let new_tx = StagedTx::add_with_provenance(
             actions,
             auto_exec,
@@ -435,20 +454,7 @@ pub mod service {
         };
         table.put(&attestation).unwrap();
 
-        if staged_tx.auto_exec && staged_tx.can_witness_execute() {
-            let authorized = staged_tx
-                .invocations()
-                .iter()
-                .all(|(sender, service_method)| {
-                    StagedTxPolicy::new(*sender).map_or(true, |policy| {
-                        policy.does_auth(staged_tx.accepters(), *service_method)
-                    })
-                });
-
-            if authorized {
-                execute_impl(staged_tx);
-            }
-        }
+        try_auto_execute(staged_tx);
     }
 
     /// Indicates that the caller accepts the specified staged transaction
@@ -466,22 +472,7 @@ pub mod service {
 
         emit_update(staged_tx.txid.clone(), StagedTxEvent::ACCEPTED);
 
-        if staged_tx.auto_exec && staged_tx.can_witness_execute() {
-            let authorized = staged_tx
-                .invocations()
-                .iter()
-                .all(|(sender, service_method)| {
-                    StagedTxPolicy::new(*sender).map_or(true, |policy| {
-                        policy.does_auth(staged_tx.accepters(), *service_method)
-                    })
-                });
-
-            debug_print(&format!("authorized: {}\n", authorized.to_string()));
-
-            if authorized {
-                execute_impl(staged_tx);
-            }
-        }
+        try_auto_execute(staged_tx);
     }
 
     /// Indicates that the caller rejects the staged transaction

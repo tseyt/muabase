@@ -41,9 +41,7 @@ pub mod tables {
 
     impl CredentialId {
         #[primary_key]
-        fn pk(&self) {
-            ()
-        }
+        fn pk(&self) {}
 
         pub fn next_id() -> u32 {
             let table = CredentialIdTable::new();
