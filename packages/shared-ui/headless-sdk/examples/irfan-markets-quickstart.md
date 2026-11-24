@@ -84,8 +84,8 @@ import { client } from '@/lib/muabase';
 export function MarketBoard() {
   const { data: markets, loading, error } = useMuabaseTable({
     client,
-    service: 'evals',
-    table: 'Ju'alahBountyTable',
+    service: 'evaluation',
+    table: "Ju'alahBountyTable",
     query: '{ jualahBountyTable { marketId question outcomes totalStakedUsd accruedYieldUsd status } }',
     filter: (m: any) => m.status === 'Open',
     pollIntervalMs: 3000,

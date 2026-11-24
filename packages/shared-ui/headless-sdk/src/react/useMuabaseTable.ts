@@ -1,12 +1,13 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { MuabaseClient } from "../client.js";
 import {
   MuabaseStreamTransport,
   extractTableRows,
   buildTableSseUrl,
+  buildTableWsUrl,
 } from "../stream.js";
 
-export { extractTableRows, buildTableSseUrl };
+export { extractTableRows, buildTableSseUrl, buildTableWsUrl };
 export type { MuabaseStreamTransport };
 
 export interface UseTableOptions<T> {
@@ -47,24 +48,39 @@ export function useMuabaseTable<T = any>({
   const filterRef = useRef(filter);
   filterRef.current = filter;
 
+  const variablesRef = useRef(variables);
+  variablesRef.current = variables;
+
+  const mountedRef = useRef(true);
+  const requestSeqRef = useRef(0);
+
   const variablesKey = variables ? JSON.stringify(variables) : "";
 
-  const fetchTableData = async () => {
+  const fetchTableData = useCallback(async () => {
+    const seq = ++requestSeqRef.current;
     try {
-      const res = await client.query(service, query, variables);
+      const res = await client.query(service, query, variablesRef.current);
+      if (!mountedRef.current || seq !== requestSeqRef.current) {
+        return;
+      }
       const rows = extractTableRows<T>(res, table);
       const filtered = filterRef.current ? rows.filter(filterRef.current) : rows;
       setData(filtered);
       setError(null);
     } catch (err: any) {
+      if (!mountedRef.current || seq !== requestSeqRef.current) {
+        return;
+      }
       setError(err instanceof Error ? err : new Error(String(err)));
     } finally {
-      setLoading(false);
+      if (mountedRef.current && seq === requestSeqRef.current) {
+        setLoading(false);
+      }
     }
-  };
+  }, [client, service, table, query, variablesKey]);
 
   useEffect(() => {
-    let isMounted = true;
+    mountedRef.current = true;
     let sse: EventSource | null = null;
     let ws: WebSocket | null = null;
 
@@ -76,12 +92,9 @@ export function useMuabaseTable<T = any>({
         if (typeof WebSocket === "undefined") {
           return;
         }
-        const wsUrl =
-          client.endpoint.replace(/^http/, "ws") +
-          `/events?service=${encodeURIComponent(service)}&table=${encodeURIComponent(table)}`;
-        ws = new WebSocket(wsUrl);
+        ws = new WebSocket(buildTableWsUrl(client.endpoint, service, table));
         ws.onmessage = () => {
-          if (isMounted) {
+          if (mountedRef.current) {
             fetchTableData();
           }
         };
@@ -98,17 +111,17 @@ export function useMuabaseTable<T = any>({
       try {
         sse = new EventSource(buildTableSseUrl(client.endpoint, service, table));
         sse.onmessage = () => {
-          if (isMounted) {
+          if (mountedRef.current) {
             fetchTableData();
           }
         };
         sse.addEventListener("tableUpdate", () => {
-          if (isMounted) {
+          if (mountedRef.current) {
             fetchTableData();
           }
         });
         sse.onerror = () => {
-          if (transport === "auto" && !ws && isMounted) {
+          if (transport === "auto" && !ws && mountedRef.current) {
             sse?.close();
             sse = null;
             connectWebSocket();
@@ -123,16 +136,22 @@ export function useMuabaseTable<T = any>({
       connectWebSocket();
     }
 
-    // Polling fallback / background refresher
-    const timer = setInterval(() => {
-      if (isMounted) {
-        fetchTableData();
-      }
-    }, pollIntervalMs);
+    // Polling fallback / background refresher (disabled when pollIntervalMs <= 0)
+    const timer =
+      pollIntervalMs > 0
+        ? setInterval(() => {
+            if (mountedRef.current) {
+              fetchTableData();
+            }
+          }, pollIntervalMs)
+        : null;
 
     return () => {
-      isMounted = false;
-      clearInterval(timer);
+      mountedRef.current = false;
+      requestSeqRef.current++;
+      if (timer !== null) {
+        clearInterval(timer);
+      }
       if (sse) {
         sse.close();
       }
@@ -140,7 +159,7 @@ export function useMuabaseTable<T = any>({
         ws.close();
       }
     };
-  }, [client, service, table, query, variablesKey, pollIntervalMs, transport]);
+  }, [client, service, table, fetchTableData, pollIntervalMs, transport]);
 
   return {
     data,

@@ -28,6 +28,15 @@ export function extractTableRows<T = any>(res: any, table: string): T[] {
  * Builds the canonical `psinode` Server-Sent Events (SSE) subscription URL for a Wasm service table.
  */
 export function buildTableSseUrl(endpoint: string, service: string, table: string): string {
-  const base = endpoint.replace(/\/$/, "");
+  const base = endpoint.replace(/\/+$/, "");
   return `${base}/events/sse?service=${encodeURIComponent(service)}&table=${encodeURIComponent(table)}`;
+}
+
+/**
+ * Builds the canonical `psinode` WebSocket subscription URL (`http` -> `ws`, `https` -> `wss`)
+ * for a Wasm service table.
+ */
+export function buildTableWsUrl(endpoint: string, service: string, table: string): string {
+  const base = endpoint.replace(/\/+$/, "").replace(/^http(s?):\/\//i, "ws$1://");
+  return `${base}/events?service=${encodeURIComponent(service)}&table=${encodeURIComponent(table)}`;
 }

@@ -167,15 +167,26 @@ test("Headless SDK dispatches proposeRemittanceAttestation, attestBeneficiaryCom
   }
 });
 
-test("SSE subscription URL builder and Relay GraphQL connection row extractor work cleanly", () => {
+test("SSE/WS subscription URL builders and Relay GraphQL connection row extractor work cleanly", async () => {
+  const { buildTableWsUrl } = await import("../dist/stream.js");
+
   const sseUrl = buildTableSseUrl(
-    "https://qirim.node.muabase.org/",
+    "https://qirim.node.muabase.org///",
     "staged-tx",
     "remittanceAttestationTable",
   );
   assert.equal(
     sseUrl,
     "https://qirim.node.muabase.org/events/sse?service=staged-tx&table=remittanceAttestationTable",
+  );
+
+  assert.equal(
+    buildTableWsUrl("https://qirim.node.muabase.org/", "staged-tx", "remittanceAttestationTable"),
+    "wss://qirim.node.muabase.org/events?service=staged-tx&table=remittanceAttestationTable",
+  );
+  assert.equal(
+    buildTableWsUrl("http://127.0.0.1:8080/", "ext-vault", "remittanceIntentTable"),
+    "ws://127.0.0.1:8080/events?service=ext-vault&table=remittanceIntentTable",
   );
 
   const relayRows = extractTableRows(
@@ -190,6 +201,8 @@ test("SSE subscription URL builder and Relay GraphQL connection row extractor wo
   );
   assert.equal(relayRows.length, 1);
   assert.equal(relayRows[0].quorumSatisfied, true);
+  assert.deepEqual(extractTableRows(null, "any"), []);
+  assert.deepEqual(extractTableRows({ single: { id: 7 } }, "single"), [{ id: 7 }]);
 });
 
 test("GIVEN subdomain transport and selective-disclosure privacy WHEN querying proofs or sealing PII THEN routing and decryption verify cleanly", async () => {

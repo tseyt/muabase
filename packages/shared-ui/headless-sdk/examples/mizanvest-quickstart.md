@@ -82,7 +82,7 @@ import { client } from '@/lib/muabase';
 export function TreasuryDashboard() {
   const { data: records, loading, error } = useMuabaseTable({
     client,
-    service: 'tokenstream',
+    service: 'tok-stream',
     table: 'RevenueRecordTable',
     query: '{ revenueRecordTable { poolId source grossAmountCents netYieldBps timestamp } }',
     pollIntervalMs: 4000,
