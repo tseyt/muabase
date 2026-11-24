@@ -4534,6 +4534,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "waqf-treasury"
+version = "0.29.0"
+dependencies = [
+ "async-graphql",
+ "muabase_institutional",
+ "psibase",
+ "psibase-user-workspace-hack",
+ "psibase_macros",
+ "psibase_service",
+ "serde",
+ "serde_json",
+ "waqf-treasury-pkg",
+]
+
+[[package]]
+name = "waqf-treasury-pkg"
+version = "0.29.0"
+dependencies = [
+ "psibase",
+ "psibase-user-workspace-hack",
+ "waqf-treasury",
+]
+
+[[package]]
 name = "wasi"
 version = "0.11.1+wasi-snapshot-preview1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

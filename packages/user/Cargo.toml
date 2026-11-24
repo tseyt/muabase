@@ -72,6 +72,8 @@ members = [
     "CreditClear/service",
     "ExternalVault",
     "ExternalVault/service",
+    "WaqfTreasury",
+    "WaqfTreasury/service",
 ]
 
 exclude = [
