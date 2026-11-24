@@ -2105,6 +2105,7 @@ version = "0.29.0"
 dependencies = [
  "async-graphql",
  "lease-engine-pkg",
+ "muabase_institutional",
  "psibase",
  "psibase-user-workspace-hack",
  "psibase_macros",

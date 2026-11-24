@@ -8,76 +8,120 @@ mod wasm_tests {
 
 #[cfg(test)]
 mod tests {
-    use psibase::account;
-    use psibase::services::tokens::Quantity;
+    use crate::domain::{
+        validate_late_return, validate_lease_creation, validate_return_finalization,
+        validate_settlement_and_compute_split, DEFAULT_MUTUAL_SHIELD_FEE_BPS,
+        DEFAULT_PROTOCOL_SAAS_FEE_BPS,
+    };
+    use crate::tables::tables::{UsufructLease, STATUS_ACTIVE, STATUS_COMPLETED, STATUS_CREATED};
+    use psibase::{account, AccountNumber, Checksum256};
 
-    #[test]
-    fn test_multi_party_lease_split_93_percent() {
-        let gross_amount: u64 = 100_0000; // $100.0000
-        let protocol_saas_bps: u16 = 300;   // 3%
-        let mutual_shield_bps: u16 = 400;   // 4%
-        let custodian_bps: u16 = 0;         // 0%
-
-        let protocol_fee = (gross_amount as u128 * protocol_saas_bps as u128 / 10000) as u64;
-        let shield_fee = (gross_amount as u128 * mutual_shield_bps as u128 / 10000) as u64;
-        let custodian_fee = (gross_amount as u128 * custodian_bps as u128 / 10000) as u64;
-
-        let total_deductions = protocol_fee + shield_fee + custodian_fee;
-        let net_owner_yield = gross_amount - total_deductions;
-
-        assert_eq!(protocol_fee, 3_0000, "Protocol SaaS fee must be 3%");
-        assert_eq!(shield_fee, 4_0000, "MutualShield contribution must be 4%");
-        assert_eq!(custodian_fee, 0, "Custodian fee is 0");
-        assert_eq!(net_owner_yield, 93_0000, "Net owner payout must be 93%");
-        assert_eq!(protocol_fee + shield_fee + net_owner_yield, gross_amount, "Conservation of funds");
+    fn sample_lease(status: u8) -> UsufructLease {
+        UsufructLease {
+            lease_id: 1,
+            lessor: account!("lessor-1"),
+            lessee: account!("lessee-1"),
+            token_id: 10,
+            nft_id: None,
+            duration_sec: 86_400,
+            gross_payment: 100_0000.into(),
+            payment_token_id: 1,
+            start_time: None,
+            due_time: None,
+            returned_time: None,
+            pre_condition_evidence_hash: Checksum256::from([0x11; 32]),
+            post_condition_evidence_hash: None,
+            status,
+            is_progressive_buyout: false,
+            buyout_equity_units: 0.into(),
+            protocol_saas_fee_bps: DEFAULT_PROTOCOL_SAAS_FEE_BPS,
+            mutual_shield_fee_bps: DEFAULT_MUTUAL_SHIELD_FEE_BPS,
+            custodian_fee_bps: 200,
+            custodian_account: account!("custodian"),
+            charity_sink_account: account!("waqf-sink"),
+        }
     }
 
     #[test]
-    fn test_progressive_equity_buyout_computation() {
-        let total_asset_shares: u64 = 1000;
-        let monthly_installments: u64 = 20;
-        let equity_per_installment = total_asset_shares / monthly_installments;
+    fn given_valid_lease_params_when_created_and_settled_then_commercial_split_conserves_gross() {
+        let pre = Checksum256::from([0xaa; 32]);
+        let split = validate_lease_creation(
+            account!("lessee-1"),
+            account!("lessor-1"),
+            86_400,
+            100_0000,
+            &pre,
+            account!("custodian"),
+            200,
+            account!("waqf-sink"),
+        );
+        assert_eq!(split.saas_amount, 3_0000);
+        assert_eq!(split.shield_amount, 4_0000);
+        assert_eq!(split.custodian_amount, 2_0000);
+        assert_eq!(split.net_owner_amount, 91_0000);
+        assert_eq!(
+            split.saas_amount + split.shield_amount + split.custodian_amount + split.net_owner_amount,
+            100_0000
+        );
 
-        assert_eq!(equity_per_installment, 50, "50 shares acquired per installment");
-        let remaining_shares_investor = total_asset_shares - (equity_per_installment * 5);
-        assert_eq!(remaining_shares_investor, 750, "Investor pool holds 750 shares after 5 months");
+        let lease = sample_lease(STATUS_CREATED);
+        let settled =
+            validate_settlement_and_compute_split(&lease, account!("lease-eng"), account!("lease-eng"));
+        assert_eq!(settled, split);
     }
 
     #[test]
-    fn test_zero_riba_late_fee_charity_sink_invariant() {
-        let lessor = account!("lessor-1");
-        let charity_sink = account!("waqf-sink");
-        let direct_damage_cost: Quantity = 25_0000.into(); // $25.00 direct repair / courier cost
-        let punitive_late_penalty: Quantity = 50_0000.into(); // $50.00 punitive delay penalty
+    #[cfg(not(target_family = "wasm"))]
+    #[should_panic(expected = "custodian_account must be set")]
+    fn given_nonzero_custodian_fee_and_zero_account_when_creating_lease_then_rejected() {
+        let _ = validate_lease_creation(
+            account!("lessee-1"),
+            account!("lessor-1"),
+            86_400,
+            100_0000,
+            &Checksum256::from([0xaa; 32]),
+            AccountNumber::new(0),
+            100,
+            account!("waqf-sink"),
+        );
+    }
 
-        // Invariant 1: Lessor and charity_sink must be distinct
-        assert_ne!(lessor, charity_sink, "Lessor cannot be the charity sink");
-
-        // Simulate ledger balances
-        let mut lessor_received_direct: u64 = 0;
-        let lessor_received_penalty: u64 = 0;
-        let mut charity_sink_received: u64 = 0;
-
-        // Process late return
-        lessor_received_direct += direct_damage_cost.value;
-        // Invariant 2: Punitive penalty routed 100% to charity sink
-        charity_sink_received += punitive_late_penalty.value;
-
-        // Assert: Lessor received exactly and only the direct actual cost
-        assert_eq!(lessor_received_direct, 25_0000, "Lessor receives direct damage cost");
-        assert_eq!(lessor_received_penalty, 0, "Lessor NEVER receives late-fee penalty (Zero-Riba Invariant)");
-        assert_eq!(charity_sink_received, 50_0000, "Charity sink receives 100% of punitive late deterrence");
+    #[test]
+    #[cfg(not(target_family = "wasm"))]
+    #[should_panic(expected = "already settled")]
+    fn given_already_active_lease_when_replaying_settlement_then_rejected() {
+        let lease = sample_lease(STATUS_ACTIVE);
+        let _ = validate_settlement_and_compute_split(
+            &lease,
+            account!("lessee-1"),
+            account!("lease-eng"),
+        );
     }
 
     #[test]
     #[cfg(not(target_family = "wasm"))]
     #[should_panic(expected = "Riba Violation")]
-    fn test_riba_violation_triggers_panic_if_lessor_is_sink() {
-        let lessor = account!("lessor-1");
-        let charity_sink = account!("lessor-1"); // Invalid: attempt to self-route
+    fn given_lessor_as_charity_sink_when_processing_late_return_then_riba_violation_panics() {
+        let mut lease = sample_lease(STATUS_ACTIVE);
+        lease.charity_sink_account = lease.lessor;
+        validate_late_return(
+            &lease,
+            lease.lessor,
+            account!("lease-eng"),
+            &Checksum256::from([0xbb; 32]),
+        );
+    }
 
-        if lessor == charity_sink {
-            panic!("Riba Violation: Creditor/lessor can never receive late penalties");
-        }
+    #[test]
+    #[cfg(not(target_family = "wasm"))]
+    #[should_panic(expected = "Lease not active")]
+    fn given_completed_lease_when_replaying_late_return_then_rejected() {
+        let lease = sample_lease(STATUS_COMPLETED);
+        validate_return_finalization(
+            &lease,
+            lease.lessor,
+            account!("lease-eng"),
+            &Checksum256::from([0xbb; 32]),
+        );
     }
 }
