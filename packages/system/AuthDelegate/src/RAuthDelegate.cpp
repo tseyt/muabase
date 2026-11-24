@@ -28,11 +28,21 @@ namespace SystemService
              .getIndex<0>()
              .get(account);
       }
+
+      /// Get the endowment (Waqf corpus lock) policy for the specified account
+      auto endowmentPolicy(AccountNumber account) const
+      {
+         return AuthDelegate::Tables{AuthDelegate::service}
+             .open<EndowmentPolicyTable>()
+             .getIndex<0>()
+             .get(account);
+      }
    };
-   PSIO_REFLECT(Query,                   //
-                method(owned, account),  //
-                method(owner, account)   //
-                                         //
+   PSIO_REFLECT(Query,                             //
+                method(owned, account),            //
+                method(owner, account),            //
+                method(endowmentPolicy, account)   //
+                                                   //
    );
 
    std::optional<HttpReply> RAuthDelegate::serveSys(HttpRequest request)

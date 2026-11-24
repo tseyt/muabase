@@ -136,7 +136,12 @@ namespace SystemService
    {
       auto sender = getSender();
       check(sender == account || getOwner(account) == sender, "Unauthorized to set endowment policy");
+      check(yield_account != AccountNumber{}, "yield_account must be set");
       auto endTable = open<EndowmentPolicyTable>();
+      if (auto existing = endTable.getIndex<0>().get(account); existing && existing->is_endowment)
+      {
+         abortMessage("EndowmentPolicy: corpus lock is immutable once activated");
+      }
       endTable.put(EndowmentPolicyRecord{
          .account = account,
          .distributable_yield_account = yield_account,

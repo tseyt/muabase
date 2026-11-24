@@ -119,4 +119,19 @@ mod unit_tests {
         };
         let _ = apply_precision_score_update(alice, badge, 9900, true);
     }
+
+    #[test]
+    fn given_accredited_issuer_registry_when_issuing_badges_then_only_accredited_or_governance_callers_pass() {
+        use crate::service::validate_authorized_issuer;
+        let majlis = account!("majlis");
+        let sybil = account!("sybil");
+        let prods_strong = account!("producers+3");
+
+        assert!(validate_authorized_issuer(majlis, true, false, true));
+        assert!(validate_authorized_issuer(majlis, true, true, false));
+        assert!(validate_authorized_issuer(prods_strong, true, false, false));
+        assert!(!validate_authorized_issuer(sybil, true, false, false));
+        // Unconfigured bootstrap mode remains open
+        assert!(validate_authorized_issuer(majlis, false, false, false));
+    }
 }

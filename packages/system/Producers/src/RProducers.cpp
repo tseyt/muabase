@@ -75,6 +75,13 @@ struct ProducerQuery
          return Producers::DEFAULT_MAX_PRODS;
       return config->maxProds;
    }
+
+   auto anchorCheckpoints() const
+   {
+      return Producers::Tables{Producers::service, KvMode::read}
+          .open<AnchorCheckpointTable>()
+          .getIndex<0>();
+   }
 };
 PSIO_REFLECT(ProducerQuery,
              method(candidatesInfo, names),
@@ -84,7 +91,8 @@ PSIO_REFLECT(ProducerQuery,
              method(consensus),
              method(nextConsensus),
              method(jointStart),
-             method(maxProds))
+             method(maxProds),
+             method(anchorCheckpoints))
 
 std::optional<HttpReply> RProducers::serveSys(HttpRequest request)
 {

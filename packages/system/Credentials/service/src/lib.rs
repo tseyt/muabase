@@ -229,10 +229,94 @@ pub mod service {
         VirtualServer::call_as(CRED_SYS).del_res_sub(id.to_string());
     }
 
+    const PRODS_STRONG: AccountNumber = psibase::account!("producers+3");
+
+    fn enforce_issuer_policy(sender: AccountNumber, domain: Option<&str>) {
+        if sender == SERVICE || sender == PRODS_STRONG {
+            return;
+        }
+        let table = AuthorizedIssuerTable::read();
+        let any_configured = table.get_index_pk().iter().any(|r| r.active);
+        if !any_configured {
+            // Uninitialized governance bootstrap mode
+            return;
+        }
+        let global_ok = table
+            .get_index_pk()
+            .get(&(sender, "*".to_string()))
+            .map(|r| r.active)
+            .unwrap_or(false);
+        let domain_ok = domain
+            .and_then(|d| table.get_index_pk().get(&(sender, d.to_string())))
+            .map(|r| r.active)
+            .unwrap_or(false);
+        assert!(
+            validate_authorized_issuer(sender, any_configured, global_ok, domain_ok),
+            "Unauthorized credential issuer: sender '{}' is not accredited for domain '{}'",
+            sender,
+            domain.unwrap_or("*")
+        );
+    }
+
+    /// Accredits an institutional issuer for a specific domain (or `"*"` for all domains).
+    /// Callable by `credential` service itself or `producers+3` strong consensus.
+    #[action]
+    #[allow(non_snake_case)]
+    fn authorizeIssuer(issuer: AccountNumber, domain: String) {
+        let sender = get_sender();
+        assert!(
+            sender == SERVICE || sender == PRODS_STRONG,
+            "Only credential governance or producers+3 may accredit issuers"
+        );
+        assert!(!domain.is_empty(), "Domain must not be empty");
+        AuthorizedIssuerTable::read_write()
+            .put(&AuthorizedIssuerRecord {
+                issuer,
+                domain,
+                active: true,
+                authorized_by: sender,
+            })
+            .unwrap();
+    }
+
+    /// Revokes an accredited issuer for a domain.
+    #[action]
+    #[allow(non_snake_case)]
+    fn revokeIssuer(issuer: AccountNumber, domain: String) {
+        let sender = get_sender();
+        assert!(
+            sender == SERVICE || sender == PRODS_STRONG,
+            "Only credential governance or producers+3 may revoke issuers"
+        );
+        let table = AuthorizedIssuerTable::read_write();
+        if let Some(mut rec) = table.get_index_pk().get(&(issuer, domain)) {
+            rec.active = false;
+            table.put(&rec).unwrap();
+        }
+    }
+
+    /// Returns true if `issuer` is accredited for `domain` (or globally via `"*"`).
+    #[action]
+    #[allow(non_snake_case)]
+    fn isAuthorizedIssuer(issuer: AccountNumber, domain: String) -> bool {
+        let table = AuthorizedIssuerTable::read();
+        table
+            .get_index_pk()
+            .get(&(issuer, "*".to_string()))
+            .map(|r| r.active)
+            .unwrap_or(false)
+            || table
+                .get_index_pk()
+                .get(&(issuer, domain))
+                .map(|r| r.active)
+                .unwrap_or(false)
+    }
+
     /// Updates or initializes a soulbound trust score (Adalah) reliability record
     #[action]
     #[allow(non_snake_case)]
     fn updateTrustScore(account: AccountNumber, score: u32, is_success: bool) {
+        enforce_issuer_policy(get_sender(), None);
         validate_trust_score_update(get_sender(), account, score);
 
         let table = TrustScoreTable::read_write();
@@ -279,6 +363,7 @@ pub mod service {
     #[action]
     #[allow(non_snake_case)]
     fn issueDomainBadge(account: AccountNumber, domain: String, cert_hash: Checksum256) {
+        enforce_issuer_policy(get_sender(), Some(&domain));
         validate_domain_badge_issuance(get_sender(), account, &domain);
         let table = DomainBadgeTable::read_write();
         let record = DomainBadgeRecord {
@@ -311,6 +396,7 @@ pub mod service {
         score: u32,
         is_accurate: bool,
     ) {
+        enforce_issuer_policy(get_sender(), Some(&domain));
         let table = DomainBadgeTable::read_write();
         let existing = table
             .get_index_pk()
@@ -454,6 +540,18 @@ pub mod service {
         }
         record.precision_score = score;
         record
+    }
+
+    pub fn validate_authorized_issuer(
+        sender: AccountNumber,
+        any_configured: bool,
+        global_ok: bool,
+        domain_ok: bool,
+    ) -> bool {
+        if sender == SERVICE || sender == PRODS_STRONG || !any_configured {
+            return true;
+        }
+        global_ok || domain_ok
     }
 }
 

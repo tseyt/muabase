@@ -163,4 +163,26 @@ pub mod tables {
     }
     pub type IkhtisasRecord = DomainBadgeRecord;
     pub type IkhtisasTable = DomainBadgeTable;
+
+    /// Accredited institutional issuers authorized to grant domain badges and update scores.
+    /// `domain == "*"` grants global accreditation across all domains.
+    #[table(name = "AuthorizedIssuerTable", index = 5)]
+    #[derive(Pack, Unpack, ToSchema, Serialize, Deserialize, Debug, Clone)]
+    pub struct AuthorizedIssuerRecord {
+        pub issuer: AccountNumber,
+        pub domain: String,
+        pub active: bool,
+        pub authorized_by: AccountNumber,
+    }
+    impl AuthorizedIssuerRecord {
+        #[primary_key]
+        fn pk(&self) -> (AccountNumber, String) {
+            (self.issuer, self.domain.clone())
+        }
+
+        #[secondary_key(1)]
+        fn by_domain(&self) -> (String, AccountNumber) {
+            (self.domain.clone(), self.issuer)
+        }
+    }
 }

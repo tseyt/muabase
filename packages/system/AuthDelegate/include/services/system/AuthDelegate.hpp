@@ -139,6 +139,7 @@ namespace SystemService
                 method(isRejectSys, sender, rejecters),
                 method(setOwner, owner),
                 method(newAccount, name, owner, mode),
+                method(setEndowmentPolicy, account, yield_account, approved_investments),
                 method(getOwner, owner),
                 method(checkOwner, owner)
                 //

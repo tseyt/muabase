@@ -141,6 +141,7 @@ namespace SystemService
                 method(getProducers),
                 method(setMaxProds, maxProds),
                 method(getMaxProds),
+                method(recordExternalAnchor, chain_type, block_height, tx_hash, state_root),
                 method(getThreshold, account),
                 method(antiThreshold, account),
                 method(checkAuthSys, flags, sender, action, claims),
