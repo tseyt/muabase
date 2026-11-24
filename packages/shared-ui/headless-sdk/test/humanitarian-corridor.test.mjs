@@ -71,7 +71,7 @@ test("Headless SDK dispatches proposeRemittanceAttestation, attestBeneficiaryCom
     const body = JSON.parse(String(init?.body ?? "{}"));
     calls.push({ url: String(url), body });
 
-    if (String(url).endsWith("/api/creditclear/graphql")) {
+    if (String(url).endsWith("/api/cred-clear/graphql")) {
       return new Response(
         JSON.stringify({
           data: {
@@ -190,4 +190,34 @@ test("SSE subscription URL builder and Relay GraphQL connection row extractor wo
   );
   assert.equal(relayRows.length, 1);
   assert.equal(relayRows[0].quorumSatisfied, true);
+});
+
+test("GIVEN subdomain transport and selective-disclosure privacy WHEN querying proofs or sealing PII THEN routing and decryption verify cleanly", async () => {
+  const { sealSelectiveDisclosureEnvelope, openSelectiveDisclosureEnvelope } = await import(
+    "../dist/privacy.js"
+  );
+
+  const client = createMuabaseClient({
+    endpoint: "https://node.muabase.org",
+    transport: "subdomain",
+  });
+  assert.equal(client.resolveGraphqlUrl("ext-vault"), "https://ext-vault.node.muabase.org/graphql");
+  assert.equal(client.resolveGraphqlUrl("waqf-treas"), "https://waqf-treas.node.muabase.org/graphql");
+  assert.equal(client.resolveGraphqlUrl("muamalat"), "https://muamalat.node.muabase.org/graphql");
+
+  const auditorSecret = crypto.getRandomValues(new Uint8Array(32));
+  const wrongSecret = crypto.getRandomValues(new Uint8Array(32));
+  const pii = JSON.stringify({ beneficiary: "Amina Q.", iban: "TR0012345" });
+
+  const envelope = await sealSelectiveDisclosureEnvelope(pii, [
+    { viewerId: "auditor", secret: auditorSecret },
+  ]);
+  assert.ok(!JSON.stringify(envelope).includes("Amina"));
+  assert.equal(assertValidSha256Commitment(envelope.commitmentHex), envelope.commitmentHex);
+
+  const opened = await openSelectiveDisclosureEnvelope(envelope, "auditor", auditorSecret);
+  assert.equal(opened, pii);
+
+  await assert.rejects(() => openSelectiveDisclosureEnvelope(envelope, "auditor", wrongSecret));
+  await assert.rejects(() => openSelectiveDisclosureEnvelope(envelope, "outsider", auditorSecret));
 });

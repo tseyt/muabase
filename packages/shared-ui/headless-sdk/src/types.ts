@@ -1,12 +1,60 @@
 export type TerminologyLocale = "institutional" | "muamalat";
 
+export type MuabaseTransportMode = "subdomain" | "gateway";
+
 export interface MuabaseConfig {
-  endpoint: string; // psinode URL (e.g. http://localhost:8080 or https://node.muabase.org)
+  endpoint: string; // psinode URL (e.g. http://127.0.0.1:8080 or https://node.muabase.org)
   locale?: TerminologyLocale;
   account?: string;
+  /**
+   * - `"subdomain"`: Native psinode virtual-hosted GraphQL (`http://<service>.<host>/graphql`).
+   * - `"gateway"`: Reverse-proxy path routing (`<endpoint>/api/<service>/graphql`). Defaults to `"gateway"` for backward compatibility.
+   */
+  transport?: MuabaseTransportMode;
   keyPair?: {
     publicKey: string;
     privateKey?: string;
+  };
+}
+
+export interface StateProofRequest {
+  db?: "service" | "native";
+  keyHex?: string;
+  keyUtf8?: string;
+  prefixHex?: string;
+  prefixUtf8?: string;
+}
+
+export interface AnchoredMerkleProof {
+  version: "muabase.dwal_merkle.v1";
+  anchor: {
+    blockNum: number;
+    blockId: string;
+    producer: string;
+    stateRoot: string;
+    headerSignature: string;
+  };
+  valueTag: number;
+  valueHex: string;
+  proof: {
+    isInclusion: boolean;
+    emptyTree: boolean;
+    singleEntry: boolean;
+    targetKeyHex: string;
+    rootPrefixHex: string;
+    witnessKeyHex: string;
+    witnessCoreHash: string;
+    steps: Array<{
+      edgePrefixHex: string;
+      hasTerminal: boolean;
+      terminalHash: string;
+      siblings: Array<{
+        branchByte: number;
+        isLeaf: boolean;
+        edgePrefixHex: string;
+        coreHash: string;
+      }>;
+    }>;
   };
 }
 

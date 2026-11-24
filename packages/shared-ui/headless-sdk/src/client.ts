@@ -29,6 +29,9 @@ import {
   RegisterBridgeLiquidityDeskInput,
   ListBridgeCorridorsFilter,
   BridgeLiquidityDesk,
+  MuabaseTransportMode,
+  StateProofRequest,
+  AnchoredMerkleProof,
 } from "./types";
 
 const SHA256_HEX_RE = /^(?:0x)?([0-9a-fA-F]{64})$/;
@@ -106,18 +109,35 @@ export class MuabaseClient {
   public endpoint: string;
   public locale: TerminologyLocale;
   public account: string;
+  public transport: MuabaseTransportMode;
 
   constructor(config: MuabaseConfig) {
     this.endpoint = config.endpoint.replace(/\/$/, "");
     this.locale = config.locale || "institutional";
     this.account = config.account || "anonymous";
+    this.transport = config.transport || "gateway";
   }
 
   /**
-   * Raw GraphQL query runner directly against psinode Triedent DB
+   * Resolves a service GraphQL URL using either native psinode virtual-hosted subdomains
+   * (`https://<service>.<host>/graphql`) or gateway path routing (`<endpoint>/api/<service>/graphql`).
+   */
+  public resolveGraphqlUrl(service: string): string {
+    if (this.transport === "subdomain") {
+      const parsed = new URL(this.endpoint);
+      parsed.hostname = `${service}.${parsed.hostname}`;
+      parsed.pathname = "/graphql";
+      parsed.search = "";
+      return parsed.toString();
+    }
+    return `${this.endpoint}/api/${service}/graphql`;
+  }
+
+  /**
+   * Raw GraphQL query runner directly against psinode
    */
   public async query<T = any>(service: string, queryStr: string, variables?: Record<string, any>): Promise<T> {
-    const url = `${this.endpoint}/api/${service}/graphql`;
+    const url = this.resolveGraphqlUrl(service);
     const res = await fetch(url, {
       method: "POST",
       headers: {
@@ -138,7 +158,23 @@ export class MuabaseClient {
   }
 
   /**
-   * Action submission to psinode via Transact / AuthSig passkeys
+   * Fetches an anchored `muabase.dwal_merkle.v1` JSON inclusion/non-inclusion proof
+   * directly from psinode's native `POST /native/proof/state` endpoint.
+   */
+  public async fetchStateProof(request: StateProofRequest): Promise<AnchoredMerkleProof> {
+    const res = await fetch(`${this.endpoint}/native/proof/state`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ db: "service", ...request }),
+    });
+    if (!res.ok) {
+      throw new Error(`Muabase State Proof Failed [${res.status}]: ${await res.text()}`);
+    }
+    return (await res.json()) as AnchoredMerkleProof;
+  }
+
+  /**
+   * Action submission via configured gateway proxy or local signer bridge
    */
   public async transact(service: string, method: string, args: Record<string, any>): Promise<any> {
     const url = `${this.endpoint}/api/${service}/action/${method}`;
@@ -320,9 +356,7 @@ export class MuabaseClient {
   public evaluations = {
     /**
      * Record a pairwise Condorcet tournament ballot (Ju'alah Halaqa).
-     * Wasm Service: "evals", Action: "recordPairwiseVote"
-     * @param args.winnerId Entity ID ranked higher.
-     * @param args.loserId Entity ID ranked lower.
+     * Wasm Service: "evaluation"
      */
     recordPairwiseVote: async (args: {
       winnerId: number;
@@ -331,32 +365,32 @@ export class MuabaseClient {
       voter?: string;
       receiptHash?: string | null;
     }) => {
-      return this.transact("evals", "recordPairwiseVote", args);
+      return this.transact("evaluation", "recordPairwiseVote", args);
     },
     "createJu'alahBounty": async (args: Record<string, any>) => {
-      return this.transact("evals", "createJu'alahBounty", args);
+      return this.transact("evaluation", "createJu'alahBounty", args);
     },
     createJualahBounty: async (args: Record<string, any>) => {
-      return this.transact("evals", "createJu'alahBounty", args);
+      return this.transact("evaluation", "createJu'alahBounty", args);
     },
     "resolveJu'alahBounty": async (args: Record<string, any>) => {
-      return this.transact("evals", "resolveJu'alahBounty", args);
+      return this.transact("evaluation", "resolveJu'alahBounty", args);
     },
     resolveJualahBounty: async (args: Record<string, any>) => {
-      return this.transact("evals", "resolveJu'alahBounty", args);
+      return this.transact("evaluation", "resolveJu'alahBounty", args);
     },
   };
 
   public claimCouncil = {
     /**
      * Submit a physical damage claim to 3-peer rapid triage committee.
-     * Wasm Service: "claimcouncil", Action: "submitDamageClaim"
+     * Wasm Service: "claim-coun", Action: "submitDamageClaim"
      */
     submitDamageClaim: async (args: Record<string, any>) => {
-      return this.transact("claimcouncil", "submitDamageClaim", args);
+      return this.transact("claim-coun", "submitDamageClaim", args);
     },
     voteDamageClaim: async (args: { claimId: number; approve: boolean; approvedPayout: { value: number } }) => {
-      return this.transact("claimcouncil", "voteDamageClaim", args);
+      return this.transact("claim-coun", "voteDamageClaim", args);
     },
   };
 
@@ -376,14 +410,6 @@ export class MuabaseClient {
     /**
      * Generate a non-custodial Zakat *Tamlik* (`ZAKAT_TAMLIK_100`) or Humanitarian Corridor split intent.
      * Wasm Service: `"ext-vault"`, Action: `"createZakatRemittanceSplit"`
-     *
-     * Enforces:
-     * 1. **0-Key Non-Custodial Safe Harbor (`23 NYCRR § 200.2(q)`):** Produces client-signed EVM Safe,
-     *    Bitcoin Taproot Miniscript, Solana Squads, or licensed bridge settlement payloads.
-     * 2. **Zero-Fee *Tamlik* Invariant:** Throws/reverts if `protocolFeeDeduction > 0` when
-     *    `mode === "ZAKAT_TAMLIK_100"`. 100% of `zakatPrincipalAmount` routes to `recipientBridgeVault`,
-     *    while optional `sadaqahTipAmount` routes separately to `infraOpsVault` / `charity_sink`.
-     * 3. **Dual-Witness Evidence Gate:** Requires `StagedTx::verifyRemittanceQuorum` (`witness_quorum >= 2`).
      */
     createZakatRemittanceSplit: async (
       input: CreateZakatRemittanceSplitInput,
@@ -416,8 +442,7 @@ export class MuabaseClient {
     },
 
     /**
-     * Confirm external non-custodial settlement of a Zakat / Humanitarian remittance split
-     * by recording its Safe / Taproot / Squads / licensed bridge confirmation hash.
+     * Confirm external non-custodial settlement of a Zakat / Humanitarian remittance split.
      * Wasm Service: `"ext-vault"`, Action: `"confirmRemittanceSettlement"`
      */
     confirmRemittanceSettlement: async (args: {
@@ -432,21 +457,42 @@ export class MuabaseClient {
         external_tx_ref: args.externalTxRef,
       });
     },
+
+    /**
+     * Query aggregate conservation totals for a humanitarian corridor (zero PII).
+     * Wasm Service: `"ext-vault"`, GraphQL Query: `corridorConservation`
+     */
+    getCorridorConservation: async (corridorJurisdiction: string) => {
+      assertValidCorridorJurisdiction(corridorJurisdiction);
+      const data = await this.query(
+        "ext-vault",
+        `query CorridorConservation($corridorJurisdiction: String!) {
+          corridorConservation(corridorJurisdiction: $corridorJurisdiction) {
+            corridorJurisdiction
+            settledCount
+            totalPrincipalDelivered
+            totalSadaqahTips
+            totalFeesDeducted
+          }
+        }`,
+        { corridorJurisdiction },
+      );
+      return data.corridorConservation;
+    },
   };
 
   public creditClear = {
     /**
-     * Execute bilateral or multilateral B2B invoice set-off (Muqassah).
-     * Wasm Service: "creditclear", Action: "executeBilateralNetting"
+     * Execute bilateral B2B invoice set-off (Muqassah).
+     * Wasm Service: "cred-clear", Action: "executeBilateralNetting"
      */
     executeBilateralNetting: async (args: { invoice1Id: number; invoice2Id: number }) => {
-      return this.transact("creditclear", "executeBilateralNetting", args);
+      return this.transact("cred-clear", "executeBilateralNetting", args);
     },
 
     /**
-     * Register a licensed bridge-country liquidity desk publishing non-custodial Safe/Taproot/Squads
-     * settlement vaults and live corridor FX spread metadata (0 platform custody).
-     * Wasm Service: `"creditclear"`, Action: `"registerBridgeLiquidityDesk"`
+     * Register a licensed bridge-country liquidity desk publishing non-custodial vaults.
+     * Wasm Service: `"cred-clear"`, Action: `"registerBridgeLiquidityDesk"`
      */
     registerBridgeLiquidityDesk: async (
       input: RegisterBridgeLiquidityDeskInput,
@@ -469,7 +515,7 @@ export class MuabaseClient {
         );
       }
 
-      return this.transact("creditclear", "registerBridgeLiquidityDesk", {
+      return this.transact("cred-clear", "registerBridgeLiquidityDesk", {
         corridor_jurisdiction: corridorJurisdiction,
         desk_label: input.deskLabel,
         license_registry_hash: licenseRegistryHash,
@@ -484,7 +530,7 @@ export class MuabaseClient {
 
     /**
      * Discover active licensed non-custodial bridge-country liquidity desks and live FX spreads.
-     * Wasm Service: `"creditclear"`, GraphQL Query: `listBridgeCorridors`
+     * Wasm Service: `"cred-clear"`, GraphQL Query: `listBridgeCorridors`
      */
     listBridgeCorridors: async (
       filter: ListBridgeCorridorsFilter = {},
@@ -493,7 +539,7 @@ export class MuabaseClient {
         assertValidCorridorJurisdiction(filter.corridorJurisdiction);
       }
       const data = await this.query<{ listBridgeCorridors: BridgeLiquidityDesk[] }>(
-        "creditclear",
+        "cred-clear",
         `query ListBridgeCorridors($corridorJurisdiction: String, $activeOnly: Boolean) {
           listBridgeCorridors(corridorJurisdiction: $corridorJurisdiction, activeOnly: $activeOnly) {
             deskId
@@ -520,21 +566,134 @@ export class MuabaseClient {
     },
   };
 
+  public waqfTreasury = {
+    /**
+     * Create a rule-locked Waqf / Masjid endowment (`waqf-treas::createEndowment`).
+     */
+    createEndowment: async (args: {
+      label: string;
+      corpusPrincipal: number;
+      shurutHash: string;
+      scholarAttestationHash: string;
+      allowedCategories: string[];
+      maxSingleDisbursement: number;
+      boardMembers: string[];
+      quorumThreshold: number;
+    }) => {
+      return this.transact("waqf-treas", "createEndowment", {
+        label: args.label,
+        corpus_principal: args.corpusPrincipal,
+        shurut_hash: assertValidSha256Commitment(args.shurutHash, "shurutHash"),
+        scholar_attestation_hash: assertValidSha256Commitment(
+          args.scholarAttestationHash,
+          "scholarAttestationHash",
+        ),
+        allowed_categories: args.allowedCategories,
+        max_single_disbursement: args.maxSingleDisbursement,
+        board_members: args.boardMembers,
+        quorum_threshold: args.quorumThreshold,
+      });
+    },
+    proposeDisbursement: async (args: {
+      endowmentId: number;
+      recipient: string;
+      category: string;
+      amount: number;
+      evidenceCommitmentHash: string;
+    }) => {
+      return this.transact("waqf-treas", "proposeDisbursement", {
+        endowment_id: args.endowmentId,
+        recipient: args.recipient,
+        category: args.category,
+        amount: args.amount,
+        evidence_commitment_hash: assertValidSha256Commitment(
+          args.evidenceCommitmentHash,
+          "evidenceCommitmentHash",
+        ),
+      });
+    },
+    approveDisbursement: async (proposalId: number) => {
+      return this.transact("waqf-treas", "approveDisbursement", { proposal_id: proposalId });
+    },
+    getAggregateTreasury: async () => {
+      const data = await this.query(
+        "waqf-treas",
+        `{ aggregateTreasury { endowmentCount totalCorpusLocked totalYieldAvailable totalDisbursed } }`,
+      );
+      return data.aggregateTreasury;
+    },
+  };
+
+  public muamalatTahkim = {
+    /**
+     * Register a scholar-attested commercial contract template (`muamalat::registerTemplate`).
+     */
+    registerTemplate: async (args: {
+      contractKind: "ISTISNA" | "MUDARABAH";
+      templateHash: string;
+      certificateHash: string;
+      standardRef: string;
+    }) => {
+      return this.transact("muamalat", "registerTemplate", {
+        contract_kind: args.contractKind,
+        template_hash: assertValidSha256Commitment(args.templateHash, "templateHash"),
+        certificate_hash: assertValidSha256Commitment(args.certificateHash, "certificateHash"),
+        standard_ref: args.standardRef,
+      });
+    },
+    createContract: async (args: {
+      templateId: number;
+      expectedTemplateHash: string;
+      contractor: string;
+      arbitrators: [string, string, string];
+      milestoneAmounts: number[];
+      termsCommitmentHash: string;
+    }) => {
+      return this.transact("muamalat", "createContract", {
+        template_id: args.templateId,
+        expected_template_hash: assertValidSha256Commitment(
+          args.expectedTemplateHash,
+          "expectedTemplateHash",
+        ),
+        contractor: args.contractor,
+        arbitrators: args.arbitrators,
+        milestone_amounts: args.milestoneAmounts,
+        terms_commitment_hash: assertValidSha256Commitment(
+          args.termsCommitmentHash,
+          "termsCommitmentHash",
+        ),
+      });
+    },
+    castTahkimVote: async (args: {
+      contractId: number;
+      rulingKind: "AWARD_CONTRACTOR" | "REFUND_FUNDER" | "SPLIT";
+      funderAmount?: number;
+      contractorAmount?: number;
+    }) => {
+      return this.transact("muamalat", "castTahkimVote", {
+        contract_id: args.contractId,
+        ruling_kind: args.rulingKind,
+        funder_amount: args.funderAmount ?? 0,
+        contractor_amount: args.contractorAmount ?? 0,
+      });
+    },
+  };
+
   public tokenStream = {
     recordGrossRevenue: async (args: Record<string, any>) => {
-      return this.transact("tokenstream", "recordGrossRevenue", args);
+      return this.transact("tok-stream", "recordGrossRevenue", args);
     },
     distributeCoopYield: async (args: Record<string, any>) => {
-      return this.transact("tokenstream", "distributeCoopYield", args);
+      return this.transact("tok-stream", "distributeCoopYield", args);
     },
     allocateYieldStake: async (args: Record<string, any>) => {
-      return this.transact("tokenstream", "allocateYieldStake", args);
+      return this.transact("tok-stream", "allocateYieldStake", args);
     },
     "claimJu'alahReward": async (args: Record<string, any>) => {
-      return this.transact("tokenstream", "claimJu'alahReward", args);
+      return this.transact("tok-stream", "claimJu'alahReward", args);
     },
     claimJualahReward: async (args: Record<string, any>) => {
-      return this.transact("tokenstream", "claimJu'alahReward", args);
+      return this.transact("tok-stream", "claimJu'alahReward", args);
     },
   };
 
