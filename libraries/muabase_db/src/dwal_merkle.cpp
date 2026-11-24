@@ -4,9 +4,11 @@
 
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <cerrno>
 #include <cstring>
 #include <fcntl.h>
+#include <functional>
 #include <map>
 #include <mutex>
 #include <shared_mutex>
@@ -173,8 +175,24 @@ namespace muabase_db
          }
 
          void update_u8(std::uint8_t v) { update(&v, 1); }
-         void update_u16(std::uint16_t v) { update(&v, sizeof(v)); }
-         void update_u32(std::uint32_t v) { update(&v, sizeof(v)); }
+         void update_u16(std::uint16_t v)
+         {
+            const std::uint8_t le[2] = {
+                static_cast<std::uint8_t>(v & 0xFFu),
+                static_cast<std::uint8_t>((v >> 8) & 0xFFu),
+            };
+            update(le, sizeof(le));
+         }
+         void update_u32(std::uint32_t v)
+         {
+            const std::uint8_t le[4] = {
+                static_cast<std::uint8_t>(v & 0xFFu),
+                static_cast<std::uint8_t>((v >> 8) & 0xFFu),
+                static_cast<std::uint8_t>((v >> 16) & 0xFFu),
+                static_cast<std::uint8_t>((v >> 24) & 0xFFu),
+            };
+            update(le, sizeof(le));
+         }
 
          Checksum256 finalize()
          {
@@ -953,6 +971,23 @@ namespace muabase_db
       _memo.clear();
    }
 
+   Checksum256 Merkleizer::hash_logical_entry(std::span<const std::byte> k,
+                                              ValueTag                   t,
+                                              std::span<const std::byte> v)
+   {
+      if (t == ValueTag::Subtree && v.size() == sizeof(std::uint32_t))
+      {
+         std::uint32_t sub_raw = 0;
+         std::memcpy(&sub_raw, v.data(), sizeof(sub_raw));
+         ArtRoot     sub_root{&_art.allocator(), PtrAddress{sub_raw}, /*adopt_existing_ref=*/false};
+         Checksum256 sub_digest = compute_root(sub_root);
+         return hash_entry(
+             k, ValueTag::Subtree,
+             {reinterpret_cast<const std::byte*>(sub_digest.data()), sub_digest.size()});
+      }
+      return hash_entry(k, t, v);
+   }
+
    Checksum256 Merkleizer::compute_root(const ArtRoot& root)
    {
       if (!root)
@@ -960,19 +995,7 @@ namespace muabase_db
 
       auto logical_entry_hash = [&](std::span<const std::byte> k, ValueTag t,
                                     std::span<const std::byte> v) -> Checksum256
-      {
-         if (t == ValueTag::Subtree && v.size() == sizeof(std::uint32_t))
-         {
-            std::uint32_t sub_raw = 0;
-            std::memcpy(&sub_raw, v.data(), sizeof(sub_raw));
-            ArtRoot     sub_root{&_art.allocator(), PtrAddress{sub_raw}, /*adopt_existing_ref=*/false};
-            Checksum256 sub_digest = compute_root(sub_root);
-            return hash_entry(
-                k, ValueTag::Subtree,
-                {reinterpret_cast<const std::byte*>(sub_digest.data()), sub_digest.size()});
-         }
-         return hash_entry(k, t, v);
-      };
+      { return hash_logical_entry(k, t, v); };
 
       auto summarize_slice = [&](auto&                    self_slice,
                                  std::span<const KvEntry> slice,
@@ -1147,8 +1170,13 @@ namespace muabase_db
 
    namespace
    {
+      using LogicalHashFn = std::function<Checksum256(
+          std::span<const std::byte>, ValueTag, std::span<const std::byte>)>;
+
       // Expand ONLY the single root-to-query canonical path while summarizing off-path siblings
-      CanonicalNode expand_canonical_slice(std::span<const KvEntry> slice, std::size_t depth)
+      CanonicalNode expand_canonical_slice(std::span<const KvEntry> slice,
+                                           std::size_t              depth,
+                                           const LogicalHashFn&     hash_fn)
       {
          CanonicalNode out;
          out.count = slice.size();
@@ -1156,7 +1184,7 @@ namespace muabase_db
          {
             const auto& e       = slice[0];
             out.edge_prefix     = {e.key.begin() + static_cast<std::ptrdiff_t>(depth), e.key.end()};
-            out.core_hash       = Merkleizer::hash_entry(e.key, e.tag, e.value);
+            out.core_hash       = hash_fn(e.key, e.tag, e.value);
             out.single_full_key = e.key;
             return out;
          }
@@ -1176,7 +1204,7 @@ namespace muabase_db
          if (slice[0].key.size() == split_pos)
          {
             out.has_terminal  = true;
-            out.terminal_hash = Merkleizer::hash_entry(slice[0].key, slice[0].tag, slice[0].value);
+            out.terminal_hash = hash_fn(slice[0].key, slice[0].tag, slice[0].value);
             idx               = 1;
          }
 
@@ -1190,7 +1218,7 @@ namespace muabase_db
                ++idx;
             }
             CanonicalNode cnode = expand_canonical_slice(slice.subspan(start, idx - start),
-                                                         split_pos + 1);
+                                                         split_pos + 1, hash_fn);
             out.children.push_back(MerkleSibling{
                 .branch_byte = b,
                 .is_leaf     = (cnode.count == 1),
@@ -1204,7 +1232,8 @@ namespace muabase_db
 
       CanonicalNode summarize_offpath_node(SegmentAllocator&       sal,
                                            PtrAddress              addr,
-                                           std::vector<std::byte>& path_buf)
+                                           std::vector<std::byte>& path_buf,
+                                           const LogicalHashFn&    hash_fn)
       {
          ObjectKind             kind{};
          std::vector<std::byte> raw;
@@ -1218,7 +1247,7 @@ namespace muabase_db
          if (kind == ObjectKind::BTreeLeaf)
          {
             auto entries = decode_leaf_payload(raw);
-            return expand_canonical_slice(entries, path_buf.size());
+            return expand_canonical_slice(entries, path_buf.size(), hash_fn);
          }
 
          InnerView         in         = decode_inner_payload(raw);
@@ -1230,14 +1259,14 @@ namespace muabase_db
          {
             out.count           = 1;
             out.edge_prefix     = std::move(in.prefix);
-            out.core_hash       = Merkleizer::hash_entry(path_buf, in.terminal_tag, in.terminal_val);
+            out.core_hash       = hash_fn(path_buf, in.terminal_tag, in.terminal_val);
             out.single_full_key = path_buf;
          }
          else if (!in.has_terminal && in.children.size() == 1)
          {
             const auto [b, caddr] = in.children[0];
             path_buf.push_back(static_cast<std::byte>(b));
-            CanonicalNode cnode = summarize_offpath_node(sal, caddr, path_buf);
+            CanonicalNode cnode = summarize_offpath_node(sal, caddr, path_buf, hash_fn);
             path_buf.pop_back();
 
             out.count       = cnode.count;
@@ -1256,14 +1285,14 @@ namespace muabase_db
             out.edge_prefix  = std::move(in.prefix);
             out.has_terminal = in.has_terminal;
             if (in.has_terminal)
-               out.terminal_hash = Merkleizer::hash_entry(path_buf, in.terminal_tag, in.terminal_val);
+               out.terminal_hash = hash_fn(path_buf, in.terminal_tag, in.terminal_val);
 
             out.count = in.has_terminal ? 1 : 0;
             out.children.reserve(in.children.size());
             for (const auto& [b, caddr] : in.children)
             {
                path_buf.push_back(static_cast<std::byte>(b));
-               CanonicalNode cnode = summarize_offpath_node(sal, caddr, path_buf);
+               CanonicalNode cnode = summarize_offpath_node(sal, caddr, path_buf, hash_fn);
                path_buf.pop_back();
                out.count += cnode.count;
                out.children.push_back(MerkleSibling{
@@ -1281,13 +1310,14 @@ namespace muabase_db
       }
 
       // Build proof steps along a slice of BTreeLeaf entries for `key`
-      bool build_proof_in_slice(std::span<const KvEntry>    slice,
-                                std::size_t                 depth,
-                                std::span<const std::byte>  key,
-                                bool                        want_inclusion,
-                                std::vector<MerkleProofStep>& steps)
+      bool build_proof_in_slice(std::span<const KvEntry>      slice,
+                                std::size_t                   depth,
+                                std::span<const std::byte>    key,
+                                bool                          want_inclusion,
+                                std::vector<MerkleProofStep>& steps,
+                                const LogicalHashFn&          hash_fn)
       {
-         CanonicalNode node      = expand_canonical_slice(slice, depth);
+         CanonicalNode node      = expand_canonical_slice(slice, depth, hash_fn);
          const auto    split_pos = depth + node.edge_prefix.size();
 
          const bool pfx_matches =
@@ -1361,7 +1391,7 @@ namespace muabase_db
                ++idx;
             }
             return build_proof_in_slice(slice.subspan(start, idx - start), split_pos + 1, key,
-                                        true, steps);
+                                        true, steps, hash_fn);
          }
 
          // Non-inclusion in slice (node.count >= 2)
@@ -1434,7 +1464,7 @@ namespace muabase_db
             ++idx;
          }
          return build_proof_in_slice(slice.subspan(start, idx - start), split_pos + 1, key, false,
-                                     steps);
+                                     steps, hash_fn);
       }
 
       bool build_proof_in_node(SegmentAllocator&             sal,
@@ -1443,7 +1473,8 @@ namespace muabase_db
                                std::vector<std::byte>&       carried_prefix,
                                std::span<const std::byte>    key,
                                bool                          want_inclusion,
-                               std::vector<MerkleProofStep>& steps)
+                               std::vector<MerkleProofStep>& steps,
+                               const LogicalHashFn&          hash_fn)
       {
          ObjectKind             kind{};
          std::vector<std::byte> raw;
@@ -1458,7 +1489,7 @@ namespace muabase_db
          {
             auto              entries = decode_leaf_payload(raw);
             const std::size_t start_d = path_buf.size() - carried_prefix.size();
-            return build_proof_in_slice(entries, start_d, key, want_inclusion, steps);
+            return build_proof_in_slice(entries, start_d, key, want_inclusion, steps, hash_fn);
          }
 
          InnerView         in         = decode_inner_payload(raw);
@@ -1480,7 +1511,7 @@ namespace muabase_db
             path_buf.push_back(static_cast<std::byte>(b));
             carried_prefix.push_back(static_cast<std::byte>(b));
             bool ok = build_proof_in_node(sal, caddr, path_buf, carried_prefix, key, want_inclusion,
-                                          steps);
+                                          steps, hash_fn);
             return restore(ok);
          }
 
@@ -1493,7 +1524,7 @@ namespace muabase_db
 
          Checksum256 term_hash{};
          if (in.has_terminal)
-            term_hash = Merkleizer::hash_entry(path_buf, in.terminal_tag, in.terminal_val);
+            term_hash = hash_fn(path_buf, in.terminal_tag, in.terminal_val);
 
          if (want_inclusion)
          {
@@ -1509,7 +1540,7 @@ namespace muabase_db
                for (const auto& [b, caddr] : in.children)
                {
                   path_buf.push_back(static_cast<std::byte>(b));
-                  CanonicalNode cn = summarize_offpath_node(sal, caddr, path_buf);
+                  CanonicalNode cn = summarize_offpath_node(sal, caddr, path_buf, hash_fn);
                   path_buf.pop_back();
                   all_sibs.push_back(MerkleSibling{
                       .branch_byte = b,
@@ -1539,7 +1570,7 @@ namespace muabase_db
                else
                {
                   path_buf.push_back(static_cast<std::byte>(b));
-                  CanonicalNode cn = summarize_offpath_node(sal, caddr, path_buf);
+                  CanonicalNode cn = summarize_offpath_node(sal, caddr, path_buf, hash_fn);
                   path_buf.pop_back();
                   sibs_without_b.push_back(MerkleSibling{
                       .branch_byte = b,
@@ -1560,7 +1591,7 @@ namespace muabase_db
             });
 
             path_buf.push_back(static_cast<std::byte>(target_b));
-            CanonicalNode target_cn = summarize_offpath_node(sal, target_addr, path_buf);
+            CanonicalNode target_cn = summarize_offpath_node(sal, target_addr, path_buf, hash_fn);
             if (target_cn.count == 1)
             {
                path_buf.pop_back();
@@ -1568,7 +1599,7 @@ namespace muabase_db
             }
             std::vector<std::byte> fresh_carry;
             bool ok = build_proof_in_node(sal, target_addr, path_buf, fresh_carry, key, true,
-                                          steps);
+                                          steps, hash_fn);
             path_buf.pop_back();
             return restore(ok);
          }
@@ -1581,7 +1612,7 @@ namespace muabase_db
             for (const auto& [b, caddr] : in.children)
             {
                path_buf.push_back(static_cast<std::byte>(b));
-               CanonicalNode cn = summarize_offpath_node(sal, caddr, path_buf);
+               CanonicalNode cn = summarize_offpath_node(sal, caddr, path_buf, hash_fn);
                path_buf.pop_back();
                all_sibs.push_back(MerkleSibling{
                    .branch_byte = b,
@@ -1621,7 +1652,7 @@ namespace muabase_db
          }
 
          path_buf.push_back(static_cast<std::byte>(target_b));
-         CanonicalNode target_cn = summarize_offpath_node(sal, cit->second, path_buf);
+         CanonicalNode target_cn = summarize_offpath_node(sal, cit->second, path_buf, hash_fn);
          path_buf.pop_back();
 
          if (target_cn.count == 1)
@@ -1644,7 +1675,7 @@ namespace muabase_db
             if (b == target_b)
                continue;
             path_buf.push_back(static_cast<std::byte>(b));
-            CanonicalNode cn = summarize_offpath_node(sal, caddr, path_buf);
+            CanonicalNode cn = summarize_offpath_node(sal, caddr, path_buf, hash_fn);
             path_buf.pop_back();
             sibs_without_b.push_back(MerkleSibling{
                 .branch_byte = b,
@@ -1662,7 +1693,8 @@ namespace muabase_db
 
          path_buf.push_back(static_cast<std::byte>(target_b));
          std::vector<std::byte> fresh_carry;
-         bool ok = build_proof_in_node(sal, cit->second, path_buf, fresh_carry, key, false, steps);
+         bool ok = build_proof_in_node(sal, cit->second, path_buf, fresh_carry, key, false, steps,
+                                       hash_fn);
          path_buf.pop_back();
          return restore(ok);
       }
@@ -1712,10 +1744,15 @@ namespace muabase_db
       if (!root)
          return proof;
 
+      LogicalHashFn hash_fn = [this](std::span<const std::byte> k, ValueTag t,
+                                     std::span<const std::byte> v)
+      { return hash_logical_entry(k, t, v); };
+
       if (_art.count(root) == 1)
       {
          std::vector<std::byte> path_buf;
-         CanonicalNode cn = summarize_offpath_node(_art.allocator(), root.address(), path_buf);
+         CanonicalNode cn =
+             summarize_offpath_node(_art.allocator(), root.address(), path_buf, hash_fn);
          if (lex_compare(cn.single_full_key, key) != 0)
             return proof;
          proof.is_inclusion = true;
@@ -1727,7 +1764,7 @@ namespace muabase_db
       std::vector<std::byte> path_buf;
       std::vector<std::byte> carried_prefix;
       if (!build_proof_in_node(_art.allocator(), root.address(), path_buf, carried_prefix, key,
-                               true, proof.steps))
+                               true, proof.steps, hash_fn))
       {
          proof.steps.clear();
          return proof;
@@ -1747,10 +1784,15 @@ namespace muabase_db
          return proof;
       }
 
+      LogicalHashFn hash_fn = [this](std::span<const std::byte> k, ValueTag t,
+                                     std::span<const std::byte> v)
+      { return hash_logical_entry(k, t, v); };
+
       if (_art.count(root) == 1)
       {
          std::vector<std::byte> path_buf;
-         CanonicalNode cn = summarize_offpath_node(_art.allocator(), root.address(), path_buf);
+         CanonicalNode cn =
+             summarize_offpath_node(_art.allocator(), root.address(), path_buf, hash_fn);
          if (lex_compare(cn.single_full_key, key) == 0)
             return MerkleProof{};  // Key exists -> cannot prove non-inclusion
          proof.single_entry      = true;
@@ -1762,7 +1804,7 @@ namespace muabase_db
       std::vector<std::byte> path_buf;
       std::vector<std::byte> carried_prefix;
       if (!build_proof_in_node(_art.allocator(), root.address(), path_buf, carried_prefix, key,
-                               false, proof.steps))
+                               false, proof.steps, hash_fn))
       {
          proof.steps.clear();
       }
@@ -1971,5 +2013,593 @@ namespace muabase_db
       }
 
       return hash_root_envelope(proof.steps[0].edge_prefix, cur_core) == expected_root;
+   }
+
+   // =========================================================================
+   // Anchored JSON Proof Serialization & Verification
+   // =========================================================================
+
+   std::string bytes_to_hex(std::span<const std::byte> data)
+   {
+      static constexpr char kHex[] = "0123456789abcdef";
+      std::string           out;
+      out.reserve(data.size() * 2);
+      for (std::byte b : data)
+      {
+         auto v = std::to_integer<std::uint8_t>(b);
+         out.push_back(kHex[v >> 4]);
+         out.push_back(kHex[v & 0x0Fu]);
+      }
+      return out;
+   }
+
+   std::string checksum_to_hex(const Checksum256& digest)
+   {
+      return bytes_to_hex({reinterpret_cast<const std::byte*>(digest.data()), digest.size()});
+   }
+
+   std::optional<std::vector<std::byte>> hex_to_bytes(std::string_view hex)
+   {
+      if (hex.size() >= 2 && hex[0] == '0' && (hex[1] == 'x' || hex[1] == 'X'))
+         hex.remove_prefix(2);
+      if (hex.size() % 2 != 0)
+         return std::nullopt;
+      auto nibble = [](char c) -> int
+      {
+         if (c >= '0' && c <= '9')
+            return c - '0';
+         if (c >= 'a' && c <= 'f')
+            return 10 + (c - 'a');
+         if (c >= 'A' && c <= 'F')
+            return 10 + (c - 'A');
+         return -1;
+      };
+      std::vector<std::byte> out;
+      out.reserve(hex.size() / 2);
+      for (std::size_t i = 0; i < hex.size(); i += 2)
+      {
+         int hi = nibble(hex[i]);
+         int lo = nibble(hex[i + 1]);
+         if (hi < 0 || lo < 0)
+            return std::nullopt;
+         out.push_back(static_cast<std::byte>((hi << 4) | lo));
+      }
+      return out;
+   }
+
+   std::optional<Checksum256> hex_to_checksum(std::string_view hex)
+   {
+      auto bytes = hex_to_bytes(hex);
+      if (!bytes || bytes->size() != 32)
+         return std::nullopt;
+      Checksum256 out{};
+      std::memcpy(out.data(), bytes->data(), 32);
+      return out;
+   }
+
+   namespace
+   {
+      void append_json_string(std::string& out, std::string_view s)
+      {
+         out.push_back('"');
+         for (unsigned char c : s)
+         {
+            switch (c)
+            {
+               case '"':
+                  out += "\\\"";
+                  break;
+               case '\\':
+                  out += "\\\\";
+                  break;
+               case '\n':
+                  out += "\\n";
+                  break;
+               case '\r':
+                  out += "\\r";
+                  break;
+               case '\t':
+                  out += "\\t";
+                  break;
+               default:
+                  if (c < 0x20)
+                  {
+                     static constexpr char kHex[] = "0123456789abcdef";
+                     out += "\\u00";
+                     out.push_back(kHex[c >> 4]);
+                     out.push_back(kHex[c & 0x0Fu]);
+                  }
+                  else
+                  {
+                     out.push_back(static_cast<char>(c));
+                  }
+                  break;
+            }
+         }
+         out.push_back('"');
+      }
+
+      class MiniJsonParser
+      {
+        public:
+         explicit MiniJsonParser(std::string_view src) : _s(src) {}
+
+         void skip_ws()
+         {
+            while (_pos < _s.size() && std::isspace(static_cast<unsigned char>(_s[_pos])))
+               ++_pos;
+         }
+
+         bool consume(char c)
+         {
+            skip_ws();
+            if (_pos < _s.size() && _s[_pos] == c)
+            {
+               ++_pos;
+               return true;
+            }
+            return false;
+         }
+
+         bool eof()
+         {
+            skip_ws();
+            return _pos == _s.size();
+         }
+
+         std::optional<std::string> parse_string()
+         {
+            if (!consume('"'))
+               return std::nullopt;
+            std::string out;
+            while (_pos < _s.size())
+            {
+               char c = _s[_pos++];
+               if (c == '"')
+                  return out;
+               if (c == '\\')
+               {
+                  if (_pos >= _s.size())
+                     return std::nullopt;
+                  char esc = _s[_pos++];
+                  switch (esc)
+                  {
+                     case '"':
+                        out.push_back('"');
+                        break;
+                     case '\\':
+                        out.push_back('\\');
+                        break;
+                     case '/':
+                        out.push_back('/');
+                        break;
+                     case 'n':
+                        out.push_back('\n');
+                        break;
+                     case 'r':
+                        out.push_back('\r');
+                        break;
+                     case 't':
+                        out.push_back('\t');
+                        break;
+                     case 'u':
+                     {
+                        if (_pos + 4 > _s.size())
+                           return std::nullopt;
+                        unsigned code = 0;
+                        for (int i = 0; i < 4; ++i)
+                        {
+                           char h = _s[_pos++];
+                           code <<= 4;
+                           if (h >= '0' && h <= '9')
+                              code |= static_cast<unsigned>(h - '0');
+                           else if (h >= 'a' && h <= 'f')
+                              code |= static_cast<unsigned>(10 + h - 'a');
+                           else if (h >= 'A' && h <= 'F')
+                              code |= static_cast<unsigned>(10 + h - 'A');
+                           else
+                              return std::nullopt;
+                        }
+                        if (code > 0x7Fu)
+                           return std::nullopt;
+                        out.push_back(static_cast<char>(code));
+                        break;
+                     }
+                     default:
+                        return std::nullopt;
+                  }
+               }
+               else
+               {
+                  out.push_back(c);
+               }
+            }
+            return std::nullopt;
+         }
+
+         std::optional<bool> parse_bool()
+         {
+            skip_ws();
+            if (_s.substr(_pos, 4) == "true")
+            {
+               _pos += 4;
+               return true;
+            }
+            if (_s.substr(_pos, 5) == "false")
+            {
+               _pos += 5;
+               return false;
+            }
+            return std::nullopt;
+         }
+
+         std::optional<std::uint64_t> parse_u64()
+         {
+            skip_ws();
+            if (_pos >= _s.size() || !std::isdigit(static_cast<unsigned char>(_s[_pos])))
+               return std::nullopt;
+            std::uint64_t val = 0;
+            while (_pos < _s.size() && std::isdigit(static_cast<unsigned char>(_s[_pos])))
+            {
+               std::uint64_t digit = static_cast<std::uint64_t>(_s[_pos++] - '0');
+               if (val > (UINT64_MAX - digit) / 10)
+                  return std::nullopt;
+               val = val * 10 + digit;
+            }
+            return val;
+         }
+
+         template <typename Fn>
+         bool parse_object(Fn&& on_field)
+         {
+            if (!consume('{'))
+               return false;
+            if (consume('}'))
+               return true;
+            while (true)
+            {
+               auto key = parse_string();
+               if (!key || !consume(':'))
+                  return false;
+               if (!on_field(*key))
+                  return false;
+               if (consume('}'))
+                  return true;
+               if (!consume(','))
+                  return false;
+            }
+         }
+
+         template <typename Fn>
+         bool parse_array(Fn&& on_elem)
+         {
+            if (!consume('['))
+               return false;
+            if (consume(']'))
+               return true;
+            while (true)
+            {
+               if (!on_elem())
+                  return false;
+               if (consume(']'))
+                  return true;
+               if (!consume(','))
+                  return false;
+            }
+         }
+
+        private:
+         std::string_view _s;
+         std::size_t      _pos = 0;
+      };
+   }  // namespace
+
+   std::string anchored_proof_to_json(const AnchoredMerkleProof& bundle)
+   {
+      std::string out;
+      out.reserve(512);
+      out += "{\"version\":";
+      append_json_string(out, bundle.version);
+      out += ",\"anchor\":{\"blockNum\":";
+      out += std::to_string(bundle.anchor.block_num);
+      out += ",\"blockId\":";
+      append_json_string(out, bundle.anchor.block_id);
+      out += ",\"producer\":";
+      append_json_string(out, bundle.anchor.producer);
+      out += ",\"stateRoot\":";
+      append_json_string(out, checksum_to_hex(bundle.anchor.state_root));
+      out += ",\"headerSignature\":";
+      append_json_string(out, bundle.anchor.header_signature);
+      out += "},\"valueTag\":";
+      out += std::to_string(static_cast<std::uint32_t>(bundle.value_tag));
+      out += ",\"valueHex\":";
+      append_json_string(out, bytes_to_hex(bundle.value));
+      out += ",\"proof\":{\"isInclusion\":";
+      out += bundle.proof.is_inclusion ? "true" : "false";
+      out += ",\"emptyTree\":";
+      out += bundle.proof.empty_tree ? "true" : "false";
+      out += ",\"singleEntry\":";
+      out += bundle.proof.single_entry ? "true" : "false";
+      out += ",\"targetKeyHex\":";
+      append_json_string(out, bytes_to_hex(bundle.proof.target_key));
+      out += ",\"rootPrefixHex\":";
+      append_json_string(out, bytes_to_hex(bundle.proof.root_prefix));
+      out += ",\"witnessKeyHex\":";
+      append_json_string(out, bytes_to_hex(bundle.proof.witness_key));
+      out += ",\"witnessCoreHash\":";
+      append_json_string(out, checksum_to_hex(bundle.proof.witness_core_hash));
+      out += ",\"steps\":[";
+      for (std::size_t i = 0; i < bundle.proof.steps.size(); ++i)
+      {
+         if (i > 0)
+            out.push_back(',');
+         const auto& step = bundle.proof.steps[i];
+         out += "{\"edgePrefixHex\":";
+         append_json_string(out, bytes_to_hex(step.edge_prefix));
+         out += ",\"hasTerminal\":";
+         out += step.has_terminal ? "true" : "false";
+         out += ",\"terminalHash\":";
+         append_json_string(out, checksum_to_hex(step.terminal_hash));
+         out += ",\"siblings\":[";
+         for (std::size_t j = 0; j < step.siblings.size(); ++j)
+         {
+            if (j > 0)
+               out.push_back(',');
+            const auto& sib = step.siblings[j];
+            out += "{\"branchByte\":";
+            out += std::to_string(static_cast<std::uint32_t>(sib.branch_byte));
+            out += ",\"isLeaf\":";
+            out += sib.is_leaf ? "true" : "false";
+            out += ",\"edgePrefixHex\":";
+            append_json_string(out, bytes_to_hex(sib.edge_prefix));
+            out += ",\"coreHash\":";
+            append_json_string(out, checksum_to_hex(sib.core_hash));
+            out.push_back('}');
+         }
+         out += "]}";
+      }
+      out += "]}}";
+      return out;
+   }
+
+   std::optional<AnchoredMerkleProof> anchored_proof_from_json(std::string_view json)
+   {
+      MiniJsonParser      p{json};
+      AnchoredMerkleProof bundle;
+
+      auto parse_hex_vec = [&](std::vector<std::byte>& dst) -> bool
+      {
+         auto s = p.parse_string();
+         if (!s)
+            return false;
+         auto b = hex_to_bytes(*s);
+         if (!b)
+            return false;
+         dst = std::move(*b);
+         return true;
+      };
+
+      auto parse_checksum = [&](Checksum256& dst) -> bool
+      {
+         auto s = p.parse_string();
+         if (!s)
+            return false;
+         auto c = hex_to_checksum(*s);
+         if (!c)
+            return false;
+         dst = *c;
+         return true;
+      };
+
+      auto parse_anchor = [&]() -> bool
+      {
+         return p.parse_object(
+             [&](const std::string& k) -> bool
+             {
+                if (k == "blockNum")
+                {
+                   auto n = p.parse_u64();
+                   if (!n || *n > UINT32_MAX)
+                      return false;
+                   bundle.anchor.block_num = static_cast<std::uint32_t>(*n);
+                   return true;
+                }
+                if (k == "blockId")
+                {
+                   auto s = p.parse_string();
+                   if (!s)
+                      return false;
+                   bundle.anchor.block_id = std::move(*s);
+                   return true;
+                }
+                if (k == "producer")
+                {
+                   auto s = p.parse_string();
+                   if (!s)
+                      return false;
+                   bundle.anchor.producer = std::move(*s);
+                   return true;
+                }
+                if (k == "stateRoot")
+                   return parse_checksum(bundle.anchor.state_root);
+                if (k == "headerSignature")
+                {
+                   auto s = p.parse_string();
+                   if (!s)
+                      return false;
+                   bundle.anchor.header_signature = std::move(*s);
+                   return true;
+                }
+                return false;
+             });
+      };
+
+      auto parse_sibling = [&]() -> std::optional<MerkleSibling>
+      {
+         MerkleSibling sib;
+         bool          ok = p.parse_object(
+             [&](const std::string& k) -> bool
+             {
+                if (k == "branchByte")
+                {
+                   auto n = p.parse_u64();
+                   if (!n || *n > 255)
+                      return false;
+                   sib.branch_byte = static_cast<std::uint8_t>(*n);
+                   return true;
+                }
+                if (k == "isLeaf")
+                {
+                   auto b = p.parse_bool();
+                   if (!b)
+                      return false;
+                   sib.is_leaf = *b;
+                   return true;
+                }
+                if (k == "edgePrefixHex")
+                   return parse_hex_vec(sib.edge_prefix);
+                if (k == "coreHash")
+                   return parse_checksum(sib.core_hash);
+                return false;
+             });
+         if (!ok)
+            return std::nullopt;
+         return sib;
+      };
+
+      auto parse_step = [&]() -> std::optional<MerkleProofStep>
+      {
+         MerkleProofStep step;
+         bool            ok = p.parse_object(
+             [&](const std::string& k) -> bool
+             {
+                if (k == "edgePrefixHex")
+                   return parse_hex_vec(step.edge_prefix);
+                if (k == "hasTerminal")
+                {
+                   auto b = p.parse_bool();
+                   if (!b)
+                      return false;
+                   step.has_terminal = *b;
+                   return true;
+                }
+                if (k == "terminalHash")
+                   return parse_checksum(step.terminal_hash);
+                if (k == "siblings")
+                {
+                   return p.parse_array(
+                       [&]() -> bool
+                       {
+                          auto sib = parse_sibling();
+                          if (!sib)
+                             return false;
+                          step.siblings.push_back(std::move(*sib));
+                          return true;
+                       });
+                }
+                return false;
+             });
+         if (!ok)
+            return std::nullopt;
+         return step;
+      };
+
+      auto parse_proof = [&]() -> bool
+      {
+         return p.parse_object(
+             [&](const std::string& k) -> bool
+             {
+                if (k == "isInclusion")
+                {
+                   auto b = p.parse_bool();
+                   if (!b)
+                      return false;
+                   bundle.proof.is_inclusion = *b;
+                   return true;
+                }
+                if (k == "emptyTree")
+                {
+                   auto b = p.parse_bool();
+                   if (!b)
+                      return false;
+                   bundle.proof.empty_tree = *b;
+                   return true;
+                }
+                if (k == "singleEntry")
+                {
+                   auto b = p.parse_bool();
+                   if (!b)
+                      return false;
+                   bundle.proof.single_entry = *b;
+                   return true;
+                }
+                if (k == "targetKeyHex")
+                   return parse_hex_vec(bundle.proof.target_key);
+                if (k == "rootPrefixHex")
+                   return parse_hex_vec(bundle.proof.root_prefix);
+                if (k == "witnessKeyHex")
+                   return parse_hex_vec(bundle.proof.witness_key);
+                if (k == "witnessCoreHash")
+                   return parse_checksum(bundle.proof.witness_core_hash);
+                if (k == "steps")
+                {
+                   return p.parse_array(
+                       [&]() -> bool
+                       {
+                          auto step = parse_step();
+                          if (!step)
+                             return false;
+                          bundle.proof.steps.push_back(std::move(*step));
+                          return true;
+                       });
+                }
+                return false;
+             });
+      };
+
+      bool ok = p.parse_object(
+          [&](const std::string& k) -> bool
+          {
+             if (k == "version")
+             {
+                auto s = p.parse_string();
+                if (!s)
+                   return false;
+                bundle.version = std::move(*s);
+                return true;
+             }
+             if (k == "anchor")
+                return parse_anchor();
+             if (k == "valueTag")
+             {
+                auto n = p.parse_u64();
+                if (!n || *n > 1)
+                   return false;
+                bundle.value_tag = static_cast<ValueTag>(*n);
+                return true;
+             }
+             if (k == "valueHex")
+                return parse_hex_vec(bundle.value);
+             if (k == "proof")
+                return parse_proof();
+             return false;
+          });
+
+      if (!ok || !p.eof() || bundle.version != "muabase.dwal_merkle.v1")
+         return std::nullopt;
+      return bundle;
+   }
+
+   bool verify_anchored_proof(const AnchoredMerkleProof& bundle)
+   {
+      if (bundle.version != "muabase.dwal_merkle.v1")
+         return false;
+      if (bundle.proof.is_inclusion)
+      {
+         return Merkleizer::verify_inclusion(bundle.anchor.state_root, bundle.proof.target_key,
+                                             bundle.value, bundle.proof, bundle.value_tag);
+      }
+      return Merkleizer::verify_non_inclusion(bundle.anchor.state_root, bundle.proof.target_key,
+                                              bundle.proof);
    }
 }  // namespace muabase_db

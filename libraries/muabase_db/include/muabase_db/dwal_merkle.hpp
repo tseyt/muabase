@@ -9,6 +9,8 @@
 #include <memory>
 #include <optional>
 #include <span>
+#include <string>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -116,6 +118,33 @@ namespace muabase_db
       std::vector<MerkleProofStep> steps             = {};
    };
 
+   struct BlockHeaderAnchor
+   {
+      std::uint32_t block_num = 0;
+      std::string   block_id;
+      std::string   producer;
+      Checksum256   state_root{};
+      std::string   header_signature;
+   };
+
+   struct AnchoredMerkleProof
+   {
+      std::string            version   = "muabase.dwal_merkle.v1";
+      BlockHeaderAnchor      anchor{};
+      ValueTag               value_tag = ValueTag::Bytes;
+      std::vector<std::byte> value     = {};
+      MerkleProof            proof{};
+   };
+
+   std::string                          bytes_to_hex(std::span<const std::byte> data);
+   std::string                          checksum_to_hex(const Checksum256& digest);
+   std::optional<std::vector<std::byte>> hex_to_bytes(std::string_view hex);
+   std::optional<Checksum256>           hex_to_checksum(std::string_view hex);
+
+   std::string                        anchored_proof_to_json(const AnchoredMerkleProof& bundle);
+   std::optional<AnchoredMerkleProof> anchored_proof_from_json(std::string_view json);
+   bool                               verify_anchored_proof(const AnchoredMerkleProof& bundle);
+
    struct MerkleStats
    {
       std::uint64_t nodes_hashed = 0;
@@ -160,8 +189,12 @@ namespace muabase_db
          Checksum256            core_hash{};
       };
 
-      CowArt&                                       _art;
+      Checksum256 hash_logical_entry(std::span<const std::byte> key,
+                                     ValueTag                   tag,
+                                     std::span<const std::byte> value);
+
+      CowArt&                                          _art;
       std::unordered_map<std::uint64_t, CachedSummary> _memo;
-      MerkleStats                                   _stats{};
+      MerkleStats                                      _stats{};
    };
 }  // namespace muabase_db

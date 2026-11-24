@@ -313,6 +313,89 @@ SCENARIO("Merkleizer Bayyinah inclusion and non-inclusion proofs verify state an
    }
 }
 
+SCENARIO("Subtree-tagged entries verify identically in Merkle inclusion proofs")
+{
+   GIVEN("a CowArt root embedding a ValueTag::Subtree alongside plain byte entries")
+   {
+      ScopedDir        dir{"merkle_subtree_proof"};
+      SegmentAllocator sal{dir.path, SalConfig{.segment_bytes = 64 * 1024}};
+      CowArt           art{sal};
+      Merkleizer       merkle{art};
+
+      ArtRoot child;
+      child = art.upsert(child, bspan("zakat/001"), bspan("tamlik_100000"));
+      child = art.upsert(child, bspan("zakat/002"), bspan("tamlik_250000"));
+      Checksum256 child_root = merkle.compute_root(child);
+
+      ArtRoot parent;
+      parent = art.upsert_subtree(parent, bspan("service/ext-vault"), child);
+      parent = art.upsert(parent, bspan("service/meta"), bspan("v1"));
+      Checksum256 parent_root = merkle.compute_root(parent);
+
+      WHEN("inclusion proofs are generated for the embedded subtree and sibling byte key")
+      {
+         auto p_sub  = merkle.prove_inclusion(parent, bspan("service/ext-vault"));
+         auto p_meta = merkle.prove_inclusion(parent, bspan("service/meta"));
+
+         THEN("both verify against compute_root using the child subtree root digest")
+         {
+            std::span<const std::byte> sub_bytes{
+                reinterpret_cast<const std::byte*>(child_root.data()), child_root.size()};
+            REQUIRE(Merkleizer::verify_inclusion(parent_root, bspan("service/ext-vault"),
+                                                 sub_bytes, p_sub, ValueTag::Subtree));
+            REQUIRE(Merkleizer::verify_inclusion(parent_root, bspan("service/meta"), bspan("v1"),
+                                                 p_meta, ValueTag::Bytes));
+         }
+      }
+   }
+}
+
+SCENARIO("Anchored JSON Merkle proofs round-trip cleanly and reject tampering")
+{
+   GIVEN("a disbursement receipt stored in CowArt and anchored to a block header")
+   {
+      ScopedDir        dir{"merkle_json_anchor"};
+      SegmentAllocator sal{dir.path, SalConfig{.segment_bytes = 64 * 1024}};
+      CowArt           art{sal};
+      Merkleizer       merkle{art};
+
+      ArtRoot root;
+      root = art.upsert(root, bspan("receipt/corridor/1"), bspan("{\"amount\":100000,\"fee\":0}"));
+      root = art.upsert(root, bspan("receipt/corridor/2"), bspan("{\"amount\":250000,\"fee\":0}"));
+      Checksum256 state_root = merkle.compute_root(root);
+
+      AnchoredMerkleProof bundle;
+      bundle.anchor = BlockHeaderAnchor{
+          .block_num        = 42,
+          .block_id         = "0000002a" + checksum_to_hex(state_root).substr(8),
+          .producer         = "qirim-ist-1",
+          .state_root       = state_root,
+          .header_signature = "SIG_K1_stub_block_42",
+      };
+      auto val     = art.get(root, bspan("receipt/corridor/1")).value();
+      bundle.value = val;
+      bundle.proof = merkle.prove_inclusion(root, bspan("receipt/corridor/1"));
+
+      WHEN("the anchored proof is serialized to JSON and parsed back offline")
+      {
+         std::string json   = anchored_proof_to_json(bundle);
+         auto        parsed = anchored_proof_from_json(json);
+
+         THEN("the parsed proof verifies offline and tampered values fail verification")
+         {
+            REQUIRE(parsed.has_value());
+            REQUIRE(parsed->anchor.block_num == 42);
+            REQUIRE(parsed->anchor.producer == "qirim-ist-1");
+            REQUIRE(verify_anchored_proof(*parsed));
+
+            auto tampered = *parsed;
+            tampered.value.push_back(std::byte{'!'});
+            REQUIRE(!verify_anchored_proof(tampered));
+         }
+      }
+   }
+}
+
 int main()
 {
    return bdd_lite::run_all("MuabaseDB DWAL + Batch-Boundary Merkle Proofs BDD Suite");
