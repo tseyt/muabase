@@ -656,4 +656,41 @@ mod unit_tests {
     fn test_asset_pool_trust_gate_rejects_unqualified_receiver() {
         crate::service::enforce_asset_pool_trust_gate(7000, 5500);
     }
+
+    fn sample_pool_config() -> crate::tables::tables::AssetPoolConfig {
+        crate::tables::tables::AssetPoolConfig {
+            token_id: 1,
+            legal_wrapper_hash: psibase::Checksum256::from([1u8; 32]),
+            max_holders: 99,
+            min_trust_score: 7000,
+            tangible_ratio_bps: 7500,
+            priority_window_sec: 86_400,
+            custodian_account: psibase::account!("custodian"),
+            custodian_fee_bps: 500,
+            charity_sink_account: psibase::account!("waqf-sink"),
+        }
+    }
+
+    #[test]
+    fn given_valid_asset_pool_config_when_validated_then_passes() {
+        crate::service::validate_asset_pool_config(&sample_pool_config());
+    }
+
+    #[test]
+    #[cfg(not(target_family = "wasm"))]
+    #[should_panic(expected = "Tangible ratio must be within 5100..=10000 bps")]
+    fn given_tangible_ratio_above_10000_when_validated_then_rejected() {
+        let mut cfg = sample_pool_config();
+        cfg.tangible_ratio_bps = 10_001;
+        crate::service::validate_asset_pool_config(&cfg);
+    }
+
+    #[test]
+    #[cfg(not(target_family = "wasm"))]
+    #[should_panic(expected = "custodian_account must be set when custodian_fee_bps > 0")]
+    fn given_nonzero_custodian_fee_and_zero_account_when_validated_then_rejected() {
+        let mut cfg = sample_pool_config();
+        cfg.custodian_account = psibase::AccountNumber::from(0u64);
+        crate::service::validate_asset_pool_config(&cfg);
+    }
 }

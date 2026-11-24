@@ -457,13 +457,15 @@ pub mod service {
                     .map(|b| b.balance.value > 0)
                     .unwrap_or(false);
                 if !has_bal {
+                    let cap = pool.max_holders as usize;
                     let count = BalanceTable::read()
                         .get_index_by_token()
                         .range((token_id, AccountNumber::MIN)..=(token_id, AccountNumber::MAX))
                         .filter(|b| b.balance.value > 0)
+                        .take(cap)
                         .count();
                     assert!(
-                        count < pool.max_holders as usize,
+                        count < cap,
                         "Asset Pool max_holders cap reached ({})",
                         pool.max_holders
                     );
@@ -483,6 +485,35 @@ pub mod service {
         );
     }
 
+    pub const MIN_TANGIBLE_RATIO_BPS: u16 = 5_100;
+    pub const MAX_BPS: u16 = 10_000;
+
+    /// Pure domain guard for AssetPoolConfig invariants (tangible backing floor, bps bounds, custodian).
+    pub fn validate_asset_pool_config(config: &AssetPoolConfig) {
+        assert!(
+            (MIN_TANGIBLE_RATIO_BPS..=MAX_BPS).contains(&config.tangible_ratio_bps),
+            "Tangible ratio must be within {}..={} bps (51%..=100% tangible backing required)",
+            MIN_TANGIBLE_RATIO_BPS,
+            MAX_BPS
+        );
+        assert!(
+            config.min_trust_score <= psibase::services::credentials::MAX_TRUST_SCORE,
+            "min_trust_score must be within 0..={} bps",
+            psibase::services::credentials::MAX_TRUST_SCORE
+        );
+        assert!(
+            config.custodian_fee_bps <= MAX_BPS,
+            "custodian_fee_bps must be within 0..={} bps",
+            MAX_BPS
+        );
+        if config.custodian_fee_bps > 0 {
+            assert!(
+                config.custodian_account != AccountNumber::from(0u64),
+                "custodian_account must be set when custodian_fee_bps > 0"
+            );
+        }
+    }
+
     /// Configures Asset Pool parameters (Tangible floor >= 51%, max holders, Priority window)
     #[action]
     fn configureAssetPool(config: AssetPoolConfig) {
@@ -490,14 +521,7 @@ pub mod service {
         let token = Token::get_assert(config.token_id);
         let nft = psibase::services::nft::Wrapper::call().getNft(token.nft_id).expect("NFT DNE");
         assert_eq!(sender, nft.owner, "Only token owner can configure Asset Pool");
-        assert!(
-            config.tangible_ratio_bps >= 5100,
-            "Tangible ratio must be >= 5100 bps (51% tangible backing required)"
-        );
-        assert!(
-            config.min_trust_score <= 10000,
-            "min_trust_score must be within 0..=10000 bps"
-        );
+        validate_asset_pool_config(&config);
         AssetPoolConfigTable::read_write().put(&config).unwrap();
     }
 
@@ -521,6 +545,10 @@ pub mod service {
 
     pub fn enforce_asset_pool_trust_gate(min_trust_score: u32, receiver_score: u32) {
         if min_trust_score > 0 {
+            assert!(
+                min_trust_score <= psibase::services::credentials::MAX_TRUST_SCORE,
+                "Invalid trust score threshold"
+            );
             assert!(
                 receiver_score >= min_trust_score,
                 "Receiver trust_score {} is below the asset pool minimum {}",

@@ -296,15 +296,14 @@ pub mod service {
 
         // Shuf'ah (Co-Owner Right of First Refusal) Enforcement:
         // If within the priority_until window, buyer MUST already hold a positive balance of this token
-        if now < listing.priority_until {
-            let balance = psibase::services::tokens::Wrapper::call()
-                .getBalance(listing.token_id, buyer);
-            assert!(
-                balance.value > 0,
-                "Haqq al-Shuf'ah Violation: Co-owner exclusive purchase window active until {:?}",
-                listing.priority_until
-            );
-        }
+        let buyer_balance = if now < listing.priority_until {
+            psibase::services::tokens::Wrapper::call()
+                .getBalance(listing.token_id, buyer)
+                .value
+        } else {
+            0
+        };
+        validate_shufah_priority(now.seconds, listing.priority_until.seconds, buyer_balance);
 
         listing.amount = listing.amount - fill_amount;
         if listing.amount.value == 0 {
@@ -333,10 +332,19 @@ pub mod service {
         PriorityListingTable::read().get_index_pk().get(&listing_id)
     }
 
+    pub const MIN_TANGIBLE_RATIO_BPS: u16 = 5_100;
+    pub const MAX_BPS: u16 = 10_000;
+    pub const PAR_PRICE_PPM: u64 = 1_000_000;
+
     pub fn validate_tangible_floor_pricing(tangible_ratio_bps: u16, unit_price_ppm: u64) {
-        if tangible_ratio_bps < 5100 {
+        assert!(
+            tangible_ratio_bps <= MAX_BPS,
+            "tangible_ratio_bps must be within 0..={} bps",
+            MAX_BPS
+        );
+        if tangible_ratio_bps < MIN_TANGIBLE_RATIO_BPS {
             assert_eq!(
-                unit_price_ppm, 1_000_000,
+                unit_price_ppm, PAR_PRICE_PPM,
                 "Bay' al-Dayn Violation: Assets with < 51% tangible backing can only trade at exact par value"
             );
         }

@@ -568,19 +568,30 @@ pub mod service {
         Nft::get(nftId).is_some()
     }
 
+    pub const MIN_TANGIBLE_RATIO_BPS: u16 = 5_100;
+    pub const MAX_BPS: u16 = 10_000;
+
+    /// Pure domain guard for NftAssetConfig invariants.
+    pub fn validate_nft_asset_config(config: &NftAssetConfig) {
+        assert!(
+            (MIN_TANGIBLE_RATIO_BPS..=MAX_BPS).contains(&config.tangible_ratio_bps),
+            "Tangible backing ratio must be within {}..={} bps (51%..=100% tangible backing)",
+            MIN_TANGIBLE_RATIO_BPS,
+            MAX_BPS
+        );
+        assert!(
+            config.min_trust_score <= psibase::services::credentials::MAX_TRUST_SCORE,
+            "min_trust_score must be within 0..={} bps",
+            psibase::services::credentials::MAX_TRUST_SCORE
+        );
+    }
+
     /// Configures RWA NFT physical asset metadata and trust thresholds
     #[action]
     pub fn configureRwaNft(config: NftRwaConfig) {
         let nft = Nft::get_assert(config.nft_id);
         nft.check_is_owner(get_sender());
-        assert!(
-            config.tangible_ratio_bps >= 5100,
-            "Tangible backing ratio must be >= 5100 bps (51% tangible backing)"
-        );
-        assert!(
-            config.min_trust_score <= 10000,
-            "min_trust_score must be within 0..=10000 bps"
-        );
+        validate_nft_asset_config(&config);
         NftRwaConfigTable::read_write().put(&config).unwrap();
     }
 
@@ -602,7 +613,10 @@ pub mod service {
 
     pub fn enforce_nft_trust_gate(min_trust_score: u32, receiver_score: u32) {
         if min_trust_score > 0 {
-            assert!(min_trust_score <= 10000, "Invalid trust score threshold");
+            assert!(
+                min_trust_score <= psibase::services::credentials::MAX_TRUST_SCORE,
+                "Invalid trust score threshold"
+            );
             assert!(
                 receiver_score >= min_trust_score,
                 "Receiver trust_score {} is below the asset minimum {}",
@@ -615,7 +629,8 @@ pub mod service {
 
 #[cfg(test)]
 mod tests {
-    use super::service::enforce_nft_trust_gate;
+    use super::service::{enforce_nft_trust_gate, validate_nft_asset_config};
+    use super::tables::NftAssetConfig;
 
     #[test]
     fn test_nft_trust_gate_allows_qualified_receiver() {
@@ -629,5 +644,33 @@ mod tests {
     #[should_panic(expected = "Receiver trust_score 6500 is below the asset minimum 7500")]
     fn test_nft_trust_gate_rejects_unqualified_receiver() {
         enforce_nft_trust_gate(7500, 6500);
+    }
+
+    #[test]
+    fn given_valid_nft_asset_config_when_validated_then_passes() {
+        let cfg = NftAssetConfig {
+            nft_id: 1,
+            legal_wrapper_hash: psibase::Checksum256::from([2u8; 32]),
+            min_trust_score: 7500,
+            tangible_ratio_bps: 10_000,
+            custodian_account: psibase::account!("custodian"),
+            charity_sink_account: psibase::account!("waqf-sink"),
+        };
+        validate_nft_asset_config(&cfg);
+    }
+
+    #[test]
+    #[cfg(not(target_family = "wasm"))]
+    #[should_panic(expected = "Tangible backing ratio must be within 5100..=10000 bps")]
+    fn given_tangible_ratio_above_10000_when_validating_nft_config_then_rejected() {
+        let cfg = NftAssetConfig {
+            nft_id: 1,
+            legal_wrapper_hash: psibase::Checksum256::from([2u8; 32]),
+            min_trust_score: 7500,
+            tangible_ratio_bps: 10_001,
+            custodian_account: psibase::account!("custodian"),
+            charity_sink_account: psibase::account!("waqf-sink"),
+        };
+        validate_nft_asset_config(&cfg);
     }
 }

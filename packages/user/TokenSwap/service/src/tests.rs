@@ -452,4 +452,11 @@ mod unit_tests {
     fn test_shufah_priority_rejects_outsider_during_priority_window() {
         crate::service::validate_shufah_priority(150, 200, 0);
     }
+
+    #[test]
+    #[cfg(not(target_family = "wasm"))]
+    #[should_panic(expected = "tangible_ratio_bps must be within 0..=10000 bps")]
+    fn given_tangible_ratio_above_10000_when_validating_pricing_then_rejected() {
+        crate::service::validate_tangible_floor_pricing(10_001, 1_000_000);
+    }
 }
