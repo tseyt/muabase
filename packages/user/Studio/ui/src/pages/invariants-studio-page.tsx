@@ -475,7 +475,7 @@ export const InvariantsStudioPage: React.FC = () => {
                                 variant="outline"
                                 className="font-mono text-[10px] text-purple-400"
                             >
-                                staged-tx + credentials
+                                staged-tx + credential
                             </Badge>
                         </div>
                         <CardDescription className="text-xs">
@@ -587,7 +587,7 @@ export const InvariantsStudioPage: React.FC = () => {
                                 variant="outline"
                                 className="font-mono text-[10px] text-amber-400"
                             >
-                                evals (Zero People-Ranking)
+                                evaluation (Zero People-Ranking)
                             </Badge>
                         </div>
                         <CardDescription className="text-xs">
@@ -638,7 +638,7 @@ export const InvariantsStudioPage: React.FC = () => {
                                 variant="outline"
                                 onClick={async () => {
                                     const res = await executeStudioAction(
-                                        "evals",
+                                        "evaluation",
                                         "recordPairwiseVote",
                                         {
                                             winnerId: 3001,
@@ -659,7 +659,7 @@ export const InvariantsStudioPage: React.FC = () => {
                                 variant="outline"
                                 onClick={async () => {
                                     const res = await executeStudioAction(
-                                        "evals",
+                                        "evaluation",
                                         "recordPairwiseVote",
                                         {
                                             winnerId: 2042,

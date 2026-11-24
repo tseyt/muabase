@@ -1,5 +1,10 @@
 import React, { createContext, useContext, useMemo, useState, useCallback } from "react";
-import { createMuabaseClient, MuabaseClient } from "@shared/headless-sdk/src";
+import {
+    computeCommercialSplitCents,
+    createMuabaseClient,
+    MUABASE_SERVICES,
+    MuabaseClient,
+} from "@shared/headless-sdk/src";
 import type { TerminologyLocale } from "@shared/headless-sdk/src/types";
 
 import {
@@ -338,7 +343,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({
                     ];
                     summary = `Attestation #${nextId} recorded with ${newRow.witnessQuorum}-witness Bayyinah gate`;
                 } else if (
-                    service === "evals" &&
+                    service === MUABASE_SERVICES.EVALUATIONS &&
                     action === "recordPairwiseVote"
                 ) {
                     const winnerId = Number(payload.winnerId);
@@ -367,13 +372,14 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({
                     }));
                     summary = `Condorcet pairwise ballot recorded: Entity #${winnerId} > Entity #${loserId}`;
                 } else if (
-                    service === "ext-vault" &&
+                    service === MUABASE_SERVICES.EXTERNAL_VAULT &&
                     action === "generateSplitIntent"
                 ) {
-                    const grossCents = Number(payload.grossAmountCents || 18000);
-                    const owner93 = Math.round(grossCents * 0.93);
-                    const shield4 = Math.round(grossCents * 0.04);
-                    const saas3 = grossCents - owner93 - shield4;
+                    const grossCents = Math.max(0, Math.trunc(Number(payload.grossAmountCents || 18000)));
+                    const split = computeCommercialSplitCents(grossCents);
+                    const owner93 = split.ownerAmountCents;
+                    const shield4 = split.mutualShieldReserveCents;
+                    const saas3 = split.platformFeeCents;
                     const nextId =
                         Math.max(
                             900,
@@ -399,7 +405,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({
                     ];
                     summary = `Non-custodial split #${nextId} (${newRow.railType}): 93% ($${(owner93 / 100).toFixed(2)}) / 4% ($${(shield4 / 100).toFixed(2)}) / 3% ($${(saas3 / 100).toFixed(2)})`;
                 } else if (
-                    service === "claimcouncil" &&
+                    service === MUABASE_SERVICES.CLAIM_COUNCIL &&
                     action === "submitDamageClaim"
                 ) {
                     const nextId =
@@ -432,7 +438,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({
                     ];
                     summary = `Submitted Damage Claim #${nextId} ($${(claimedVal / 10000).toFixed(2)}) to 3-peer ClaimCouncil`;
                 } else if (
-                    service === "creditclear" &&
+                    service === MUABASE_SERVICES.CREDIT_CLEAR &&
                     action === "executeBilateralNetting"
                 ) {
                     const nextId =

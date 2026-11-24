@@ -37,7 +37,7 @@ export const CANONICAL_TERMINOLOGY: TerminologyMapping[] = [
         key: "mutual_shield",
         institutional: "Mutual Protection Reserve Pool",
         muamalat: "Takaful (Tabarru‘ & Ta‘awun)",
-        service: "tokenstream",
+        service: "mut-shield",
         description:
             "Member-owned protection reserve (4% split) based on mutual risk sharing with surplus rebates.",
     },
@@ -45,7 +45,7 @@ export const CANONICAL_TERMINOLOGY: TerminologyMapping[] = [
         key: "claim_council",
         institutional: "Peer Triage Committee",
         muamalat: "Majlis al-Tahkim & Shura",
-        service: "claimcouncil",
+        service: "claim-coun",
         description:
             "3-peer rapid damage arbitration committee verifying cryptographic evidence digests.",
     },
@@ -53,7 +53,7 @@ export const CANONICAL_TERMINOLOGY: TerminologyMapping[] = [
         key: "evals",
         institutional: "Objective Bounty & Claim Ranking",
         muamalat: "Ju‘alah Halaqa",
-        service: "evals",
+        service: "evaluation",
         description:
             "Wasm Schulze Condorcet pairwise tournaments for verified work, restaurants, and claims (never people).",
     },
@@ -61,7 +61,7 @@ export const CANONICAL_TERMINOLOGY: TerminologyMapping[] = [
         key: "endowment_policy",
         institutional: "Trust Principal Preservation Lock",
         muamalat: "Hifz Asl al-Waqf",
-        service: "tokenstream",
+        service: "tok-stream",
         description:
             "Strict mathematical lock preventing outward capital consumption transfers from principal accounts.",
     },
@@ -85,7 +85,7 @@ export const CANONICAL_TERMINOLOGY: TerminologyMapping[] = [
         key: "credit_clear",
         institutional: "Multilateral Invoice Netting",
         muamalat: "Muqassah & Wajahah-Hawalah",
-        service: "creditclear",
+        service: "cred-clear",
         description:
             "Zero-fee algorithmic B2B debt set-off between reciprocal trading partners.",
     },
@@ -93,7 +93,7 @@ export const CANONICAL_TERMINOLOGY: TerminologyMapping[] = [
         key: "liquidity_bridge",
         institutional: "Earned-Respect Liquidity Bridge",
         muamalat: "Wajahah & Hawalah",
-        service: "creditclear",
+        service: "cred-clear",
         description:
             "Debt novation and liquidity routing backed by verified commercial reputation.",
     },
@@ -101,7 +101,7 @@ export const CANONICAL_TERMINOLOGY: TerminologyMapping[] = [
         key: "trust_score",
         institutional: "Reliability & Audit Score",
         muamalat: "‘Adalah (Probity / Reliability)",
-        service: "credentials",
+        service: "credential",
         description:
             "Soulbound, non-transferable track record in basis points (0–10,000 bps).",
     },
@@ -109,7 +109,7 @@ export const CANONICAL_TERMINOLOGY: TerminologyMapping[] = [
         key: "domain_badge",
         institutional: "Domain Competence Credential",
         muamalat: "Ikhtisas (Domain Specialization)",
-        service: "credentials",
+        service: "credential",
         description:
             "Soulbound specialization credential (e.g., master_appraiser, sommelier_l3, solar_auditor).",
     },
@@ -117,7 +117,7 @@ export const CANONICAL_TERMINOLOGY: TerminologyMapping[] = [
         key: "precision_score",
         institutional: "Domain Precision & Accuracy Score",
         muamalat: "Dabt (Exactness & Retention Accuracy)",
-        service: "credentials",
+        service: "credential",
         description:
             "Domain-scoped technical exactness and defect-free execution score in basis points (0–10,000 bps).",
     },
@@ -315,7 +315,7 @@ export const STUDIO_TABLES: StudioTableDefinition[] = [
     {
         id: "CondorcetRankingTable",
         tableName: "CondorcetRankingTable",
-        service: "evals",
+        service: "evaluation",
         canonicalKey: "evals",
         primaryKey: "entityId",
         description:
@@ -344,7 +344,7 @@ export const STUDIO_TABLES: StudioTableDefinition[] = [
     {
         id: "DamageClaimTable",
         tableName: "DamageClaimTable",
-        service: "claimcouncil",
+        service: "claim-coun",
         canonicalKey: "claim_council",
         primaryKey: "claimId",
         description:
@@ -404,7 +404,7 @@ export const STUDIO_TABLES: StudioTableDefinition[] = [
     {
         id: "InvoiceNettingTable",
         tableName: "InvoiceNettingTable",
-        service: "creditclear",
+        service: "cred-clear",
         canonicalKey: "credit_clear",
         primaryKey: "nettingId",
         description:
@@ -433,7 +433,7 @@ export const STUDIO_TABLES: StudioTableDefinition[] = [
     {
         id: "EndowmentYieldTable",
         tableName: "EndowmentYieldTable",
-        service: "tokenstream",
+        service: "tok-stream",
         canonicalKey: "endowment_policy",
         primaryKey: "poolId",
         description:

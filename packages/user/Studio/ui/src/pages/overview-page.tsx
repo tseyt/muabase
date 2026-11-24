@@ -80,7 +80,7 @@ export const OverviewPage: React.FC = () => {
                 metadata: { ratingBps: 9550 },
             });
             const res = await executeStudioAction(
-                "evals",
+                "evaluation",
                 "recordPairwiseVote",
                 {
                     winnerId: 3001,
@@ -117,7 +117,7 @@ export const OverviewPage: React.FC = () => {
             });
         } else {
             const res = await executeStudioAction(
-                "creditclear",
+                "cred-clear",
                 "executeBilateralNetting",
                 {
                     invoice1Id: 601,
@@ -135,7 +135,7 @@ export const OverviewPage: React.FC = () => {
         {
             id: "pickle" as const,
             title: "P2P Luxury Rental (Pickle Competitor)",
-            badge: "lease + ext-vault",
+            badge: "lease-eng + ext-vault",
             description:
                 "Execute a 4-day rental checkout with autonomous 93% owner / 4% mutual shield / 3% SaaS split and zero-penalty charity sink routing.",
             cta: "Simulate Rental Checkout",
@@ -143,7 +143,7 @@ export const OverviewPage: React.FC = () => {
         {
             id: "beli" as const,
             title: "Verified Restaurant Curation (Beli Competitor)",
-            badge: "staged-tx + evals",
+            badge: "staged-tx + evaluation",
             description:
                 "Hash a POS dining receipt with SHA-256 (2-witness Bayyinah gate) and submit a pairwise ballot to the Wasm Schulze Condorcet tournament.",
             cta: "Simulate Receipt & Ballot",
@@ -151,7 +151,7 @@ export const OverviewPage: React.FC = () => {
         {
             id: "mizan" as const,
             title: "Real Estate & Solar Co-Op (MizanVest)",
-            badge: "tokens + tokenstream",
+            badge: "tokens + tok-stream",
             description:
                 "Configure a 100% tangible asset pool (>= 5100 bps invariant) with 24h co-owner ROFR and endowment principal preservation lock.",
             cta: "Register Co-Op Asset Series",
@@ -159,7 +159,7 @@ export const OverviewPage: React.FC = () => {
         {
             id: "irfan" as const,
             title: "B2B Trade Clearinghouse (CreditClear)",
-            badge: "creditclear",
+            badge: "cred-clear",
             description:
                 "Extinguish reciprocal B2B trade invoices algorithmically with $0 bank wire fees or interest-bearing factoring.",
             cta: "Execute Bilateral Netting",

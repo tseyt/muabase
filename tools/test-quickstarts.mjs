@@ -44,3 +44,37 @@ test('GIVEN all three institutional quickstarts WHEN audited THEN zero fictional
     }
   }
 });
+
+test('GIVEN llms.txt, SDK examples, and Studio UI WHEN scanned for drifted service slugs THEN only canonical Wasm service slugs appear', () => {
+  const STALE_SLUGS = [
+    'claimcouncil',
+    'creditclear',
+    'tokenstream',
+    'mutualshield',
+    'psinode-saas',
+    'auth-delegate',
+  ];
+  const FILES = [
+    'llms.txt',
+    'packages/shared-ui/headless-sdk/examples/irfan-markets-quickstart.md',
+    'packages/shared-ui/headless-sdk/examples/mizanvest-quickstart.md',
+    'packages/shared-ui/headless-sdk/examples/beli-competitor-quickstart.md',
+    'packages/shared-ui/headless-sdk/examples/fashion-guild-quickstart.md',
+    'packages/user/Studio/ui/src/lib/studio-data.ts',
+    'packages/user/Studio/ui/src/context/studio-context.tsx',
+    'packages/user/Studio/ui/src/pages/overview-page.tsx',
+    'packages/user/Studio/ui/src/pages/actions-playground-page.tsx',
+    'packages/user/Studio/ui/src/pages/invariants-studio-page.tsx',
+  ];
+
+  for (const file of FILES) {
+    assert.ok(existsSync(file), `Missing audited file: ${file}`);
+    const content = readFileSync(file, 'utf8');
+    for (const stale of STALE_SLUGS) {
+      assert.ok(
+        !content.includes(stale),
+        `${file} must not reference stale service slug '${stale}'`,
+      );
+    }
+  }
+});

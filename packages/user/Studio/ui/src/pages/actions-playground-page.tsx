@@ -113,8 +113,8 @@ const ACTION_TEMPLATES: ActionTemplate[] = [
             `await client.stagedTx.recordAttestation(${JSON.stringify(p, null, 2)});`,
     },
     {
-        id: "evals.recordPairwiseVote",
-        service: "evals",
+        id: "evaluation.recordPairwiseVote",
+        service: "evaluation",
         action: "recordPairwiseVote",
         canonicalKey: "evals",
         description:
@@ -167,8 +167,8 @@ const ACTION_TEMPLATES: ActionTemplate[] = [
             `await client.leaseEngine.settleCancellation(${JSON.stringify(p, null, 2)});`,
     },
     {
-        id: "claimcouncil.submitDamageClaim",
-        service: "claimcouncil",
+        id: "claim-coun.submitDamageClaim",
+        service: "claim-coun",
         action: "submitDamageClaim",
         canonicalKey: "claim_council",
         description:
@@ -191,8 +191,8 @@ const ACTION_TEMPLATES: ActionTemplate[] = [
             `await client.claimCouncil.submitDamageClaim(${JSON.stringify(p, null, 2)});`,
     },
     {
-        id: "creditclear.executeBilateralNetting",
-        service: "creditclear",
+        id: "cred-clear.executeBilateralNetting",
+        service: "cred-clear",
         action: "executeBilateralNetting",
         canonicalKey: "credit_clear",
         description:

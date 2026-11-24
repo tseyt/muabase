@@ -16,11 +16,14 @@ AI agents must **never hallucinate** service names or action endpoints. Use thes
 | `"tokens"` | `asset_pool`, `tangible_ratio` | `configureAssetPool`, `purchaseDigitalShares` | RWA asset pool creation, par-value floor (>= 51%), ROFR configuration. |
 | `"lease-eng"` | `lease`, `charity_sink` | `createLease`, `confirmCleanReturn`, `settleCancellation` | Usufruct leases (P2P rentals, supper clubs), zero-*riba* cancellation settling. |
 | `"staged-tx"` | `evidence_gate`, `asnaf_gate`, `personal_remittance` | `recordAttestation`, `proposeRemittanceAttestation`, `attestBeneficiaryCommitment`, `verifyRemittanceQuorum`, `getRemittanceAttestation` | Dual-witness Ricardian evidence & zero-PII humanitarian beneficiary commitment verification (`witness_quorum >= 2`, `"humanitarian-verifier"`). |
-| `"evals"` | `evals` | `recordPairwiseVote`, `createJu'alahBounty`, `resolveJu'alahBounty` | Schulze Condorcet pairwise tournaments, objective bounties. (People are NEVER ranked). |
-| `"claimcouncil"` | `claim_council` | `submitDamageClaim`, `voteDamageClaim` | 3-peer rapid damage triage committee for mutual protection reserves. |
+| `"evaluation"` | `evals` | `recordPairwiseVote`, `createJu'alahBounty`, `resolveJu'alahBounty` | Schulze Condorcet pairwise tournaments, objective bounties. (People are NEVER ranked). |
+| `"claim-coun"` | `claim_council` | `submitDamageClaim`, `voteDamageClaim` | 3-peer rapid damage triage committee for mutual protection reserves. |
 | `"ext-vault"` | `external_vault`, `zakat_tamlik`, `sadaqah_tip` | `generateSplitIntent`, `generateInvestmentIntent`, `createZakatRemittanceSplit`, `confirmRemittanceSettlement` | Non-custodial 0-key multi-party payouts (`COMMERCIAL_93_4_3` and `ZAKAT_TAMLIK_100` 100% principal delivery). |
-| `"creditclear"` (Wasm: `"cred-clear"`) | `credit_clear`, `liquidity_bridge`, `bridge_liquidity_desk` | `executeBilateralNetting`, `registerBridgeLiquidityDesk`, `updateBridgeCorridorSpread`, GraphQL `listBridgeCorridors` | Zero-fee multilateral B2B invoice clearing, Wajahah credit limits & licensed non-custodial bridge corridor discovery. |
-| `"tokenstream"` | `endowment_policy`, `mutual_shield` | `recordGrossRevenue`, `distributeCoopYield`, `allocateYieldStake` | Yield stabilization reserve math, Waqf principal preservation locks. |
+| `"cred-clear"` | `credit_clear`, `liquidity_bridge`, `bridge_liquidity_desk` | `executeBilateralNetting`, `registerBridgeLiquidityDesk`, `updateBridgeCorridorSpread`, GraphQL `listBridgeCorridors` | Zero-fee multilateral B2B invoice clearing, Wajahah credit limits & licensed non-custodial bridge corridor discovery. |
+| `"tok-stream"` | `endowment_policy` | `recordGrossRevenue`, `distributeCoopYield`, `allocateYieldStake` | Yield stabilization reserve math, cooperative yield streaming. |
+| `"mut-shield"` | `mutual_shield` | `contributePremium`, `payClaim`, `distributeSurplus` | Member-owned Takaful mutual protection reserve pool. |
+| `"waqf-treas"` | `waqf_treasury` | `createEndowment`, `proposeDisbursement`, `approveDisbursement` | Shurut-locked Waqf / Masjid endowment treasury with board quorum. |
+| `"muamalat"` | `muamalat_tahkim` | `registerTemplate`, `createContract`, `castTahkimVote` | Scholar-attested Istisna' / Mudarabah escrow with 2-of-3 Tahkim arbitration. |
 | `"branding"` | Dual-Locale Engine | `setNetworkName`, `setTerminologyLocale`, GraphQL `terminologyDictionary`, `translateTerm` | Dynamic switching between `"institutional"` and `"muamalat"` terms. |
 
 ---
@@ -68,23 +71,23 @@ When generating code, always adhere to these exact data scale and validation rul
 | `asset_pool` | RWA Asset Series / Series LLC | *Sukuk al-Qirad / Musharakah* | `"tokens"` |
 | `lease` | Fixed Lease / P2P Rental | *Ijarah al-A‘yan wa al-Manafi‘* | `"lease-eng"` |
 | `equity_lease` | Progressive Lease-to-Own / Equity Lease | *Musharakah Mutanaqisah* | `"lease-eng"` |
-| `mutual_shield` | Mutual Protection Reserve Pool | *Takaful (Tabarru‘ & Ta‘awun)* | `"mutualshield"` / `"tokenstream"` |
-| `claim_council` | Peer Triage Committee | *Majlis al-Tahkim & Shura* | `"claimcouncil"` |
-| `evals` | Objective Bounty & Claim Ranking | *Ju‘alah Halaqa* | `"evals"` |
-| `endowment_policy`| Trust Principal Preservation Lock | *Hifz Asl al-Waqf* | `"auth-delegate"` / `"tokenstream"` |
+| `mutual_shield` | Mutual Protection Reserve Pool | *Takaful (Tabarru‘ & Ta‘awun)* | `"mut-shield"` |
+| `claim_council` | Peer Triage Committee | *Majlis al-Tahkim & Shura* | `"claim-coun"` |
+| `evals` | Objective Bounty & Claim Ranking | *Ju‘alah Halaqa* | `"evaluation"` |
+| `endowment_policy`| Trust Principal Preservation Lock | *Hifz Asl al-Waqf* | `"auth-delg"` / `"waqf-treas"` |
 | `priority_window` | Co-Owner Right of First Refusal | *Haqq al-Shuf‘ah* | `"tokens"` |
 | `charity_sink` | Public Endowment Charity Sink | *Masraf al-Sadaqah* | `"lease-eng"` (`charity_sink_account`) |
-| `credit_clear` | Multilateral Invoice Netting | *Muqassah* | `"creditclear"` |
-| `liquidity_bridge` | Earned-Respect Liquidity Bridge | *Wajahah & Hawalah* | `"creditclear"` |
-| `trust_score` | Reliability & Audit Score | *‘Adalah (Probity / Reliability)*| `"credentials"` |
-| `domain_badge` | Domain Competence Credential | *Ikhtisas (Domain Specialization)*| `"credentials"` |
+| `credit_clear` | Multilateral Invoice Netting | *Muqassah* | `"cred-clear"` |
+| `liquidity_bridge` | Earned-Respect Liquidity Bridge | *Wajahah & Hawalah* | `"cred-clear"` |
+| `trust_score` | Reliability & Audit Score | *‘Adalah (Probity / Reliability)*| `"credential"` |
+| `domain_badge` | Domain Competence Credential | *Ikhtisas (Domain Specialization)*| `"credential"` |
 | `tangible_ratio` | Tangible Asset Backing Floor (>= 51%)| *Nisbat al-‘Ayn al-Haqiqiyyah* | `"tokens"` (`tangible_ratio_bps`) |
 | `evidence_gate` | Dual-Witness Evidentiary Gate | *Bayyinah (Dual Proof / Attestation)*| `"staged-tx"` |
 | `external_vault` | Non-Custodial Multi-Chain Splits | *Amanah Ghayr Hiyaziyyah (Trustee Escrow)*| `"ext-vault"` |
 | `guild_pod` | Cooperative Pod & Review Circle | *Halaqat al-Tijarah / al-Shura* | `"guilds"` / `"subgroups"` |
 | `zakat_tamlik` | Zero-Fee Direct Principal Vault (100% Beneficiary Delivery) | *Zakat Tamlik Vault (Tamlik al-Asnaf 100%)* | `"ext-vault"` |
 | `asnaf_gate` | Zero-PII Dual-Witness Beneficiary Eligibility Gate | *Asnaf Verification Gate (Bayyinat Istihqaq al-Zakat)* | `"staged-tx"` |
-| `bridge_liquidity_desk` | Licensed Non-Custodial Bridge Liquidity Desk | *Bridge Liquidity Desk (Maktab al-Sarf wa al-Hawalah)* | `"creditclear"` |
+| `bridge_liquidity_desk` | Licensed Non-Custodial Bridge Liquidity Desk | *Bridge Liquidity Desk (Maktab al-Sarf wa al-Hawalah)* | `"cred-clear"` |
 | `sadaqah_tip` | Optional Donor Infrastructure & FX Subsidy Split | *Tabarru‘ / Sadaqah Nafilah Infrastructure Split* | `"ext-vault"` |
 | `personal_remittance` | Non-Commercial P2P Personal Remittance Attestation | *Hawalah Shakhsiyyah & Iqrar Ghayr Tijari* | `"staged-tx"` |
 
