@@ -28,22 +28,22 @@ flowchart LR
 
 ```bash
 # 1. Start local node
-psinode ./masjid-db -p masjidprod -l 127.0.0.1:8080 --host muabase.local
+psinode ./masjid-db -p masjidprod -l 127.0.0.1:8080 --host muabase.localhost
 
 # 2. Boot system + WaqfTreasury packages
 psibase -a http://127.0.0.1:8080 boot -p masjidprod \
   Accounts AuthSig AuthDelegate AuthDyn AuthRecover StagedTx Invite Events Tokens WaqfTreasury Producers
 ```
 
-Create the institutional endowment account and 3 board member accounts (plus a standby replacement seat for key-recovery simulation):
+Create the institutional endowment account and 3 board member accounts (plus a standby replacement seat for key-recovery simulation; pass `-k <pubkey.pem>` or `-i` for local keyless testing):
 
 ```bash
-psibase -a http://127.0.0.1:8080 create masjid   -k <MASJID_PUBKEY>
-psibase -a http://127.0.0.1:8080 create chair    -k <CHAIR_PUBKEY>
-psibase -a http://127.0.0.1:8080 create treas    -k <TREAS_PUBKEY>
-psibase -a http://127.0.0.1:8080 create trustee  -k <TRUSTEE_PUBKEY>
-psibase -a http://127.0.0.1:8080 create treas2   -k <TREAS2_PUBKEY>
-psibase -a http://127.0.0.1:8080 create school   -k <SCHOOL_PUBKEY>
+psibase -a http://127.0.0.1:8080 create masjid   -k <MASJID_PUBKEY_PEM>
+psibase -a http://127.0.0.1:8080 create chair    -k <CHAIR_PUBKEY_PEM>
+psibase -a http://127.0.0.1:8080 create treas    -k <TREAS_PUBKEY_PEM>
+psibase -a http://127.0.0.1:8080 create trustee  -k <TRUSTEE_PUBKEY_PEM>
+psibase -a http://127.0.0.1:8080 create treas2   -k <TREAS2_PUBKEY_PEM>
+psibase -a http://127.0.0.1:8080 create school   -k <SCHOOL_PUBKEY_PEM>
 ```
 
 > **Zero-Friction Board Onboarding (`invite`):** New board trustees or masjid staff can be onboarded without handling raw gas or funding their own accounts by issuing sponsored invites via `invite::createInvite` + `invite::createAccount` (see `doc/src/default-apps/invite.md`).
@@ -95,15 +95,15 @@ Create `waqf-create.json` to (a) lock the `masjid` account's principal policy in
 ```
 
 ```bash
-psibase -a http://127.0.0.1:8080 push waqf-create.json -s <MASJID_KEY>
+psibase -a http://127.0.0.1:8080 push waqf-create.json -s <MASJID_KEY_PEM>
 ```
 
-Verify the immutable `auth-delg` policy via GraphQL:
+Verify the immutable `auth-delg` policy via GraphQL (`AuthDelegate` is a C++ service, so reflected fields use `snake_case`):
 
 ```bash
-curl -s -X POST http://auth-delg.127.0.0.1:8080/graphql \
+curl -s -X POST http://auth-delg.muabase.localhost:8080/graphql \
   -H "Content-Type: application/json" \
-  -d '{"query":"{ endowmentPolicy(account: \"masjid\") { account distributableYieldAccount approvedInvestmentTargets isEndowment } }"}'
+  -d '{"query":"{ endowmentPolicy(account: \"masjid\") { account distributable_yield_account approved_investment_targets is_endowment } }"}'
 ```
 
 ---
@@ -152,7 +152,7 @@ When `masjid` uses `auth-dyn` (weighted board multisig via `guilds` + `staged-tx
 Anyone (donors, congregants, external auditors) can verify that `corpus_principal` is untouched and total yield minus disbursements balances exactly—without seeing private beneficiary invoices:
 
 ```bash
-curl -s -X POST http://waqf-treas.127.0.0.1:8080/graphql \
+curl -s -X POST http://waqf-treas.muabase.localhost:8080/graphql \
   -H "Content-Type: application/json" \
   -d '{"query":"{ aggregateTreasury { endowmentCount totalCorpusLocked totalYieldAvailable totalDisbursed } disbursement(proposalId: 1) { proposalId category amount executed receiptLeafHash approvals } }"}'
 ```
@@ -172,7 +172,7 @@ node tools/verify-merkle-proof.mjs waqf-receipt-proof.json
 
 ## 6. Step 5 — Simulate Board-Quorum Treasurer Key Recovery
 
-If `treas` loses their device key, the remaining 2 board members (`chair` and `trustee`) rotate the treasurer seat to `treas2` without losing access to the endowment or breaking corpus invariants:
+If `treas` loses their device key, the remaining 2 board members (`chair` and `trustee`) rotate the treasurer seat to `treas2` without losing access to the endowment or breaking corpus invariants (sign with both `-s <CHAIR_KEY_PEM> -s <TRUSTEE_KEY_PEM>` or push each action separately):
 
 ```json
 [

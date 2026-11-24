@@ -26,22 +26,22 @@ stateDiagram-v2
 
 ```bash
 # 1. Start local node
-psinode ./muamalat-db -p tradeprod -l 127.0.0.1:8080 --host muabase.local
+psinode ./muamalat-db -p tradeprod -l 127.0.0.1:8080 --host muabase.localhost
 
 # 2. Boot system + MuamalatTahkim packages
 psibase -a http://127.0.0.1:8080 boot -p tradeprod \
   Accounts AuthSig AuthDyn Credentials StagedTx Events Tokens MuamalatTahkim Producers
 ```
 
-Create the scholar, commercial counterparties, and 3-member *tahkim* arbitration panel:
+Create the scholar, commercial counterparties, and 3-member *tahkim* arbitration panel (pass `-k <pubkey.pem>` or `-i` for local keyless testing):
 
 ```bash
-psibase -a http://127.0.0.1:8080 create scholar -k <SCHOLAR_PUBKEY>
-psibase -a http://127.0.0.1:8080 create buyer   -k <BUYER_PUBKEY>
-psibase -a http://127.0.0.1:8080 create builder -k <BUILDER_PUBKEY>
-psibase -a http://127.0.0.1:8080 create arb1    -k <ARB1_PUBKEY>
-psibase -a http://127.0.0.1:8080 create arb2    -k <ARB2_PUBKEY>
-psibase -a http://127.0.0.1:8080 create arb3    -k <ARB3_PUBKEY>
+psibase -a http://127.0.0.1:8080 create scholar -k <SCHOLAR_PUBKEY_PEM>
+psibase -a http://127.0.0.1:8080 create buyer   -k <BUYER_PUBKEY_PEM>
+psibase -a http://127.0.0.1:8080 create builder -k <BUILDER_PUBKEY_PEM>
+psibase -a http://127.0.0.1:8080 create arb1    -k <ARB1_PUBKEY_PEM>
+psibase -a http://127.0.0.1:8080 create arb2    -k <ARB2_PUBKEY_PEM>
+psibase -a http://127.0.0.1:8080 create arb3    -k <ARB3_PUBKEY_PEM>
 ```
 
 ---
@@ -67,7 +67,7 @@ psibase -a http://127.0.0.1:8080 create arb3    -k <ARB3_PUBKEY>
 ```
 
 ```bash
-psibase -a http://127.0.0.1:8080 push register-template.json -s <SCHOLAR_KEY>
+psibase -a http://127.0.0.1:8080 push register-template.json -s <SCHOLAR_KEY_PEM>
 ```
 
 ---
@@ -101,7 +101,7 @@ Seal the private B2B statement of work off-chain via `sealSelectiveDisclosureEnv
 ```
 
 ```bash
-psibase -a http://127.0.0.1:8080 push create-and-fund.json -s <BUYER_KEY>
+psibase -a http://127.0.0.1:8080 push create-and-fund.json -s <BUYER_KEY_PEM>
 ```
 
 ---
@@ -125,7 +125,7 @@ When Milestone 1 (`40000` minor units) is delivered and inspected, `buyer` relea
 ```
 
 ```bash
-psibase -a http://127.0.0.1:8080 push release-m1.json -s <BUYER_KEY>
+psibase -a http://127.0.0.1:8080 push release-m1.json -s <BUYER_KEY_PEM>
 ```
 
 ---
@@ -150,7 +150,7 @@ Suppose Milestone 2 (`60000` remaining in escrow) is contested due to partial de
    ```
    While `status == "DISPUTED"`, any unilateral `releaseMilestone` call aborts with `Milestone release blocked`.
 
-2. **Two of three independent arbitrators (`arb1`, `arb2`) review the selective-disclosure evidence bundle and vote a conserving `SPLIT` (`20000` refunded to `buyer`, `40000` awarded to `builder`):**
+2. **Two of three independent arbitrators (`arb1`, `arb2`) review the selective-disclosure evidence bundle and vote a conserving `SPLIT` (`20000` refunded to `buyer`, `40000` awarded to `builder`; push separately or pass `-s <ARB1_KEY_PEM> -s <ARB2_KEY_PEM>`):**
    ```json
    [
      {
@@ -180,7 +180,7 @@ Suppose Milestone 2 (`60000` remaining in escrow) is contested due to partial de
 
 3. **Inspect final settled state and verify the award receipt offline:**
    ```bash
-   curl -s -X POST http://muamalat.127.0.0.1:8080/graphql \
+   curl -s -X POST http://muamalat.muabase.localhost:8080/graphql \
      -H "Content-Type: application/json" \
      -d '{"query":"{ contract(contractId: 1) { contractId status totalEscrow releasedAmount refundedAmount lastReceiptLeafHash } dispute(contractId: 1) { contractId resolved finalRuling awardReceiptLeafHash } }"}'
    ```

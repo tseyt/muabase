@@ -85,7 +85,7 @@ export function MarketBoard() {
   const { data: markets, loading, error } = useMuabaseTable({
     client,
     service: 'evaluation',
-    table: "Ju'alahBountyTable",
+    table: 'jualahBountyTable',
     query: '{ jualahBountyTable { marketId question outcomes totalStakedUsd accruedYieldUsd status } }',
     filter: (m: any) => m.status === 'Open',
     pollIntervalMs: 3000,

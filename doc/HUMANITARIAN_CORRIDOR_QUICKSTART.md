@@ -43,7 +43,7 @@ sequenceDiagram
 
 ```bash
 # 1. Start local node (positional DB path, producer `qirim`, HTTP on 127.0.0.1:8080)
-psinode ./qirim-db -p qirim -l 127.0.0.1:8080 --host muabase.local
+psinode ./qirim-db -p qirim -l 127.0.0.1:8080 --host muabase.localhost
 
 # 2. Boot core + corridor packages (in a second terminal)
 psibase -a http://127.0.0.1:8080 boot -p qirim \
@@ -62,16 +62,18 @@ curl -s http://127.0.0.1:8080/native/admin/status
 
 `Credentials` enforces issuer governance via `AuthorizedIssuerTable`. Accredit `majlis` first, create two independent verifiers (`verif1`, `verif2`), and grant each an active `"humanitarian-verifier"` badge with `trust_score >= 8000` and `precision_score >= 8000`:
 
+> **Local Dev Tip:** Pass `-k <path/to/pubkey.pem>` (generated via `openssl ecparam -name prime256v1 -genkey -noout -out acct.pem && openssl pkey -in acct.pem -pubout -out acct.pub.pem`), or pass `-i` (`--insecure`) on a local dev chain to create keyless test accounts.
+
 ```bash
 # Create accounts (valid Psibase AccountNumbers)
-psibase -a http://127.0.0.1:8080 create majlis  -k <MAJLIS_PUBKEY>
-psibase -a http://127.0.0.1:8080 create verif1  -k <VERIF1_PUBKEY>
-psibase -a http://127.0.0.1:8080 create verif2  -k <VERIF2_PUBKEY>
-psibase -a http://127.0.0.1:8080 create donor   -k <DONOR_PUBKEY>
-psibase -a http://127.0.0.1:8080 create desktr  -k <DESK_PUBKEY>
+psibase -a http://127.0.0.1:8080 create majlis  -k <MAJLIS_PUBKEY_PEM>
+psibase -a http://127.0.0.1:8080 create verif1  -k <VERIF1_PUBKEY_PEM>
+psibase -a http://127.0.0.1:8080 create verif2  -k <VERIF2_PUBKEY_PEM>
+psibase -a http://127.0.0.1:8080 create donor   -k <DONOR_PUBKEY_PEM>
+psibase -a http://127.0.0.1:8080 create desktr  -k <DESK_PUBKEY_PEM>
 ```
 
-Push the accreditation and credential actions as a JSON action array (`corridor-setup.json`):
+Push the accreditation and credential actions as a JSON action array (`corridor-setup.json`). Because the array contains actions from both `producers+3` (producer multisig) and `majlis`, supply each sender's signing key with `-s` (or split into two `psibase push` calls):
 
 ```json
 [
@@ -129,7 +131,7 @@ Push the accreditation and credential actions as a JSON action array (`corridor-
 ```
 
 ```bash
-psibase -a http://127.0.0.1:8080 push corridor-setup.json -s <SIGNING_KEY>
+psibase -a http://127.0.0.1:8080 push corridor-setup.json -s <PRODUCER_KEY_PEM> -s <MAJLIS_KEY_PEM>
 ```
 
 ---
@@ -179,7 +181,7 @@ const disclosed = await openSelectiveDisclosureEnvelope(envelope, "auditor-1", a
        "data": {
          "corridor_jurisdiction": "TR",
          "desk_label": "Bosphorus Non-Custodial Sarf",
-         "license_registry_hash": "4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a0",
+         "license_registry_hash": "4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a",
          "evm_safe_address": "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
          "btc_taproot_descriptor": "",
          "solana_squads_pda": "",
@@ -192,6 +194,7 @@ const disclosed = await openSelectiveDisclosureEnvelope(envelope, "auditor-1", a
    ```
 
 2. **Propose attestation & collect 2-of-2 witness co-signatures (`staged-tx`):**
+   *(In production, `donor`, `verif1`, and `verif2` each push their own action with their own `-s` key; locally you can pass all three `-s` flags together.)*
    ```json
    [
      {
@@ -266,7 +269,7 @@ const disclosed = await openSelectiveDisclosureEnvelope(envelope, "auditor-1", a
 
 4. **Query public aggregate conservation via native subdomain GraphQL (zero PII exposed):**
    ```bash
-   curl -s -X POST http://ext-vault.127.0.0.1:8080/graphql \
+   curl -s -X POST http://ext-vault.muabase.localhost:8080/graphql \
      -H "Content-Type: application/json" \
      -d '{"query":"{ corridorConservation(corridorJurisdiction: \"TR\") { settledCount totalPrincipalDelivered totalSadaqahTips totalFeesDeducted } corridorReceipt(intentId: 1) { intentId attestationId recipientAmount protocolFeeDeducted receiptLeafHash externalTxRef } }"}'
    ```
@@ -278,7 +281,7 @@ const disclosed = await openSelectiveDisclosureEnvelope(envelope, "auditor-1", a
 Fetch an anchored `muabase.dwal_merkle.v1` JSON inclusion proof directly from `psinode`'s native proof endpoint, then verify it offline with zero node connection:
 
 ```bash
-# 1. Fetch anchored state proof from psinode
+# 1. Fetch anchored state proof from psinode (use the fracpack KV key hex for CorridorReceiptTable / intent_id=1)
 curl -s -X POST http://127.0.0.1:8080/native/proof/state \
   -H "Content-Type: application/json" \
   -d '{"db":"service","keyHex":"<CORRIDOR_RECEIPT_KV_KEY_HEX>"}' \
@@ -295,6 +298,7 @@ node tools/checkpoint-anchor.mjs --verify corridor-anchor.json
 To run the local cross-language C++ -> JS proof parity test suite without a running node:
 
 ```bash
+cmake -B build-native -DCMAKE_BUILD_TYPE=Release
 cmake --build build-native --target muabase-db-dwal-tests muabase-proof-tool -j$(nproc)
 ctest --test-dir build-native -R '^n-muabase-db-' --output-on-failure
 node --test tools/test-verify-merkle-proof.mjs
@@ -314,10 +318,10 @@ An external Shariah or regulatory auditor verifies all `compliance.md` Section 7
 
 ```bash
 mkdir -p evidence-pack
-curl -s -X POST http://staged-tx.127.0.0.1:8080/graphql -H "Content-Type: application/json" \
+curl -s -X POST http://staged-tx.muabase.localhost:8080/graphql -H "Content-Type: application/json" \
   -d '{"query":"{ remittanceAttestation(attestationId: 1) { attestationId corridorJurisdiction asnafCategory witnessQuorum verifiedWitnesses quorumSatisfied recipientCommitmentHash } }"}' \
   > evidence-pack/attestation.json
-curl -s -X POST http://ext-vault.127.0.0.1:8080/graphql -H "Content-Type: application/json" \
+curl -s -X POST http://ext-vault.muabase.localhost:8080/graphql -H "Content-Type: application/json" \
   -d '{"query":"{ corridorReceipt(intentId: 1) { intentId attestationId recipientAmount sadaqahTipAmount protocolFeeDeducted externalTxRef receiptLeafHash } corridorConservation(corridorJurisdiction: \"TR\") { settledCount totalPrincipalDelivered totalFeesDeducted } }"}' \
   > evidence-pack/receipt.json
 cp corridor-proof.json corridor-anchor.json evidence-pack/

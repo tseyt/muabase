@@ -3,7 +3,7 @@
 This quickstart guides you through building a high-trust peer-to-peer luxury fashion and equipment rental marketplace (outcompeting Web2 platforms like Pickle) using `@muabase/headless-sdk`. 
 
 Key architectural advantages:
-- **93% Lender Take-Home:** Slashes incumbent platform take-rates (typically 20–30%) down to 4% protocol fee + 3% peer mutual protection pool (`mutual_shield` / *Takaful*).
+- **93% Lender Take-Home:** Slashes incumbent platform take-rates (typically 20–30%) down to 3% protocol fee + 4% peer mutual protection pool (`mutual_shield` / *Takaful*).
 - **Zero-*Riba* Deterrence:** 100% of punitive late-return penalties are hard-routed to a designated community charity sink (`charity_sink`, contract field `charity_sink_account`).
 - **Peer Triage Committee (`claim_council` / *Majlis al-Tahkim*):** Disputed returns are arbitrated by 3 independent guild peers via photo evidence hashes rather than opaque centralized customer support.
 - **Dual-Witness Evidentiary Gate (*Bayyinah*):** Before claims or releases execute, 2 qualified witnesses holding soulbound reliability (`trust_score` / `AdalahScore`) and competence (`domain_badge` / `IkhtisasTag`) attest to the evidence hash.
@@ -95,9 +95,11 @@ export function ItemCatalog() {
         <div key={lease.leaseId} className="border rounded p-4 shadow-sm">
           <h3 className="font-bold">Asset #{lease.assetId || lease.leaseId}</h3>
           <p className="text-sm text-gray-600">Lessor: {lease.lessor}</p>
-          <p className="text-sm">Rate: ${(lease.grossPayment / 10000).toFixed(2)}</p>
+          <p className="text-sm">
+            Rate: ${(((lease.grossPayment?.value ?? lease.grossPayment) || 0) / 10000).toFixed(2)}
+          </p>
           <p className="text-xs text-green-700">
-            Lender Take-Home: 93% (${((lease.grossPayment * 0.93) / 10000).toFixed(2)})
+            Lender Take-Home: 93% (${((((lease.grossPayment?.value ?? lease.grossPayment) || 0) * 0.93) / 10000).toFixed(2)})
           </p>
         </div>
       ))}

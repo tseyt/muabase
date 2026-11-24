@@ -82,10 +82,18 @@ export async function registerRestaurant(params: {
   city: string;
   priceTier: 1 | 2 | 3 | 4;
 }) {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(params.name),
+  );
+  const legalWrapperHash =
+    "0x" +
+    Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
+
   // Call Muabase canonical tokens service directly
   return await client.tokens.configureAssetPool({
     tokenId: 3001,
-    legalWrapperHash: "0x" + Buffer.from(params.name).toString("hex").padEnd(64, "0"),
+    legalWrapperHash,
     maxHolders: 10000,
     minTrustScore: 6500,     // Minimum 65.00% reliability score to submit official ratings
     tangibleRatioBps: 10000, // 100% physical tangible dining experience (tangible_ratio >= 5100)
