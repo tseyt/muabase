@@ -1,5 +1,2 @@
-export * from "./types";
-export * from "./client";
-export * from "./stream";
-export * from "./privacy";
-export * from "./react/useMuabaseTable";
+export * from "./core.js";
+export * from "./react/useMuabaseTable.js";

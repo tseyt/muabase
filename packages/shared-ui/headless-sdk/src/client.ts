@@ -29,81 +29,47 @@ import {
   RegisterBridgeLiquidityDeskInput,
   ListBridgeCorridorsFilter,
   BridgeLiquidityDesk,
+  CorridorConservation,
+  CreateEndowmentInput,
+  ProposeDisbursementInput,
+  AggregateTreasury,
+  RegisterTemplateInput,
+  CreateContractInput,
+  CastTahkimVoteInput,
   MuabaseTransportMode,
   StateProofRequest,
   AnchoredMerkleProof,
-} from "./types";
+} from "./types.js";
+import { MUABASE_SERVICES } from "./services.js";
+import {
+  assertPositiveInteger,
+  assertValidCorridorJurisdiction,
+  assertValidSha256Commitment,
+  assertZakatTamlikSplitInvariant,
+  computeCommercialSplitCents,
+} from "./guards.js";
 
-const SHA256_HEX_RE = /^(?:0x)?([0-9a-fA-F]{64})$/;
-const ZERO_SHA256_HEX = "0".repeat(64);
-const ISO_CORRIDOR_RE = /^[A-Z]{2}$/;
+export {
+  MUABASE_SERVICES,
+  assertPositiveInteger,
+  assertValidCorridorJurisdiction,
+  assertValidSha256Commitment,
+  assertZakatTamlikSplitInvariant,
+  computeCommercialSplitCents,
+};
 
-/**
- * Client-side Zero-PII guard: ensures `digestHex` is an exact, non-zero 32-byte SHA-256 hex string
- * (`0x`-prefixed or 64 raw hex chars) and never plaintext beneficiary PII.
- */
-export function assertValidSha256Commitment(digestHex: string, fieldName = "recipientCommitmentHash"): string {
-  const match = SHA256_HEX_RE.exec(digestHex);
-  if (!match) {
-    throw new Error(
-      `PII Guard Violation: ${fieldName} must be an exact 32-byte (64-hex-char) SHA-256 digest; plaintext PII is strictly forbidden`,
-    );
+function assertValidEndpointUrl(endpoint: string): string {
+  let parsed: URL;
+  try {
+    parsed = new URL(endpoint);
+  } catch {
+    throw new Error(`Invalid Muabase endpoint URL: '${endpoint}'`);
   }
-  const rawHex = match[1].toLowerCase();
-  if (rawHex === ZERO_SHA256_HEX) {
-    throw new Error(
-      `PII Guard Violation: ${fieldName} cannot be an uninitialized all-zero 32-byte digest`,
-    );
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new Error(`Muabase endpoint URL must use http:// or https://, got '${parsed.protocol}'`);
   }
-  return `0x${rawHex}`;
+  return endpoint.replace(/\/$/, "");
 }
-
-/**
- * Client-side corridor code guard: enforces uppercase ISO-3166-1 alpha-2 bridge codes (e.g. `"TR"`, `"AE"`, `"UA"`, `"UZ"`).
- */
-export function assertValidCorridorJurisdiction(corridor: string): string {
-  if (!ISO_CORRIDOR_RE.test(corridor)) {
-    throw new Error(
-      `PII & Compliance Violation: corridorJurisdiction '${corridor}' must be a 2-letter uppercase ISO-3166-1 alpha-2 bridge code (e.g. TR, AE, UA, UZ)`,
-    );
-  }
-  return corridor;
-}
-
-/**
- * Client-side *Tamlik* principal conservation guard:
- * Rejects any attempt to deduct protocol fees, gas, or FX spread from `zakatPrincipalAmount`
- * when `mode === "ZAKAT_TAMLIK_100"`.
- */
-export function assertZakatTamlikSplitInvariant(input: CreateZakatRemittanceSplitInput): {
-  mode: "COMMERCIAL_93_4_3" | "ZAKAT_TAMLIK_100";
-  zakatPrincipalAmount: number;
-  sadaqahTipAmount: number;
-  protocolFeeDeduction: number;
-} {
-  const mode = input.mode ?? "ZAKAT_TAMLIK_100";
-  const zakatPrincipalAmount = input.zakatPrincipalAmount;
-  const sadaqahTipAmount = input.sadaqahTipAmount ?? 0;
-  const protocolFeeDeduction = input.protocolFeeDeduction ?? 0;
-
-  if (!Number.isInteger(zakatPrincipalAmount) || zakatPrincipalAmount <= 0) {
-    throw new Error("zakatPrincipalAmount must be a positive integer in minor token units");
-  }
-  if (!Number.isInteger(sadaqahTipAmount) || sadaqahTipAmount < 0) {
-    throw new Error("sadaqahTipAmount must be a non-negative integer in minor token units");
-  }
-  if (!Number.isInteger(protocolFeeDeduction) || protocolFeeDeduction < 0) {
-    throw new Error("protocolFeeDeduction must be a non-negative integer in minor token units");
-  }
-  if (mode === "ZAKAT_TAMLIK_100" && protocolFeeDeduction > 0) {
-    throw new Error(
-      `Tamlik Violation: ZAKAT_TAMLIK_100 strictly forbids deducting any protocol fee, gas, or FX spread (${protocolFeeDeduction}) from zakatPrincipalAmount (${zakatPrincipalAmount})`,
-    );
-  }
-
-  return { mode, zakatPrincipalAmount, sadaqahTipAmount, protocolFeeDeduction };
-}
-
 
 export class MuabaseClient {
   public endpoint: string;
@@ -112,7 +78,7 @@ export class MuabaseClient {
   public transport: MuabaseTransportMode;
 
   constructor(config: MuabaseConfig) {
-    this.endpoint = config.endpoint.replace(/\/$/, "");
+    this.endpoint = assertValidEndpointUrl(config.endpoint);
     this.locale = config.locale || "institutional";
     this.account = config.account || "anonymous";
     this.transport = config.transport || "gateway";
@@ -162,6 +128,9 @@ export class MuabaseClient {
    * directly from psinode's native `POST /native/proof/state` endpoint.
    */
   public async fetchStateProof(request: StateProofRequest): Promise<AnchoredMerkleProof> {
+    if (!request.keyHex && request.keyUtf8 === undefined) {
+      throw new Error("StateProofRequest requires either keyHex or keyUtf8");
+    }
     const res = await fetch(`${this.endpoint}/native/proof/state`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -210,7 +179,7 @@ export class MuabaseClient {
      * @param config.charitySinkAccount Designated public charity sink vault (defaults to "waqf-sadaqah").
      */
     configureAssetPool: async (config: AssetPoolConfig) => {
-      return this.transact("tokens", "configureAssetPool", { config });
+      return this.transact(MUABASE_SERVICES.TOKENS, "configureAssetPool", { config });
     },
   };
 
@@ -223,14 +192,14 @@ export class MuabaseClient {
      * @param args.charitySinkAccount "waqf-sadaqah" for zero-riba late penalty routing.
      */
     createLease: async (args: Record<string, any>) => {
-      return this.transact("lease-eng", "createLease", args);
+      return this.transact(MUABASE_SERVICES.LEASE_ENGINE, "createLease", args);
     },
     /**
      * Confirm clean item return or dining conclusion, releasing deposits.
      * Wasm Service: "lease-eng", Action: "confirmCleanReturn"
      */
     confirmCleanReturn: async (args: { leaseId: number; postConditionEvidenceHash: string }) => {
-      return this.transact("lease-eng", "confirmCleanReturn", args);
+      return this.transact(MUABASE_SERVICES.LEASE_ENGINE, "confirmCleanReturn", args);
     },
     /**
      * Settle late return or cancellation: direct damage to host, punitive deterrence to charity sink.
@@ -242,7 +211,7 @@ export class MuabaseClient {
       punitivePenalty: { value: number };
       charitySinkAccount: string;
     }) => {
-      return this.transact("lease-eng", "settleCancellation", args);
+      return this.transact(MUABASE_SERVICES.LEASE_ENGINE, "settleCancellation", args);
     },
   };
 
@@ -261,7 +230,7 @@ export class MuabaseClient {
       witnessQuorum?: number;
       metadata?: any;
     }) => {
-      return this.transact("staged-tx", "recordAttestation", args);
+      return this.transact(MUABASE_SERVICES.STAGED_TX, "recordAttestation", args);
     },
 
     /**
@@ -291,7 +260,7 @@ export class MuabaseClient {
         );
       }
 
-      return this.transact("staged-tx", "proposeRemittanceAttestation", {
+      return this.transact(MUABASE_SERVICES.STAGED_TX, "proposeRemittanceAttestation", {
         recipient_commitment_hash: recipientCommitmentHash,
         corridor_jurisdiction: corridorJurisdiction,
         non_commercial_personal_declaration_hash: nonCommercialPersonalDeclarationHash,
@@ -314,7 +283,7 @@ export class MuabaseClient {
       );
       const domainBadge = input.domainBadge ?? "humanitarian-verifier";
 
-      return this.transact("staged-tx", "attestBeneficiaryCommitment", {
+      return this.transact(MUABASE_SERVICES.STAGED_TX, "attestBeneficiaryCommitment", {
         attestation_id: input.attestationId,
         recipient_commitment_hash: recipientCommitmentHash,
         domain_badge: domainBadge,
@@ -331,7 +300,7 @@ export class MuabaseClient {
       const data = await this.query<{
         remittanceAttestation: PersonalRemittanceAttestation | null;
       }>(
-        "staged-tx",
+        MUABASE_SERVICES.STAGED_TX,
         `query GetRemittanceAttestation($attestationId: Int!) {
           remittanceAttestation(attestationId: $attestationId) {
             attestationId
@@ -365,19 +334,19 @@ export class MuabaseClient {
       voter?: string;
       receiptHash?: string | null;
     }) => {
-      return this.transact("evaluation", "recordPairwiseVote", args);
+      return this.transact(MUABASE_SERVICES.EVALUATIONS, "recordPairwiseVote", args);
     },
     "createJu'alahBounty": async (args: Record<string, any>) => {
-      return this.transact("evaluation", "createJu'alahBounty", args);
+      return this.transact(MUABASE_SERVICES.EVALUATIONS, "createJu'alahBounty", args);
     },
     createJualahBounty: async (args: Record<string, any>) => {
-      return this.transact("evaluation", "createJu'alahBounty", args);
+      return this.transact(MUABASE_SERVICES.EVALUATIONS, "createJu'alahBounty", args);
     },
     "resolveJu'alahBounty": async (args: Record<string, any>) => {
-      return this.transact("evaluation", "resolveJu'alahBounty", args);
+      return this.transact(MUABASE_SERVICES.EVALUATIONS, "resolveJu'alahBounty", args);
     },
     resolveJualahBounty: async (args: Record<string, any>) => {
-      return this.transact("evaluation", "resolveJu'alahBounty", args);
+      return this.transact(MUABASE_SERVICES.EVALUATIONS, "resolveJu'alahBounty", args);
     },
   };
 
@@ -387,10 +356,10 @@ export class MuabaseClient {
      * Wasm Service: "claim-coun", Action: "submitDamageClaim"
      */
     submitDamageClaim: async (args: Record<string, any>) => {
-      return this.transact("claim-coun", "submitDamageClaim", args);
+      return this.transact(MUABASE_SERVICES.CLAIM_COUNCIL, "submitDamageClaim", args);
     },
     voteDamageClaim: async (args: { claimId: number; approve: boolean; approvedPayout: { value: number } }) => {
-      return this.transact("claim-coun", "voteDamageClaim", args);
+      return this.transact(MUABASE_SERVICES.CLAIM_COUNCIL, "voteDamageClaim", args);
     },
   };
 
@@ -401,10 +370,10 @@ export class MuabaseClient {
      * @param args.grossAmountCents Integer currency cents ($1.00 = 100).
      */
     generateSplitIntent: async (args: Record<string, any>) => {
-      return this.transact("ext-vault", "generateSplitIntent", args);
+      return this.transact(MUABASE_SERVICES.EXTERNAL_VAULT, "generateSplitIntent", args);
     },
     generateInvestmentIntent: async (args: Record<string, any>) => {
-      return this.transact("ext-vault", "generateInvestmentIntent", args);
+      return this.transact(MUABASE_SERVICES.EXTERNAL_VAULT, "generateInvestmentIntent", args);
     },
 
     /**
@@ -427,7 +396,7 @@ export class MuabaseClient {
       const { mode, zakatPrincipalAmount, sadaqahTipAmount, protocolFeeDeduction } =
         assertZakatTamlikSplitInvariant(input);
 
-      return this.transact("ext-vault", "createZakatRemittanceSplit", {
+      return this.transact(MUABASE_SERVICES.EXTERNAL_VAULT, "createZakatRemittanceSplit", {
         attestation_id: input.attestationId,
         mode,
         rail_type: input.railType,
@@ -452,7 +421,7 @@ export class MuabaseClient {
       if (!args.externalTxRef || args.externalTxRef.trim().length === 0) {
         throw new Error("externalTxRef settlement confirmation hash must be non-empty");
       }
-      return this.transact("ext-vault", "confirmRemittanceSettlement", {
+      return this.transact(MUABASE_SERVICES.EXTERNAL_VAULT, "confirmRemittanceSettlement", {
         intent_id: args.intentId,
         external_tx_ref: args.externalTxRef,
       });
@@ -462,10 +431,10 @@ export class MuabaseClient {
      * Query aggregate conservation totals for a humanitarian corridor (zero PII).
      * Wasm Service: `"ext-vault"`, GraphQL Query: `corridorConservation`
      */
-    getCorridorConservation: async (corridorJurisdiction: string) => {
+    getCorridorConservation: async (corridorJurisdiction: string): Promise<CorridorConservation> => {
       assertValidCorridorJurisdiction(corridorJurisdiction);
-      const data = await this.query(
-        "ext-vault",
+      const data = await this.query<{ corridorConservation: CorridorConservation }>(
+        MUABASE_SERVICES.EXTERNAL_VAULT,
         `query CorridorConservation($corridorJurisdiction: String!) {
           corridorConservation(corridorJurisdiction: $corridorJurisdiction) {
             corridorJurisdiction
@@ -487,7 +456,7 @@ export class MuabaseClient {
      * Wasm Service: "cred-clear", Action: "executeBilateralNetting"
      */
     executeBilateralNetting: async (args: { invoice1Id: number; invoice2Id: number }) => {
-      return this.transact("cred-clear", "executeBilateralNetting", args);
+      return this.transact(MUABASE_SERVICES.CREDIT_CLEAR, "executeBilateralNetting", args);
     },
 
     /**
@@ -498,6 +467,10 @@ export class MuabaseClient {
       input: RegisterBridgeLiquidityDeskInput,
     ): Promise<{ deskId: number }> => {
       const corridorJurisdiction = assertValidCorridorJurisdiction(input.corridorJurisdiction);
+      if (!input.deskLabel || input.deskLabel.trim().length === 0) {
+        throw new Error("deskLabel must be non-empty");
+      }
+      assertPositiveInteger(input.maxPerTxUsdcCents, "maxPerTxUsdcCents");
       const licenseRegistryHash = assertValidSha256Commitment(
         input.licenseRegistryHash,
         "licenseRegistryHash",
@@ -515,7 +488,7 @@ export class MuabaseClient {
         );
       }
 
-      return this.transact("cred-clear", "registerBridgeLiquidityDesk", {
+      return this.transact(MUABASE_SERVICES.CREDIT_CLEAR, "registerBridgeLiquidityDesk", {
         corridor_jurisdiction: corridorJurisdiction,
         desk_label: input.deskLabel,
         license_registry_hash: licenseRegistryHash,
@@ -539,7 +512,7 @@ export class MuabaseClient {
         assertValidCorridorJurisdiction(filter.corridorJurisdiction);
       }
       const data = await this.query<{ listBridgeCorridors: BridgeLiquidityDesk[] }>(
-        "cred-clear",
+        MUABASE_SERVICES.CREDIT_CLEAR,
         `query ListBridgeCorridors($corridorJurisdiction: String, $activeOnly: Boolean) {
           listBridgeCorridors(corridorJurisdiction: $corridorJurisdiction, activeOnly: $activeOnly) {
             deskId
@@ -570,17 +543,18 @@ export class MuabaseClient {
     /**
      * Create a rule-locked Waqf / Masjid endowment (`waqf-treas::createEndowment`).
      */
-    createEndowment: async (args: {
-      label: string;
-      corpusPrincipal: number;
-      shurutHash: string;
-      scholarAttestationHash: string;
-      allowedCategories: string[];
-      maxSingleDisbursement: number;
-      boardMembers: string[];
-      quorumThreshold: number;
-    }) => {
-      return this.transact("waqf-treas", "createEndowment", {
+    createEndowment: async (args: CreateEndowmentInput) => {
+      if (!args.label || args.label.trim().length === 0) {
+        throw new Error("Endowment label must be non-empty");
+      }
+      assertPositiveInteger(args.corpusPrincipal, "corpusPrincipal");
+      if (args.allowedCategories.length === 0) {
+        throw new Error("allowedCategories must contain at least one category");
+      }
+      if (!Number.isInteger(args.quorumThreshold) || args.quorumThreshold < 2 || args.quorumThreshold > args.boardMembers.length) {
+        throw new Error("quorumThreshold must be >= 2 and <= boardMembers.length");
+      }
+      return this.transact(MUABASE_SERVICES.WAQF_TREASURY, "createEndowment", {
         label: args.label,
         corpus_principal: args.corpusPrincipal,
         shurut_hash: assertValidSha256Commitment(args.shurutHash, "shurutHash"),
@@ -594,14 +568,9 @@ export class MuabaseClient {
         quorum_threshold: args.quorumThreshold,
       });
     },
-    proposeDisbursement: async (args: {
-      endowmentId: number;
-      recipient: string;
-      category: string;
-      amount: number;
-      evidenceCommitmentHash: string;
-    }) => {
-      return this.transact("waqf-treas", "proposeDisbursement", {
+    proposeDisbursement: async (args: ProposeDisbursementInput) => {
+      assertPositiveInteger(args.amount, "amount");
+      return this.transact(MUABASE_SERVICES.WAQF_TREASURY, "proposeDisbursement", {
         endowment_id: args.endowmentId,
         recipient: args.recipient,
         category: args.category,
@@ -613,11 +582,11 @@ export class MuabaseClient {
       });
     },
     approveDisbursement: async (proposalId: number) => {
-      return this.transact("waqf-treas", "approveDisbursement", { proposal_id: proposalId });
+      return this.transact(MUABASE_SERVICES.WAQF_TREASURY, "approveDisbursement", { proposal_id: proposalId });
     },
-    getAggregateTreasury: async () => {
-      const data = await this.query(
-        "waqf-treas",
+    getAggregateTreasury: async (): Promise<AggregateTreasury> => {
+      const data = await this.query<{ aggregateTreasury: AggregateTreasury }>(
+        MUABASE_SERVICES.WAQF_TREASURY,
         `{ aggregateTreasury { endowmentCount totalCorpusLocked totalYieldAvailable totalDisbursed } }`,
       );
       return data.aggregateTreasury;
@@ -628,28 +597,25 @@ export class MuabaseClient {
     /**
      * Register a scholar-attested commercial contract template (`muamalat::registerTemplate`).
      */
-    registerTemplate: async (args: {
-      contractKind: "ISTISNA" | "MUDARABAH";
-      templateHash: string;
-      certificateHash: string;
-      standardRef: string;
-    }) => {
-      return this.transact("muamalat", "registerTemplate", {
+    registerTemplate: async (args: RegisterTemplateInput) => {
+      if (!args.standardRef || args.standardRef.trim().length === 0) {
+        throw new Error("standardRef must be non-empty");
+      }
+      return this.transact(MUABASE_SERVICES.MUAMALAT_TAHKIM, "registerTemplate", {
         contract_kind: args.contractKind,
         template_hash: assertValidSha256Commitment(args.templateHash, "templateHash"),
         certificate_hash: assertValidSha256Commitment(args.certificateHash, "certificateHash"),
         standard_ref: args.standardRef,
       });
     },
-    createContract: async (args: {
-      templateId: number;
-      expectedTemplateHash: string;
-      contractor: string;
-      arbitrators: [string, string, string];
-      milestoneAmounts: number[];
-      termsCommitmentHash: string;
-    }) => {
-      return this.transact("muamalat", "createContract", {
+    createContract: async (args: CreateContractInput) => {
+      if (new Set(args.arbitrators).size !== 3) {
+        throw new Error("Tahkim panel requires exactly 3 distinct arbitrators");
+      }
+      if (args.milestoneAmounts.length === 0 || args.milestoneAmounts.some((m) => !Number.isInteger(m) || m <= 0)) {
+        throw new Error("milestoneAmounts must contain positive integer amounts");
+      }
+      return this.transact(MUABASE_SERVICES.MUAMALAT_TAHKIM, "createContract", {
         template_id: args.templateId,
         expected_template_hash: assertValidSha256Commitment(
           args.expectedTemplateHash,
@@ -664,13 +630,8 @@ export class MuabaseClient {
         ),
       });
     },
-    castTahkimVote: async (args: {
-      contractId: number;
-      rulingKind: "AWARD_CONTRACTOR" | "REFUND_FUNDER" | "SPLIT";
-      funderAmount?: number;
-      contractorAmount?: number;
-    }) => {
-      return this.transact("muamalat", "castTahkimVote", {
+    castTahkimVote: async (args: CastTahkimVoteInput) => {
+      return this.transact(MUABASE_SERVICES.MUAMALAT_TAHKIM, "castTahkimVote", {
         contract_id: args.contractId,
         ruling_kind: args.rulingKind,
         funder_amount: args.funderAmount ?? 0,
@@ -681,19 +642,19 @@ export class MuabaseClient {
 
   public tokenStream = {
     recordGrossRevenue: async (args: Record<string, any>) => {
-      return this.transact("tok-stream", "recordGrossRevenue", args);
+      return this.transact(MUABASE_SERVICES.TOKEN_STREAM, "recordGrossRevenue", args);
     },
     distributeCoopYield: async (args: Record<string, any>) => {
-      return this.transact("tok-stream", "distributeCoopYield", args);
+      return this.transact(MUABASE_SERVICES.TOKEN_STREAM, "distributeCoopYield", args);
     },
     allocateYieldStake: async (args: Record<string, any>) => {
-      return this.transact("tok-stream", "allocateYieldStake", args);
+      return this.transact(MUABASE_SERVICES.TOKEN_STREAM, "allocateYieldStake", args);
     },
     "claimJu'alahReward": async (args: Record<string, any>) => {
-      return this.transact("tok-stream", "claimJu'alahReward", args);
+      return this.transact(MUABASE_SERVICES.TOKEN_STREAM, "claimJu'alahReward", args);
     },
     claimJualahReward: async (args: Record<string, any>) => {
-      return this.transact("tok-stream", "claimJu'alahReward", args);
+      return this.transact(MUABASE_SERVICES.TOKEN_STREAM, "claimJu'alahReward", args);
     },
   };
 
@@ -709,7 +670,7 @@ export class MuabaseClient {
   public guild = {
     assets: {
       create: async (input: CreateAssetInput) => {
-        return this.transact("tokens", "configureAssetPool", {
+        return this.transact(MUABASE_SERVICES.TOKENS, "configureAssetPool", {
           config: {
             tokenId: 1042,
             legalWrapperHash: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
@@ -728,7 +689,7 @@ export class MuabaseClient {
     leases: {
       checkout: async (input: CheckoutLeaseInput): Promise<UsufructLease> => {
         const grossPayment = (input.durationDays * 45) * 10000; // $45/day in precision 4
-        const result = await this.transact("lease-eng", "createLease", {
+        const result = await this.transact(MUABASE_SERVICES.LEASE_ENGINE, "createLease", {
           lessor: "asset-owner",
           tokenId: input.assetId,
           nftId: null,
@@ -745,7 +706,7 @@ export class MuabaseClient {
 
         // If paying via mainstream Stripe Connect fiat rail, trigger non-custodial destination split intent
         if (input.rail === "stripe_connect") {
-          await this.transact("ext-vault", "generateSplitIntent", {
+          await this.transact(MUABASE_SERVICES.EXTERNAL_VAULT, "generateSplitIntent", {
             leaseId: result.leaseId || 101,
             railType: "stripe_connect",
             grossAmountCents: (input.durationDays * 45) * 100, // cents
@@ -768,7 +729,7 @@ export class MuabaseClient {
       },
 
       confirmReturn: async (input: { leaseId: string; postConditionEvidenceHash: string }) => {
-        return this.transact("lease-eng", "confirmCleanReturn", {
+        return this.transact(MUABASE_SERVICES.LEASE_ENGINE, "confirmCleanReturn", {
           leaseId: parseInt(input.leaseId, 10),
           postConditionEvidenceHash: input.postConditionEvidenceHash,
         });
@@ -777,7 +738,7 @@ export class MuabaseClient {
 
     claims: {
       submitEvidence: async (input: DamageClaimInput) => {
-        return this.transact("claimcouncil", "submitDamageClaim", {
+        return this.transact(MUABASE_SERVICES.CLAIM_COUNCIL, "submitDamageClaim", {
           leaseId: parseInt(input.leaseId, 10),
           respondent: "renter-account",
           poolId: 1,
@@ -789,7 +750,7 @@ export class MuabaseClient {
       },
 
       voteTriage: async (input: { claimId: string; approve: boolean; payoutUsd: number }) => {
-        return this.transact("claimcouncil", "voteDamageClaim", {
+        return this.transact(MUABASE_SERVICES.CLAIM_COUNCIL, "voteDamageClaim", {
           claimId: parseInt(input.claimId, 10),
           approve: input.approve,
           approvedPayout: { value: input.payoutUsd * 10000 },
@@ -799,7 +760,7 @@ export class MuabaseClient {
 
     credit: {
       netInvoices: async (invoice1: string, invoice2: string) => {
-        return this.transact("creditclear", "executeBilateralNetting", {
+        return this.transact(MUABASE_SERVICES.CREDIT_CLEAR, "executeBilateralNetting", {
           invoice1Id: parseInt(invoice1, 10),
           invoice2Id: parseInt(invoice2, 10),
         });
@@ -813,7 +774,7 @@ export class MuabaseClient {
   public coop = {
     pools: {
       create: async (input: CoopPoolInput) => {
-        return this.transact("tokens", "configureAssetPool", {
+        return this.transact(MUABASE_SERVICES.TOKENS, "configureAssetPool", {
           config: {
             tokenId: 2001,
             legalWrapperHash: input.legalWrapperHash,
@@ -829,7 +790,7 @@ export class MuabaseClient {
       },
 
       reportRevenue: async (input: RevenueReportInput) => {
-        return this.transact("tokenstream", "recordGrossRevenue", {
+        return this.transact(MUABASE_SERVICES.TOKEN_STREAM, "recordGrossRevenue", {
           poolId: input.poolId,
           source: input.source,
           grossAmountCents: input.grossAmountCents,
@@ -844,6 +805,7 @@ export class MuabaseClient {
         operatingExpensesCents: number;
         portfolioValuationCents: number;
       }): Promise<DistributionResult> => {
+        assertPositiveInteger(params.portfolioValuationCents, "portfolioValuationCents");
         const netIncomeCents = params.grossRevenueCents - params.operatingExpensesCents;
         const grossYieldBps = Math.floor((params.grossRevenueCents * 10000) / params.portfolioValuationCents);
         const netYieldBps = Math.floor((netIncomeCents * 10000) / params.portfolioValuationCents);
@@ -862,7 +824,7 @@ export class MuabaseClient {
           effectivePayoutBps = 800;
         }
 
-        const res = await this.transact("tokenstream", "distributeCoopYield", {
+        const res = await this.transact(MUABASE_SERVICES.TOKEN_STREAM, "distributeCoopYield", {
           poolId: params.poolId,
           netYieldBps,
           effectivePayoutBps,
@@ -886,7 +848,7 @@ export class MuabaseClient {
     shares: {
       invest: async (input: { poolId: number; amountCents: number; rail?: string }) => {
         if (input.rail === "stripe_connect") {
-          return await this.transact("ext-vault", "generateInvestmentIntent", {
+          return await this.transact(MUABASE_SERVICES.EXTERNAL_VAULT, "generateInvestmentIntent", {
             poolId: input.poolId,
             amountCents: input.amountCents,
             railType: "stripe_connect",
@@ -894,7 +856,7 @@ export class MuabaseClient {
           });
         }
 
-        return await this.transact("tokens", "purchaseDigitalShares", {
+        return await this.transact(MUABASE_SERVICES.TOKENS, "purchaseDigitalShares", {
           poolId: input.poolId,
           amountCents: input.amountCents,
           buyer: this.account,
@@ -909,7 +871,7 @@ export class MuabaseClient {
   public forecasting = {
     markets: {
       create: async (input: CreateMarketInput) => {
-        return this.transact("evals", "createJu'alahBounty", {
+        return this.transact(MUABASE_SERVICES.EVALUATIONS, "createJu'alahBounty", {
           question: input.question,
           category: input.category,
           outcomes: input.outcomes,
@@ -922,7 +884,7 @@ export class MuabaseClient {
       },
 
       resolve: async (input: MarketResolutionInput) => {
-        return this.transact("evals", "resolveJu'alahBounty", {
+        return this.transact(MUABASE_SERVICES.EVALUATIONS, "resolveJu'alahBounty", {
           marketId: input.marketId,
           winningOutcomeIndex: input.winningOutcomeIndex,
           evidenceHash: input.evidenceHash,
@@ -933,7 +895,7 @@ export class MuabaseClient {
 
     vault: {
       allocateStake: async (input: StakeAllocationInput): Promise<MarketPosition> => {
-        const result = await this.transact("tokenstream", "allocateYieldStake", {
+        const result = await this.transact(MUABASE_SERVICES.TOKEN_STREAM, "allocateYieldStake", {
           marketId: input.marketId,
           outcomeIndex: input.outcomeIndex,
           principalAmountUsd: input.principalAmountUsd,
@@ -954,7 +916,7 @@ export class MuabaseClient {
       },
 
       claim: async (positionId: string): Promise<ClaimRewardResult> => {
-        const res = await this.transact("tokenstream", "claimJu'alahReward", {
+        const res = await this.transact(MUABASE_SERVICES.TOKEN_STREAM, "claimJu'alahReward", {
           positionId: parseInt(positionId, 10),
           claimer: this.account,
         });
@@ -975,7 +937,7 @@ export class MuabaseClient {
   public dining = {
     restaurants: {
       register: async (input: RegisterRestaurantInput) => {
-        return this.transact("tokens", "configureAssetPool", {
+        return this.transact(MUABASE_SERVICES.TOKENS, "configureAssetPool", {
           config: {
             tokenId: 3001,
             legalWrapperHash: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
@@ -991,8 +953,8 @@ export class MuabaseClient {
       },
 
       submitProofOfVisit: async (input: ProofOfVisitInput) => {
-        return this.transact("staged-tx", "recordAttestation", {
-          service: "evaluation",
+        return this.transact(MUABASE_SERVICES.STAGED_TX, "recordAttestation", {
+          service: MUABASE_SERVICES.EVALUATIONS,
           entityId: input.restaurantId,
           evidenceHash: input.receiptDigestHash,
           attester: input.dinerAccount || this.account,
@@ -1008,7 +970,7 @@ export class MuabaseClient {
 
     rankings: {
       recordComparison: async (input: PairwiseComparisonInput) => {
-        return this.transact("evals", "recordPairwiseVote", {
+        return this.transact(MUABASE_SERVICES.EVALUATIONS, "recordPairwiseVote", {
           winnerId: input.winnerRestaurantId,
           loserId: input.loserRestaurantId,
           category: input.category || "overall",
@@ -1021,7 +983,8 @@ export class MuabaseClient {
     supperClubs: {
       book: async (input: SupperClubBookingInput): Promise<SupperClubBookingResult> => {
         const totalAmountCents = input.seats * input.pricePerSeatCents;
-        const result = await this.transact("lease-eng", "createLease", {
+        const split = computeCommercialSplitCents(totalAmountCents);
+        const result = await this.transact(MUABASE_SERVICES.LEASE_ENGINE, "createLease", {
           lessor: "host-chef",
           tokenId: input.clubId,
           nftId: null,
@@ -1037,7 +1000,7 @@ export class MuabaseClient {
         });
 
         if (input.rail === "stripe_connect") {
-          await this.transact("ext-vault", "generateSplitIntent", {
+          await this.transact(MUABASE_SERVICES.EXTERNAL_VAULT, "generateSplitIntent", {
             leaseId: result.leaseId || 401,
             railType: "stripe_connect",
             grossAmountCents: totalAmountCents,
@@ -1053,15 +1016,15 @@ export class MuabaseClient {
           totalAmountCents,
           status: "Confirmed",
           splits: {
-            hostTakeHomeCents: Math.floor(totalAmountCents * 0.93),
-            mutualShieldReserveCents: Math.floor(totalAmountCents * 0.04),
-            platformFeeCents: Math.floor(totalAmountCents * 0.03),
+            hostTakeHomeCents: split.ownerAmountCents,
+            mutualShieldReserveCents: split.mutualShieldReserveCents,
+            platformFeeCents: split.platformFeeCents,
           },
         };
       },
 
       cancelWithEthicalDeterrence: async (input: BookingCancellationInput) => {
-        return this.transact("lease-eng", "settleCancellation", {
+        return this.transact(MUABASE_SERVICES.LEASE_ENGINE, "settleCancellation", {
           leaseId: parseInt(input.bookingId, 10),
           actualKitchenRestitution: { value: input.actualKitchenCostCents * 100 },
           punitivePenalty: { value: input.punitiveLateFeeCents * 100 },
@@ -1072,7 +1035,7 @@ export class MuabaseClient {
 
     guilds: {
       createTastemakerGuild: async (input: TastemakerGuildInput) => {
-        return this.transact("guilds", "createPod", {
+        return this.transact(MUABASE_SERVICES.GUILDS, "createPod", {
           name: input.name,
           curator: input.curatorAccount,
           requiredDomainBadge: input.curatorDomainBadge,

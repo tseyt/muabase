@@ -78,6 +78,20 @@ export async function sealSelectiveDisclosureEnvelope(
   if (viewers.length === 0) {
     throw new Error("At least one selective-disclosure viewer is required");
   }
+  const seenViewers = new Set<string>();
+  for (const v of viewers) {
+    if (!v.viewerId || v.viewerId.trim().length === 0) {
+      throw new Error("Selective-disclosure viewerId must be non-empty");
+    }
+    if (seenViewers.has(v.viewerId)) {
+      throw new Error(`Duplicate selective-disclosure viewerId '${v.viewerId}'`);
+    }
+    seenViewers.add(v.viewerId);
+    if (v.secret.length !== 32) {
+      throw new Error(`Viewer '${v.viewerId}' secret must be exactly 32 bytes`);
+    }
+  }
+
   const salt = crypto.getRandomValues(new Uint8Array(32));
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const rawKey = crypto.getRandomValues(new Uint8Array(32));
@@ -115,13 +129,22 @@ export async function openSelectiveDisclosureEnvelope(
   if (envelope.version !== "muabase.privacy.webcrypto.v1") {
     throw new Error("Unsupported envelope version");
   }
+  if (viewerSecret.length !== 32) {
+    throw new Error("Viewer secret must be exactly 32 bytes");
+  }
   const grant = envelope.grants.find((g) => g.viewerId === viewerId);
   if (!grant) {
     throw new Error(`Viewer '${viewerId}' has no selective disclosure grant`);
   }
 
   const iv = hexToBytes(envelope.ivHex);
+  if (iv.length !== 12) {
+    throw new Error("Invalid 12-byte AES-GCM IV");
+  }
   const wrapped = hexToBytes(grant.wrappedKeyHex);
+  if (wrapped.length !== 32) {
+    throw new Error("Invalid 32-byte wrapped key");
+  }
   const mask = await deriveWrapMask(viewerSecret, iv);
   const rawKey = new Uint8Array(32);
   for (let i = 0; i < 32; i++) rawKey[i] = wrapped[i] ^ mask[i];

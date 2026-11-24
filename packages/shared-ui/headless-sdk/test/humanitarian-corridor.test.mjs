@@ -221,3 +221,139 @@ test("GIVEN subdomain transport and selective-disclosure privacy WHEN querying p
   await assert.rejects(() => openSelectiveDisclosureEnvelope(envelope, "auditor", wrongSecret));
   await assert.rejects(() => openSelectiveDisclosureEnvelope(envelope, "outsider", auditorSecret));
 });
+
+test("GIVEN dist/core.js React-free ESM entrypoint WHEN routing convenience namespaces THEN canonical slugs and exact integer splits are used", async () => {
+  const sdk = await import("../dist/core.js");
+  assert.equal(sdk.MUABASE_SERVICES.CLAIM_COUNCIL, "claim-coun");
+  assert.equal(sdk.MUABASE_SERVICES.CREDIT_CLEAR, "cred-clear");
+  assert.equal(sdk.MUABASE_SERVICES.TOKEN_STREAM, "tok-stream");
+  assert.equal(sdk.MUABASE_SERVICES.EVALUATIONS, "evaluation");
+
+  // Integer commercial split conserves every cent (remainder goes to owner, matching Rust)
+  const oddSplit = sdk.computeCommercialSplitCents(101);
+  assert.equal(
+    oddSplit.ownerAmountCents + oddSplit.mutualShieldReserveCents + oddSplit.platformFeeCents,
+    101,
+  );
+  assert.equal(oddSplit.mutualShieldReserveCents, 4);
+  assert.equal(oddSplit.platformFeeCents, 3);
+  assert.equal(oddSplit.ownerAmountCents, 94);
+
+  const calls = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url, init) => {
+    calls.push({ url: String(url), body: JSON.parse(String(init?.body ?? "{}")) });
+    return new Response(JSON.stringify({ ok: true, leaseId: 42 }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  try {
+    const client = sdk.createMuabaseClient({
+      endpoint: "https://node.muabase.org",
+      account: "member-1",
+    });
+
+    await client.guild.claims.voteTriage({ claimId: "9", approve: true, payoutUsd: 25 });
+    await client.guild.credit.netInvoices("1", "2");
+    await client.coop.pools.reportRevenue({
+      poolId: 7,
+      source: "rent",
+      grossAmountCents: 10000,
+      operatingExpensesCents: 1000,
+      evidenceHash: COMMITMENT_HASH,
+    });
+    await client.forecasting.markets.resolve({
+      marketId: 3,
+      winningOutcomeIndex: 0,
+      evidenceHash: COMMITMENT_HASH,
+    });
+    const booking = await client.dining.supperClubs.book({
+      clubId: 5,
+      seats: 1,
+      pricePerSeatCents: 101,
+    });
+    assert.equal(
+      booking.splits.hostTakeHomeCents +
+        booking.splits.mutualShieldReserveCents +
+        booking.splits.platformFeeCents,
+      101,
+    );
+
+    assert.deepEqual(
+      calls.map((c) => c.url),
+      [
+        "https://node.muabase.org/api/claim-coun/action/voteDamageClaim",
+        "https://node.muabase.org/api/cred-clear/action/executeBilateralNetting",
+        "https://node.muabase.org/api/tok-stream/action/recordGrossRevenue",
+        "https://node.muabase.org/api/evaluation/action/resolveJu'alahBounty",
+        "https://node.muabase.org/api/lease-eng/action/createLease",
+      ],
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("GIVEN invalid client, waqf, tahkim, or privacy inputs WHEN validated THEN clear errors are thrown before dispatch", async () => {
+  const sdk = await import("../dist/core.js");
+
+  assert.throws(() => sdk.createMuabaseClient({ endpoint: "not-a-url" }), /Invalid Muabase endpoint URL/);
+
+  const client = sdk.createMuabaseClient({ endpoint: "https://node.muabase.org" });
+  await assert.rejects(() => client.fetchStateProof({}), /keyHex or keyUtf8/);
+  await assert.rejects(
+    () =>
+      client.waqfTreasury.createEndowment({
+        label: "Masjid Endowment",
+        corpusPrincipal: 10_000,
+        shurutHash: COMMITMENT_HASH,
+        scholarAttestationHash: DECLARATION_HASH,
+        allowedCategories: ["EDUCATION"],
+        maxSingleDisbursement: 1_000,
+        boardMembers: ["alice", "bob"],
+        quorumThreshold: 3,
+      }),
+    /quorumThreshold/,
+  );
+  await assert.rejects(
+    () =>
+      client.muamalatTahkim.createContract({
+        templateId: 1,
+        expectedTemplateHash: COMMITMENT_HASH,
+        contractor: "builder",
+        arbitrators: ["arb1", "arb1", "arb2"],
+        milestoneAmounts: [500],
+        termsCommitmentHash: DECLARATION_HASH,
+      }),
+    /3 distinct arbitrators/,
+  );
+
+  // Privacy validation: duplicate viewerId, short secret, tampered version
+  const s1 = crypto.getRandomValues(new Uint8Array(32));
+  const s2 = crypto.getRandomValues(new Uint8Array(32));
+  await assert.rejects(
+    () => sdk.sealSelectiveDisclosureEnvelope("secret", [{ viewerId: "v1", secret: new Uint8Array(16) }]),
+    /32 bytes/,
+  );
+  await assert.rejects(
+    () =>
+      sdk.sealSelectiveDisclosureEnvelope("secret", [
+        { viewerId: "v1", secret: s1 },
+        { viewerId: "v1", secret: s2 },
+      ]),
+    /Duplicate selective-disclosure viewerId/,
+  );
+
+  const env = await sdk.sealSelectiveDisclosureEnvelope("multi-viewer-payload", [
+    { viewerId: "auditor", secret: s1 },
+    { viewerId: "regulator", secret: s2 },
+  ]);
+  assert.equal(await sdk.openSelectiveDisclosureEnvelope(env, "regulator", s2), "multi-viewer-payload");
+  await assert.rejects(
+    () => sdk.openSelectiveDisclosureEnvelope({ ...env, version: 2 }, "auditor", s1),
+    /Unsupported envelope version/,
+  );
+});
+

@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from "react";
-import { MuabaseClient } from "../client";
+import { MuabaseClient } from "../client.js";
 import {
   MuabaseStreamTransport,
   extractTableRows,
   buildTableSseUrl,
-} from "../stream";
+} from "../stream.js";
 
 export { extractTableRows, buildTableSseUrl };
 export type { MuabaseStreamTransport };

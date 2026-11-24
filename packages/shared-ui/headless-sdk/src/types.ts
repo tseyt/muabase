@@ -388,7 +388,7 @@ export interface ZakatRemittanceIntent {
 }
 
 /**
- * Input to register a non-custodial licensed bridge-country exchange desk on `CreditClear` (`"creditclear"`).
+ * Input to register a non-custodial licensed bridge-country exchange desk on `CreditClear` (`"cred-clear"`).
  */
 export interface RegisterBridgeLiquidityDeskInput {
   corridorJurisdiction: string;
@@ -431,6 +431,63 @@ export interface BridgeLiquidityDesk {
   sadaqahFeeSubsidySupported: boolean;
   active: boolean;
   lastUpdated: string | number;
+}
+
+export interface CorridorConservation {
+  corridorJurisdiction: string;
+  settledCount: number;
+  totalPrincipalDelivered: number;
+  totalSadaqahTips: number;
+  totalFeesDeducted: number;
+}
+
+export interface CreateEndowmentInput {
+  label: string;
+  corpusPrincipal: number;
+  shurutHash: string;
+  scholarAttestationHash: string;
+  allowedCategories: string[];
+  maxSingleDisbursement: number;
+  boardMembers: string[];
+  quorumThreshold: number;
+}
+
+export interface ProposeDisbursementInput {
+  endowmentId: number;
+  recipient: string;
+  category: string;
+  amount: number;
+  evidenceCommitmentHash: string;
+}
+
+export interface AggregateTreasury {
+  endowmentCount: number;
+  totalCorpusLocked: number;
+  totalYieldAvailable: number;
+  totalDisbursed: number;
+}
+
+export interface RegisterTemplateInput {
+  contractKind: "ISTISNA" | "MUDARABAH";
+  templateHash: string;
+  certificateHash: string;
+  standardRef: string;
+}
+
+export interface CreateContractInput {
+  templateId: number;
+  expectedTemplateHash: string;
+  contractor: string;
+  arbitrators: [string, string, string];
+  milestoneAmounts: number[];
+  termsCommitmentHash: string;
+}
+
+export interface CastTahkimVoteInput {
+  contractId: number;
+  rulingKind: "AWARD_CONTRACTOR" | "REFUND_FUNDER" | "SPLIT";
+  funderAmount?: number;
+  contractorAmount?: number;
 }
 
 
