@@ -13,17 +13,19 @@ AI agents must **never hallucinate** service names or action endpoints. Use thes
 
 | Wasm Service Account | Canonical Key | Primary Actions / Endpoints | Description |
 | :--- | :--- | :--- | :--- |
-| `"tokens"` | `asset_pool`, `tangible_ratio` | `configureAssetPool`, `purchaseDigitalShares` | RWA asset pool creation, par-value floor (>= 51%), ROFR configuration. |
-| `"lease-eng"` | `lease`, `charity_sink` | `createLease`, `confirmCleanReturn`, `settleCancellation` | Usufruct leases (P2P rentals, supper clubs), zero-*riba* cancellation settling. |
-| `"staged-tx"` | `evidence_gate`, `asnaf_gate`, `personal_remittance` | `recordAttestation`, `proposeRemittanceAttestation`, `attestBeneficiaryCommitment`, `verifyRemittanceQuorum`, `getRemittanceAttestation` | Dual-witness Ricardian evidence & zero-PII humanitarian beneficiary commitment verification (`witness_quorum >= 2`, `"humanitarian-verifier"`). |
-| `"evaluation"` | `evals` | `recordPairwiseVote`, `createJu'alahBounty`, `resolveJu'alahBounty` | Schulze Condorcet pairwise tournaments, objective bounties. (People are NEVER ranked). |
+| `"tokens"` | `asset_pool`, `tangible_ratio`, `priority_window` | `configureAssetPool`, `credit`, `debit` | RWA asset pool creation, par-value floor (>= 51%), ROFR configuration. |
+| `"lease-eng"` | `lease`, `equity_lease`, `charity_sink` | `createLease`, `settleLeasePayment`, `confirmCleanReturn`, `processLateReturn` | Usufruct leases (P2P rentals, supper clubs), zero-*riba* late-return settling. |
+| `"staged-tx"` | `evidence_gate`, `asnaf_gate`, `personal_remittance` | `propose`, `accept`, `reject`, `execute`, `proposeRemittanceAttestation`, `attestBeneficiaryCommitment`, `verifyRemittanceQuorum`, `getRemittanceAttestation` | Dual-witness Ricardian evidence & zero-PII humanitarian beneficiary commitment verification (`witness_quorum >= 2`, `"humanitarian-verifier"`). |
+| `"evaluation"` | `evals` | `create`, `start`, `propose`, `attest`, `close`, `recordPairwiseVote`, `createJu'alahBounty`, `resolveJu'alahBounty` | Objective evaluation, Schulze Condorcet pairwise tournaments, and bounties. (People are NEVER ranked). |
 | `"claim-coun"` | `claim_council` | `submitDamageClaim`, `voteDamageClaim` | 3-peer rapid damage triage committee for mutual protection reserves. |
+| `"mut-shield"` | `mutual_shield` | `contribute`, `disburseClaim`, `rebateSurplus` | Member-owned *Takaful* mutual protection reserve pool. |
 | `"ext-vault"` | `external_vault`, `zakat_tamlik`, `sadaqah_tip` | `generateSplitIntent`, `generateInvestmentIntent`, `createZakatRemittanceSplit`, `confirmRemittanceSettlement` | Non-custodial 0-key multi-party payouts (`COMMERCIAL_93_4_3` and `ZAKAT_TAMLIK_100` 100% principal delivery). |
 | `"cred-clear"` | `credit_clear`, `liquidity_bridge`, `bridge_liquidity_desk` | `executeBilateralNetting`, `registerBridgeLiquidityDesk`, `updateBridgeCorridorSpread`, GraphQL `listBridgeCorridors` | Zero-fee multilateral B2B invoice clearing, Wajahah credit limits & licensed non-custodial bridge corridor discovery. |
-| `"tok-stream"` | `endowment_policy` | `recordGrossRevenue`, `distributeCoopYield`, `allocateYieldStake` | Yield stabilization reserve math, cooperative yield streaming. |
-| `"mut-shield"` | `mutual_shield` | `contributePremium`, `payClaim`, `distributeSurplus` | Member-owned Takaful mutual protection reserve pool. |
-| `"waqf-treas"` | `waqf_treasury` | `createEndowment`, `proposeDisbursement`, `approveDisbursement` | Shurut-locked Waqf / Masjid endowment treasury with board quorum. |
-| `"muamalat"` | `muamalat_tahkim` | `registerTemplate`, `createContract`, `castTahkimVote` | Scholar-attested Istisna' / Mudarabah escrow with 2-of-3 Tahkim arbitration. |
+| `"tok-stream"` | `endowment_policy` | `create`, `deposit`, `claim`, `delete`, `recordGrossRevenue`, `distributeCoopYield`, `allocateYieldStake` | Continuous yield/stream distribution and cooperative yield stabilization vaults. |
+| `"auth-delg"` | `endowment_policy` | `setEndowmentPolicy`, GraphQL `endowmentPolicy` | Immutable *Hifz Asl al-Waqf* principal preservation policy lock. |
+| `"credential"` | `trust_score`, `domain_badge`, `precision_score` | `authorizeIssuer`, `issueDomainBadge`, `updateTrustScore`, `updatePrecisionScore` | Soulbound reliability (*‘Adalah*), domain competence (*Ikhtisas*), and precision (*Dabt*) credentials. |
+| `"waqf-treas"` | `waqf_treasury` | `createEndowment`, `recordYieldInflow`, `proposeDisbursement`, `approveDisbursement`, `proposeKeyRecovery`, `approveKeyRecovery` | Programmable *Waqf* & Masjid Treasury OS with *shurut* caps and 2-of-3 board quorum. |
+| `"muamalat"` | `muamalat_tahkim` | `registerTemplate`, `createContract`, `fundEscrow`, `releaseMilestone`, `raiseDispute`, `castTahkimVote` | Scholar-attested *Istisna'* / *Mudarabah* milestone escrow & 2-of-3 *Tahkim* arbitration. |
 | `"branding"` | Dual-Locale Engine | `setNetworkName`, `setTerminologyLocale`, GraphQL `terminologyDictionary`, `translateTerm` | Dynamic switching between `"institutional"` and `"muamalat"` terms. |
 
 ---
@@ -36,11 +38,11 @@ When generating code, always adhere to these exact data scale and validation rul
    - $100\% = 10000\text{ bps}$.
    - $51\% = 5100\text{ bps}$.
    - `tangibleRatioBps`: **Must be $\ge 5100$**. If $< 5100$, non-par trading reverts with `Bay' al-Dayn Violation`. Default to `10000` (100% tangible).
-   - `trust_score` / `AdalahScore`: $0$ to $10000$. A score of $7000$ represents $70.00\%$; humanitarian/Zakat witnesses require `trust_score >= 8000` ($80.00\%$) and active soulbound `domain_badge` = `"humanitarian-verifier"`.
+   - `trust_score` / `AdalahScore`: $0$ to $10000$. A score of $7000$ represents $70.00\%$; humanitarian/Zakat witnesses require `trust_score >= 8000` ($80.00\%$), `precision_score >= 8000`, and active soulbound `domain_badge` = `"humanitarian-verifier"`.
 2. **Token Amounts & Value Objects:**
-   - On-chain currency values are wrapped in `{ value: number }`.
-   - Token precision is typically 4 decimal places ($1.00\text{ USD} = 10000$).
-   - Never pass raw JavaScript floats (e.g., `45.5`) directly into `{ value: ... }`; convert to integer units: `Math.floor(amountUsd * 10000)`.
+   - `Tokens` / `LeaseEngine` currency values are wrapped in `{ value: number }` with 4 decimal places ($1.00\text{ USD} = 10000$).
+   - `ExternalVault` (`ZAKAT_TAMLIK_100`), `WaqfTreasury`, and `MuamalatTahkim` amounts use integer minor units (e.g. cents: `$100.00 = 10000`).
+   - Never pass raw JavaScript floats (e.g., `45.5`) directly into `{ value: ... }`; convert with `Math.round(amountUsd * 10000)`.
 3. **Fee Split Proportions (`CorridorSplitMode`):**
    - `COMMERCIAL_93_4_3` (Standard rental / curation split is **93% / 4% / 3%**):
      - `9300 bps` $\rightarrow$ Asset Owner / Tastemaker
@@ -48,14 +50,14 @@ When generating code, always adhere to these exact data scale and validation rul
      - `300 bps` $\rightarrow$ App SaaS Operator
    - `ZAKAT_TAMLIK_100` (Zero-fee Zakat *Tamlik* & Humanitarian Remittance split):
      - `10000 bps` ($100\%$) of `zakatPrincipalAmount` $\rightarrow$ `recipientBridgeVault` (`protocolFeeDeduction` **MUST be `0`**, or state transition panics with `Tamlik Violation`).
-     - Optional separate `sadaqahTipAmount` $\rightarrow$ `infraOpsVault` / `"charity-sink"` to fund gas, node ops, and bridge FX spreads (`fxSpreadBps`).
+     - Optional separate `sadaqahTipAmount` $\rightarrow$ `infraOpsVault` / `"waqf-sadaqah"` to fund gas, node ops, and bridge FX spreads (`fxSpreadBps`).
 4. **Evidence & Zero-PII Commitment Hashes (`evidenceHash` / `recipientCommitmentHash` / `nonCommercialPersonalDeclarationHash`):**
-   - Must be a non-zero 32-byte hexadecimal string prefixed with `0x` (66 characters total: `0x` + 64 hex chars).
+   - Must be a non-zero 32-byte hexadecimal string (64 hex chars, optionally prefixed with `0x` in SDK helpers).
    - Generated via `crypto.subtle.digest('SHA-256', buffer)`. **Never store beneficiary names, addresses, or plaintext off-ramp IBANs on-chain.**
    - `corridorJurisdiction` must be an uppercase 2-letter ISO-3166-1 alpha-2 bridge code (e.g., `"TR"`, `"AE"`, `"UA"`, `"UZ"`).
    - `AsnafCategory` enum values: `"FUQARA"`, `"MASAKIN"`, `"GHARIMIN"`, `"IBN_AL_SABIL"`, `"GENERAL_SADAQAH"`.
 5. **Charity Sink Default:**
-   - `charitySinkAccount` is always `"waqf-sadaqah"`. Punitive late deterrences route 100% here. Creditors never retain late fees.
+   - `charitySinkAccount` defaults to `"waqf-sadaqah"`. Punitive late deterrences route 100% here. Creditors never retain late fees.
 
 ---
 
@@ -75,12 +77,13 @@ When generating code, always adhere to these exact data scale and validation rul
 | `claim_council` | Peer Triage Committee | *Majlis al-Tahkim & Shura* | `"claim-coun"` |
 | `evals` | Objective Bounty & Claim Ranking | *Ju‘alah Halaqa* | `"evaluation"` |
 | `endowment_policy`| Trust Principal Preservation Lock | *Hifz Asl al-Waqf* | `"auth-delg"` / `"waqf-treas"` |
-| `priority_window` | Co-Owner Right of First Refusal | *Haqq al-Shuf‘ah* | `"tokens"` |
+| `priority_window` | Co-Owner Right of First Refusal | *Haqq al-Shuf‘ah* | `"tokens"` / `"token-swap"` |
 | `charity_sink` | Public Endowment Charity Sink | *Masraf al-Sadaqah* | `"lease-eng"` (`charity_sink_account`) |
 | `credit_clear` | Multilateral Invoice Netting | *Muqassah* | `"cred-clear"` |
 | `liquidity_bridge` | Earned-Respect Liquidity Bridge | *Wajahah & Hawalah* | `"cred-clear"` |
 | `trust_score` | Reliability & Audit Score | *‘Adalah (Probity / Reliability)*| `"credential"` |
 | `domain_badge` | Domain Competence Credential | *Ikhtisas (Domain Specialization)*| `"credential"` |
+| `precision_score` | Domain Precision & Verification Score | *Dabt (Verification Precision)* | `"credential"` |
 | `tangible_ratio` | Tangible Asset Backing Floor (>= 51%)| *Nisbat al-‘Ayn al-Haqiqiyyah* | `"tokens"` (`tangible_ratio_bps`) |
 | `evidence_gate` | Dual-Witness Evidentiary Gate | *Bayyinah (Dual Proof / Attestation)*| `"staged-tx"` |
 | `external_vault` | Non-Custodial Multi-Chain Splits | *Amanah Ghayr Hiyaziyyah (Trustee Escrow)*| `"ext-vault"` |
@@ -90,6 +93,8 @@ When generating code, always adhere to these exact data scale and validation rul
 | `bridge_liquidity_desk` | Licensed Non-Custodial Bridge Liquidity Desk | *Bridge Liquidity Desk (Maktab al-Sarf wa al-Hawalah)* | `"cred-clear"` |
 | `sadaqah_tip` | Optional Donor Infrastructure & FX Subsidy Split | *Tabarru‘ / Sadaqah Nafilah Infrastructure Split* | `"ext-vault"` |
 | `personal_remittance` | Non-Commercial P2P Personal Remittance Attestation | *Hawalah Shakhsiyyah & Iqrar Ghayr Tijari* | `"staged-tx"` |
+| `waqf_treasury` | Programmable Endowment & Masjid Treasury OS | *Waqf & Masjid Treasury OS (Hifz Asl al-Waqf)* | `"waqf-treas"` |
+| `muamalat_tahkim` | Commercial Milestone Escrow & 2-of-3 Arbitration | *Commercial Muamalat & Native Tahkim Arbitration* | `"muamalat"` |
 
 ---
 

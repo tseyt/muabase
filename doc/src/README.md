@@ -1,20 +1,20 @@
-# Psibase
+# Muabase
 
-![<Psibase Logo>](./_img/logo-psibase-green.svg)
+![Muabase / Psibase Engine](./_img/logo-psibase-green.svg)
 
-## What is Psibase
+## What is Muabase
 
-Increasingly, individuals need online applications that they can self-host in order to protect their data, guarantee the app's future availability, and eliminate censorship concerns. Communities have similar needs and often want to avoid depending too heavily on any one member or third party. That's what psibase is for–it's a powerful protocol that enables communities to come together to collectively "self-host" a web application ecosystem. 
+**Muabase** is a serverless, real-time WebAssembly-in-database operating system built on the `psibase` / `Triedent` runtime. It pairs sub-millisecond memory-mapped Wasm execution and Byzantine fault-tolerant consensus with hardcoded invariants of equitable commercial law (*Fiqh al-Mu‘amalat*), non-custodial multi-chain splits, selective-disclosure privacy, and offline-verifiable `dwal_merkle` proofs.
 
-The psibase protocol encapsulates a host of open-source innovations from a low-level data serialization format and a database architecture, to a high-level full-stack web application framework and client-side plugin protocol. Intended to be a best-in-class base-layer infrastructure that can be trusted to facilitate better human collaboration and reliably power the next generation of community-hosted web apps.
+Communities and institutions can self-host high-trust applications—from programmable *Waqf* & Masjid treasuries to zero-fee humanitarian corridors and commercial milestone escrow with native *Tahkim* arbitration—without extractive middlemen or custodial keys.
 
 ## This documentation
 
-This documentation site is designed to help readers understand the psibase protocol, and become familiar with a reference implementation (currently in development).
+The documentation is organized into the following sections:
 
-The documentation has the following basic sections:
-* [Specifications](./specifications/) - for understanding the protocol specification itself
-* [Development guides](./development/) - for learning to develop psibase apps
-* [Running infrastructure](./run-infrastructure/) - for learning to run psibase infrastructure on behalf of a community
-* [Default apps](./default-apps/) - for learning about some of the helpful apps that come by default on psibase infrastructure
-* [Contributing guide](./contribute/) - for learning to contribute to the core psibase protocol or its reference implementation
+* [Institutional apps & quickstarts](./institutional/README.md) — ready-to-run guides for Zakat/humanitarian corridors, programmable *Waqf* & Masjid treasuries, and commercial *Muamalat* + *Tahkim* arbitration
+* [Specifications](./specifications/README.md) — core `psibase` / `Triedent` runtime and protocol specifications
+* [Development guides](./development/README.md) — building Rust/C++ Wasm services and frontend apps
+* [Running infrastructure](./run-infrastructure/README.md) — operating `psinode` validators and community infrastructure
+* [Default apps](./default-apps/README.md) — system and default services bundled on the network
+* [Contributing guide](./contribute/README.md) — contributing to Muabase and the underlying runtime

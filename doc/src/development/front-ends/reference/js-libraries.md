@@ -10,7 +10,7 @@ Currently psibase hosts multiple JavaScript modules in the `/common/` service ta
 | ------------------------------------ | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `RPCError`                           |       | Error type. This extends `Error` with a new field, `trace`, which contains the trace returned by [push_transaction](../../../default-apps/transact.md#push-transaction), if available.                               |
 | `throwIfError(response)`             |       | Throw an `RPCError` if the argument (a Response object) indicates a failure. Doesn't fill `trace` since traces are only present with status 200. Returns the argument (Response) if not a failure. |
-| `siblingUrl(baseUrl, service, path)` |       | Reexport of `siblingUrl` from [rootdomain and siblingUrl (js)](#rootdomain-and-siblingurl-js).                                                                                                     |
+| `siblingUrl(baseUrl, service, path)` |       | Reexport of `siblingUrl` from [Service utilities](#service-utilities).                                                                                                     |
 | `get(url)`                           | async | fetch/GET. Returns Response object if ok or throws `RPCError`.                                                                                                                                     |
 | `getJson(url)`                       | async | fetch/GET. Returns JSON if ok or throws `RPCError`.                                                                                                                                                |
 | `getText(url)`                       | async | fetch/GET. Returns text if ok or throws `RPCError`.                                                                                                                                                |
@@ -57,7 +57,7 @@ Currently psibase hosts multiple JavaScript modules in the `/common/` service ta
 | `signAndPushTransaction(baseUrl, transaction, privateKeys)` | async | Sign, pack, and push transaction.                                                                                         |
 
 `signTransaction` signs a transaction; it also packs any actions if needed.
-`baseUrl` must point to within the root domain, one of the service domains, or be empty or null; see [rootdomain and siblingUrl (js)](#rootdomain-and-siblingurl-js).
+`baseUrl` must point to within the root domain, one of the service domains, or be empty or null; see [Service utilities](#service-utilities).
 `transaction` must have the following form:
 
 ```
@@ -89,7 +89,7 @@ Currently psibase hosts multiple JavaScript modules in the `/common/` service ta
 `privateKeys` is an array which may contain a mix of:
 
 - Private keys in text form, e.g. `"PVT_K1_2bfGi9r..."`
-- `{keyType, keyPair}`. See [Key Conversions (js)](#key-conversions-js).
+- `{keyType, keyPair}`. See [Key Conversions](#key-conversions).
 
 ## Service utilities
 

@@ -115,7 +115,7 @@ Muabase equips developers with a set of universal canonical primitives implement
 
 > [!NOTE]
 > **Developer & AI Agent Guidance:**  
-> In TypeScript and client-side code, always interact via the canonical SDK services (`client.tokens`, `client.leaseEngine`, `client.stagedTx`, `client.evaluations`, `client.externalVault`) or the corresponding canonical Wasm service accounts (`"tokens"`, `"lease-eng"`, `"staged-tx"`, `"evals"`, `"ext-vault"`). See [`llms.txt`](llms.txt) for machine-readable context.
+> In TypeScript and client-side code, always interact via the canonical SDK services (`client.tokens`, `client.leaseEngine`, `client.stagedTx`, `client.evaluations`, `client.externalVault`, `client.waqfTreasury`, `client.muamalatTahkim`, `client.branding`) or the corresponding canonical Wasm service accounts (`"tokens"`, `"lease-eng"`, `"staged-tx"`, `"evaluation"`, `"ext-vault"`, `"waqf-treas"`, `"muamalat"`, `"branding"`). See [`llms.txt`](llms.txt) for machine-readable context.
 >
 > For organizations requiring classical Islamic jurisprudence compliance (*Fiqh al-Mu‘amalat*), AAOIFI standard alignment, or Arabic localized terminology (`locale: "muamalat"`), see **[compliance.md](compliance.md)**.
 
@@ -340,14 +340,17 @@ const zakatIntent = await client.externalVault.createZakatRemittanceSplit({
 ## Build from Source
 
 ### Prerequisites
-- Ubuntu 22.04 / 24.04 / WSL2
-- Clang 16+, CMake 3.22+, Make 4.3+
-- Rust 1.98+ with `wasm32-wasip1` and `wasm32-unknown-unknown` targets
-- Node.js 24+, Yarn 4+
+- **Recommended:** Nix with flakes (`nix develop` provisions exact pinned Rust, `wasi-sdk`, Clang, Boost, ICU, OpenSSL, binaryen, and Node.js 24 / Yarn 4)
+- Or manually on Ubuntu 22.04 / 24.04 / WSL2:
+  - Clang 16+, CMake 3.22+, Make 4.3+, Boost, ICU, OpenSSL, binaryen, and `WASI_SDK_PREFIX` (wasi-sdk 29)
+  - Rust 1.98+ with `wasm32-wasip1` and `wasm32-unknown-unknown` targets
+  - Node.js 24+, Yarn 4+
+  - *(Note: `@muabase/headless-sdk` lives in `packages/shared-ui/headless-sdk` in this workspace.)*
 
 ### Compilation
 ```sh
 git submodule update --init --recursive
+# Optional: nix develop
 mkdir build && cd build
 cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=psidk ..
 make -j $(nproc)

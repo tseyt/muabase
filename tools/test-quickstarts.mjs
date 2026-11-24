@@ -102,3 +102,13 @@ test('GIVEN headless-sdk example quickstarts WHEN audited THEN no deprecated ser
     assert.ok(!/service:\s*['"](?:evals|tokenstream|claimcouncil|creditclear)['"]/.test(md), `${path} uses non-canonical service slug`);
   }
 });
+
+test('GIVEN llms.txt and compliance.md WHEN audited THEN all documented Wasm service slugs are canonical', () => {
+  const forbidden = ['"claimcouncil"', '"creditclear"', '"mutualshield"', '"tokenstream"', '"auth-delegate"', '"credentials"'];
+  for (const path of ['llms.txt', 'compliance.md']) {
+    const md = readFileSync(path, 'utf8');
+    for (const bad of forbidden) {
+      assert.ok(!md.includes(bad), `${path} must not contain non-canonical service slug ${bad}`);
+    }
+  }
+});

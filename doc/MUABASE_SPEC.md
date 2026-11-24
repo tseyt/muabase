@@ -109,7 +109,7 @@ graph TD
 
 ### 4.1 Zero-*Riba* Late-Fee Routing & Charity Sink Invariant
 
-**Jurisprudential Constraint:** Under the consensus of Islamic commercial jurisprudence (AAOIFI Shariah Standard No. 3 on Default in Payment, Standard No. 8 on Ijarah), any financial penalty imposed on a delinquent debtor or lessee cannot accrue as income to the creditor or lessor. Any such gain constitutes prohibited usury (*Riba al-Jahiliyyah*). However, to prevent moral hazard and intentional delay by solvent debtors (*Matl al-Ghaniyy*), a financial deterrent may be levied, provided 100% of the punitive surplus is transferred to charitable causes.
+**Jurisprudential Constraint:** Under the consensus of Islamic commercial jurisprudence (AAOIFI Shariah Standard No. 3 on Default in Payment, Standard No. 9 on Ijarah), any financial penalty imposed on a delinquent debtor or lessee cannot accrue as income to the creditor or lessor. Any such gain constitutes prohibited usury (*Riba al-Jahiliyyah*). However, to prevent moral hazard and intentional delay by solvent debtors (*Matl al-Ghaniyy*), a financial deterrent may be levied, provided 100% of the punitive surplus is transferred to charitable causes.
 
 **Mathematical Definition:**
 Let $P_{\text{total}}$ be the total late penalty levied on a delinquent account:

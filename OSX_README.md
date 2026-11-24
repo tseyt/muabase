@@ -1,38 +1,31 @@
+These are instructions for building **Muabase** on macOS (Apple Silicon / M-series CPUs).
 
-These are instructions for building **psibase** on Mac OS X Sonoma 14.1 using M-series CPUs.
+1. Install the following Homebrew dependencies:
 
-1. Install the following brew libraries 
-
-  ``` 
-  brew install binaryen yarn node wasm-pack 
-  ```
-
-2. Install rust https://www.rust-lang.org/tools/install
-
-   - If you have installed rust via homebrew, uninstall it
-   - make sure ~/.cargo/bin is in your path
-   - install wasm32 support for rust via:
-
-  ``` 
-  rustup target add wasm32-unknown-unknown 
-  ```
-
-  For more information: https://rustwasm.github.io/wasm-pack/book/prerequisites/non-rustup-setups.html
-
-3. Install WASI_SDK 20.0 
-
-  https://github.com/WebAssembly/wasi-sdk/releases
-  set WASI_SDK_PREFIX to the root of the wasi-sdk release you downloaded
-
-
-5. Install icu4c 
-
+```bash
+brew install binaryen yarn node wasm-pack
 ```
+
+2. Install Rust from <https://www.rust-lang.org/tools/install>:
+
+   - If you installed Rust via Homebrew, uninstall it first.
+   - Ensure `~/.cargo/bin` is on your `PATH`.
+   - Install WebAssembly targets for Rust:
+
+```bash
+rustup target add wasm32-unknown-unknown wasm32-wasip1
+```
+
+3. Install WASI SDK 29.0 from <https://github.com/WebAssembly/wasi-sdk/releases> and set `WASI_SDK_PREFIX` to the extracted directory.
+
+4. Install `icu4c`:
+
+```bash
 git clone https://github.com/unicode-org/icu
 cd icu/icu4c/source
 ./configure
 make
-export ICU_LIBRARY_DIR = icu/icu4c/source/lib
-export DYLD_LIBRARY_PATH = $DYLD_LIBRARY_PATH:$ICU_LIBRARY_DIR
+export ICU_LIBRARY_DIR="$PWD/lib"
+export DYLD_LIBRARY_PATH="$DYLD_LIBRARY_PATH:$ICU_LIBRARY_DIR"
 ```
 

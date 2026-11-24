@@ -2,7 +2,7 @@
 language = "en"
 multilingual = false
 src = "${CMAKE_CURRENT_SOURCE_DIR}/doc/src"
-title = "psibase"
+title = "Muabase"
 
 [build]
 create-missing = false
@@ -22,8 +22,8 @@ command = "mdbook-mermaid"
 default-theme = "ayu"
 preferred-dark-theme = "ayu"
 mathjax-support = true
-git-repository-url = "https://github.com/gofractally/psibase"
-edit-url-template = "https://github.com/gofractally/psibase/edit/main/{path}"
+git-repository-url = "https://github.com/tseyt/muabase"
+edit-url-template = "https://github.com/tseyt/muabase/edit/muabase/{path}"
 additional-css = [
     "theme/css/pagetoc.css", 
     "theme/css/pagetoc-tock.css",

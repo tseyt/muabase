@@ -84,4 +84,4 @@ type Peer {
 
 ### p2p
 
-`/p2p` accepts incoming p2p connections. This requires the [`p2p` config option](x-admin.md#accept-incoming-p2p-connections) to be enabled or for the request to be from a whitelisted account.
+`/p2p` accepts incoming p2p connections. This requires the [`p2p` config option](x-admin.md#incoming-connection-policy) to be enabled or for the request to be from a whitelisted account.

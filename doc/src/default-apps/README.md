@@ -1,32 +1,35 @@
 # Default apps
 
-Psibase comes with default applications that bootstrap the initial functionality of the network. Ultimately, all of this functionality is customizeable by modifying the app code.
+Muabase (built on the `psibase` runtime) ships with default system and user applications that bootstrap network functionality.
 
 ## System apps
 
-System apps are the applications responsible for the core functionality of the network. Changing these applications could drastically alter fundamental properties about the network.
+System apps are responsible for core consensus, authorization, and state verification:
 
 - [accounts](accounts.md)
 - [auth-sig](auth-sig.md)
 - [common-api](common-api.md)
-- [cpu-limit]()
+- `cpu-limit` *(docs pending)*
 - [events](events.md)
-- [producers]()
+- `producers` *(docs pending)*
 - [http-server](http-server.md)
 - [setcode](setcode.md)
 - [staged-tx](staged-tx.md)
 - [transact](transact.md)
-- [verify-sig]()
+- `verify-sig` *(docs pending)*
+- `auth-delg` (`AuthDelegate`), `auth-dyn` (`AuthDyn`), `auth-rcovr` (`AuthRecover`), `credential` (`Credentials`) — see [Institutional apps & spec](../institutional/README.md)
 
-## Additional apps
-
-Psibase also comes with various apps meant to demonstrate additional functionality. These additional apps can be removed or replaced by other custom apps without upsetting any of the core functionality of the network.
+## Additional & institutional apps
 
 - [x-admin](x-admin.md)
+- [x-basic](x-basic.md)
+- [x-http](x-http.md)
+- [x-peers](x-peers.md)
 - [docs](docs.md)
-- [explorer]()
+- `explorer` *(docs pending)*
 - [invite](invite.md)
-- [nft]()
+- `nft` *(docs pending)*
 - [sites](sites.md)
-- [symbol]()
-- [tokens]()
+- `symbol` *(docs pending)*
+- `tokens` *(docs pending)*
+- Muabase institutional & commerce services (`branding`, `waqf-treas`, `muamalat`, `ext-vault`, `cred-clear`, `lease-eng`, `mut-shield`, `claim-coun`, `evaluation`, `tok-stream`) — see [Institutional apps & quickstarts](../institutional/README.md)
