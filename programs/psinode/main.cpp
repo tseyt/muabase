@@ -1851,27 +1851,27 @@ void run(const std::string&              db_path,
             psio::json_token_stream stream(json.data());
             auto                    req = psio::from_json<StateProofRequest>(stream);
 
-            DbId target_db = DbId::service;
+            DbId targetDb = DbId::service;
             if (req.db == "service" || req.db.empty())
-               target_db = DbId::service;
+               targetDb = DbId::service;
             else if (req.db == "native")
-               target_db = DbId::native;
+               targetDb = DbId::native;
             else
                throw std::runtime_error("Unsupported db (expected 'service' or 'native')");
 
-            std::vector<std::byte> target_key;
+            std::vector<std::byte> targetKey;
             if (req.keyHex && !req.keyHex->empty())
             {
                auto decoded = muabase_db::hex_to_bytes(*req.keyHex);
                if (!decoded)
                   throw std::runtime_error("Invalid keyHex");
-               target_key = std::move(*decoded);
+               targetKey = std::move(*decoded);
             }
             else if (req.keyUtf8)
             {
-               target_key.resize(req.keyUtf8->size());
-               if (!target_key.empty())
-                  std::memcpy(target_key.data(), req.keyUtf8->data(), target_key.size());
+               targetKey.resize(req.keyUtf8->size());
+               if (!targetKey.empty())
+                  std::memcpy(targetKey.data(), req.keyUtf8->data(), targetKey.size());
             }
             else
             {
@@ -1893,64 +1893,37 @@ void run(const std::string&              db_path,
                prefix.assign(req.prefixUtf8->begin(), req.prefixUtf8->end());
             }
 
-            auto system  = sharedState->getSystemContext();
-            auto rev     = system->sharedDatabase.getHead();
+            auto          system = sharedState->getSystemContext();
+            psio::finally returnSystem{[&]() { sharedState->addSystemContext(std::move(system)); }};
+
+            auto     rev     = system->sharedDatabase.getHead();
             Database db{system->sharedDatabase, rev};
             auto     session = db.startRead();
             auto     status  = db.kvGet<StatusRow>(DbId::native, statusKey());
 
-            static std::atomic<std::uint64_t> proof_seq{0};
-            auto tmp_dir = std::filesystem::temp_directory_path() /
-                           ("muabase_proof_" + std::to_string(::getpid()) + "_" +
-                            std::to_string(++proof_seq));
-            std::filesystem::create_directories(tmp_dir);
-            auto cleanup = psio::finally(
-                [&tmp_dir]()
-                {
-                   std::error_code ec;
-                   std::filesystem::remove_all(tmp_dir, ec);
-                });
-
-            muabase_db::SegmentAllocator sal{tmp_dir,
-                                             muabase_db::SalConfig{.segment_bytes = 256 * 1024}};
-            muabase_db::CowArt           art{sal};
-            muabase_db::ArtRoot          root;
-
-            std::vector<char> cursor = prefix;
-            while (auto kv = db.kvGreaterEqualRaw(target_db, cursor, prefix.size()))
+            muabase_db::EphemeralProofBuilder proofBuilder;
+            std::vector<char>                 cursor = prefix;
+            while (auto kv = db.kvGreaterEqualRaw(targetDb, cursor, prefix.size()))
             {
-               root = art.upsert(
-                   root,
+               proofBuilder.upsert(
                    {reinterpret_cast<const std::byte*>(kv->key.pos), kv->key.remaining()},
                    {reinterpret_cast<const std::byte*>(kv->value.pos), kv->value.remaining()});
                cursor.assign(kv->key.pos, kv->key.end);
                cursor.push_back('\0');
             }
 
-            muabase_db::Merkleizer          merkle{art};
-            muabase_db::Checksum256         state_root = merkle.compute_root(root);
-            muabase_db::AnchoredMerkleProof bundle;
-            bundle.anchor.state_root = state_root;
+            muabase_db::BlockHeaderAnchor anchor{};
             if (status && status->head)
             {
-               bundle.anchor.block_num = status->head->header.blockNum;
-               bundle.anchor.block_id  = muabase_db::bytes_to_hex(
+               anchor.block_num = status->head->header.blockNum;
+               anchor.block_id  = muabase_db::bytes_to_hex(
                    {reinterpret_cast<const std::byte*>(status->head->blockId.data()),
                      status->head->blockId.size()});
-               bundle.anchor.producer = status->head->header.producer.str();
+               anchor.producer = status->head->header.producer.str();
             }
 
-            if (auto found = art.get(root, target_key))
-            {
-               bundle.value = std::move(*found);
-               bundle.proof = merkle.prove_inclusion(root, target_key);
-            }
-            else
-            {
-               bundle.proof = merkle.prove_non_inclusion(root, target_key);
-            }
-
-            std::string body = muabase_db::anchored_proof_to_json(bundle);
+            auto        bundle = proofBuilder.prove(targetKey, std::move(anchor));
+            std::string body   = muabase_db::anchored_proof_to_json(bundle);
             callback(
                 [body = std::move(body)]() mutable
                 { return std::vector<char>(body.begin(), body.end()); });

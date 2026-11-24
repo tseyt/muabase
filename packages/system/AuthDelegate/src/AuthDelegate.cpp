@@ -15,7 +15,7 @@ namespace SystemService
                                    ServiceMethod      action,
                                    std::vector<Claim> claims)
    {
-      auto endTable = open<EndowmentPolicyTable>();
+      auto endTable = open<EndowmentPolicyTable>(KvMode::read);
       if (auto endRecord = endTable.getIndex<0>().get(sender))
       {
          if (endRecord->is_endowment)
