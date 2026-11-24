@@ -1,303 +1,340 @@
-# Humanitarian & Zakat Remittance Corridors Quickstart (QırımBridge / Ummah Rails)
+# Humanitarian & Zakat Corridor Quickstart (App 1)
 
-> **Reference Architecture for Non-Custodial Diaspora Relief & Zero-Fee Zakat *Tamlik* Corridors**  
-> *Target Runtime: `psinode` (`Triedent` Wasm-in-Database) + `@muabase/headless-sdk`*  
-> *Regulatory & Jurisprudential Profile: NYDFS BitLicense `23 NYCRR § 200.2(q)` Non-Custodial Safe Harbor &bull; OFAC General License No. 6 Personal Remittance Framing &bull; AAOIFI Shariah Standard No. 35 (Zakat Tamlik)*
+**Operator & Developer Runbook — 15-Minute Local Setup**  
+**Canonical Wasm Services:** `credential`, `staged-tx`, `cred-clear`, `ext-vault`, `producers`  
+**Regulatory & Fiqh Alignment:** `compliance.md` Invariant 9 (*Tamlik* 100%, Zero-PII *Satr*, Dual-Witness *Bayyinah*), NYDFS `23 NYCRR § 200.2(q)` (Non-Custodial), OFAC GL 6 Personal Remittance.
 
 ---
 
-## 1. Architectural Overview & Threat Model
+## 1. Architecture & Data Flow
 
-Displaced and sanctioned-adjacent diaspora communities—such as the **Crimean Tatar relief network (QırımBridge)** operating across mainland Ukraine (`"UA"`), Turkey (`"TR"`), Uzbekistan (`"UZ"`), the UAE (`"AE"`), and Western donor hubs—face three compounding failures on legacy financial and crowdfunding rails:
-
-1. **Fee Erosion Violating Zakat *Tamlik*:** Classical Islamic jurisprudence (*Fiqh al-Mu‘amalat*, Qur'an 9:60, AAOIFI Standard No. 35) mandates **Tamlik**—100% direct transfer of Zakat corpus ownership to eligible individual recipients (*Asnaf*). Platforms that skim 3%–10% administrative fees or FX spreads from Zakat principal invalidate full discharge of the donor's obligation.
-2. **Custodial De-Risking & Key Seizure:** Centralized NGO portals and custodial crypto wallets hold pooled user funds, triggering money-transmitter licensing burdens, account freezes, and single-point-of-compromise risk.
-3. **Plaintext PII Exposure (*Darar*):** Storing recipient names, national IDs, phone numbers, or off-ramp IBANs on public blockchains or centralized SaaS databases endangers vulnerable families in high-friction regions.
-
-Muabase resolves all three constraints at the **WebAssembly state-transition layer**:
+Plaintext beneficiary PII **never** enters `psinode`. The donor or field coordinator seals PII off-chain inside a selective-disclosure envelope (`packages/shared-ui/headless-sdk/src/privacy.ts` or `rust/muabase_institutional`), commits only the 32-byte salted SHA-256 hash on-chain, gathers `>= 2` accredited verifier signatures, executes a zero-fee `ZAKAT_TAMLIK_100` settlement split, and exports an offline-verifiable `dwal_merkle` inclusion proof + `compliance.md` evidence pack.
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor Donor as Diaspora Donor (Web / Mobile)
-    actor V1 as Verifier 1 (humanitarian-verifier)
-    actor V2 as Verifier 2 (humanitarian-verifier)
-    participant Psinode as Federated psinode (StagedTx + ExternalVault + CreditClear)
-    participant Safe as Client Multisig (EVM Safe / Taproot PSBT)
-    participant Desk as Licensed Bridge Desk (TR / UA / UZ / AE)
+    actor Donor as Donor / Field Ops
+    participant Privacy as Selective Privacy (Client)
+    participant Cred as credential
+    participant Staged as staged-tx
+    participant Clear as cred-clear
+    participant Vault as ext-vault
+    participant Proof as /native/proof/state
 
-    Desk->>Psinode: creditclear::registerBridgeLiquidityDesk(Safe/Taproot, spreadBps)
-    Donor->>Psinode: staged-tx::proposeRemittanceAttestation(saltedSha256, "TR", gl6Hash, FUQARA, quorum=2)
-    V1->>Psinode: staged-tx::attestBeneficiaryCommitment(attestationId, saltedSha256, "humanitarian-verifier")
-    V2->>Psinode: staged-tx::attestBeneficiaryCommitment(attestationId, saltedSha256, "humanitarian-verifier")
-    Note over Psinode: Quorum >= 2 satisfied (trust_score >= 8000, 0 PII on-chain)
-    Donor->>Psinode: ext-vault::createZakatRemittanceSplit(ZAKAT_TAMLIK_100, principal, sadaqahTip)
-    Note over Psinode: Asserts protocol_fee_deducted == 0 & verifies StagedTx quorum
-    Psinode-->>Donor: Deterministic Non-Custodial Split Payload (0 Platform Keys)
-    Donor->>Safe: Sign 100% Principal -> Bridge Vault + Optional Sadaqah Tip -> Infra/Charity Sink
-    Safe->>Desk: On-Chain USDC / BTC Taproot Settlement
-    Donor->>Psinode: ext-vault::confirmRemittanceSettlement(intentId, externalTxHash)
+    Donor->>Privacy: Seal beneficiary PII + view keys
+    Privacy-->>Donor: 32-byte commitmentHash + encrypted envelope
+    Donor->>Clear: Query listBridgeCorridors(TR)
+    Donor->>Staged: proposeRemittanceAttestation(commitmentHash, TR, FUQARA)
+    Note over Cred,Staged: 2 accredited verifiers (badge=humanitarian-verifier, trust>=8000, precision>=8000)
+    Staged->>Staged: attestBeneficiaryCommitment (verif1, verif2)
+    Donor->>Vault: createZakatRemittanceSplit(ZAKAT_TAMLIK_100, fee=0)
+    Vault->>Staged: verifyRemittanceQuorum(attestationId, commitmentHash)
+    Donor->>Vault: confirmRemittanceSettlement(intentId, externalTxRef)
+    Vault-->>Vault: Store double-entry CorridorReceipt + receipt_leaf_hash
+    Donor->>Proof: POST /native/proof/state -> AnchoredMerkleProof JSON
+    Donor->>Donor: node tools/verify-merkle-proof.mjs proof.json
 ```
 
 ---
 
-## 2. Step 1: Spin Up a Federated Self-Hosted `psinode`
+## 2. Step 1 — Start a Local `psinode` and Boot Services
 
-Diaspora relief chapters (e.g., Istanbul, Kyiv, Tashkent, New York) can run a sovereign, federated `psinode` cluster with **zero intermediate backend servers** and **zero custodial keys**:
+> **CLI Note:** `psinode` takes the database directory as its **first positional argument** (no `--database` flag). `psibase` uses `-a` for the API URL, `boot -p <producer>`, `create <acct> -k <pubkey>`, and `push <actions.json>`.
 
 ```bash
-# 1. Start a local or federated community psinode instance
-psinode --database /var/lib/muabase/qirimbridge-db \
-        --producer qirim-ist-1 \
-        --listen 0.0.0.0:8080 \
-        --host qirim.node.muabase.org
+# 1. Start local node (positional DB path, producer `qirim`, HTTP on 127.0.0.1:8080)
+psinode ./qirim-db -p qirim -l 127.0.0.1:8080 --host muabase.local
 
-# 2. Boot core system & Muabase commerce packages
-psibase boot --host http://localhost:8080 \
-  Accounts AuthSig Credentials StagedTx Events \
-  Branding Tokens ExternalVault CreditClear
-
-# 3. Configure Muamalat jurisprudential terminology locale on-chain
-psibase push --host http://localhost:8080 \
-  --sender branding \
-  branding setTerminologyLocale '{"locale":"muamalat"}'
+# 2. Boot core + corridor packages (in a second terminal)
+psibase -a http://127.0.0.1:8080 boot -p qirim \
+  Accounts AuthSig AuthDelegate Credentials StagedTx Events Branding Tokens ExternalVault CreditClear Producers
 ```
 
-With `locale: "muamalat"` active, `packages/user/Branding` automatically resolves:
-- `zakat_tamlik` $\rightarrow$ **`Zakat Tamlik Vault (Tamlik al-Asnaf 100%)`**
-- `asnaf_gate` $\rightarrow$ **`Asnaf Verification Gate (Bayyinat Istihqaq al-Zakat)`**
-- `bridge_liquidity_desk` $\rightarrow$ **`Bridge Liquidity Desk (Maktab al-Sarf wa al-Hawalah)`**
-
----
-
-## 3. Step 2: Issue Soulbound `humanitarian-verifier` Credentials
-
-Beneficiary eligibility (*Asnaf* status and non-SDN personal remittance screening) is attested by independent community elders, field coordinators, or legal aid officers. Credentials in `packages/system/Credentials` are **soulbound** (non-transferable) and require both:
-- Active `domain_badge` = `"humanitarian-verifier"`
-- `trust_score >= 8000` ($80.00\%$ probity / *‘Adalah*) and `precision_score >= 8000` ($80.00\%$ *Dabt*)
+Verify node readiness:
 
 ```bash
-# Create accounts for two independent community verifiers
-psibase create-account -a http://localhost:8080 qirim-verif1 --key <PUBKEY_1>
-psibase create-account -a http://localhost:8080 qirim-verif2 --key <PUBKEY_2>
-
-# Council / accreditor issues soulbound "humanitarian-verifier" domain badges
-psibase push -a http://localhost:8080 --sender majlis-admin credential issueDomainBadge '{
-  "account": "qirim-verif1",
-  "domain": "humanitarian-verifier",
-  "cert_hash": "0x5f2b91e74a1c8b30e4d679112233445566778899aabbccddeeff001122334455"
-}'
-
-psibase push -a http://localhost:8080 --sender majlis-admin credential issueDomainBadge '{
-  "account": "qirim-verif2",
-  "domain": "humanitarian-verifier",
-  "cert_hash": "0x7c8d12f09b2e4a51f8c3902233445566778899aabbccddeeff00112233445566"
-}'
-
-# Initialize probity (trust_score >= 8000) and domain accuracy (precision_score >= 8000)
-psibase push -a http://localhost:8080 --sender majlis-admin credential updateTrustScore '{
-  "account": "qirim-verif1", "score": 9200, "is_success": true
-}'
-psibase push -a http://localhost:8080 --sender majlis-admin credential updatePrecisionScore '{
-  "account": "qirim-verif1", "domain": "humanitarian-verifier", "score": 9000, "is_accurate": true
-}'
-
-psibase push -a http://localhost:8080 --sender majlis-admin credential updateTrustScore '{
-  "account": "qirim-verif2", "score": 8800, "is_success": true
-}'
-psibase push -a http://localhost:8080 --sender majlis-admin credential updatePrecisionScore '{
-  "account": "qirim-verif2", "domain": "humanitarian-verifier", "score": 8600, "is_accurate": true
-}'
+curl -s http://127.0.0.1:8080/native/admin/status
 ```
 
 ---
 
-## 4. Step 3: Create Zero-PII Beneficiary Commitments Off-Chain
+## 3. Step 2 — Accredit an Institutional Issuer & Issue Verifier Credentials
 
-**Never submit names, passport numbers, street addresses, or bank IBANs to `psinode`.**  
-Instead, encrypt the off-chain payout packet directly between the field coordinator and the licensed bridge-country exchange desk (e.g. via X25519 / Age encryption), prepend a CSPRNG 32-byte salt, and commit only the 32-byte SHA-256 digest on-chain:
+`Credentials` enforces issuer governance via `AuthorizedIssuerTable`. Accredit `majlis` first, create two independent verifiers (`verif1`, `verif2`), and grant each an active `"humanitarian-verifier"` badge with `trust_score >= 8000` and `precision_score >= 8000`:
 
-```typescript
-import { assertValidSha256Commitment } from "@muabase/headless-sdk";
-
-async function createSaltedBeneficiaryCommitment(encryptedPayoutCiphertext: Uint8Array): Promise<{
-  saltHex: string;
-  recipientCommitmentHash: string;
-}> {
-  const salt = crypto.getRandomValues(new Uint8Array(32));
-  const preimage = new Uint8Array(salt.length + encryptedPayoutCiphertext.length);
-  preimage.set(salt, 0);
-  preimage.set(encryptedPayoutCiphertext, salt.length);
-
-  const digestBuffer = await crypto.subtle.digest("SHA-256", preimage);
-  const hex = Array.from(new Uint8Array(digestBuffer))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-  const saltHex = Array.from(salt)
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-
-  return {
-    saltHex: `0x${saltHex}`, // Retained off-chain with encrypted packet for bridge desk verification
-    recipientCommitmentHash: assertValidSha256Commitment(`0x${hex}`),
-  };
-}
+```bash
+# Create accounts (valid Psibase AccountNumbers)
+psibase -a http://127.0.0.1:8080 create majlis  -k <MAJLIS_PUBKEY>
+psibase -a http://127.0.0.1:8080 create verif1  -k <VERIF1_PUBKEY>
+psibase -a http://127.0.0.1:8080 create verif2  -k <VERIF2_PUBKEY>
+psibase -a http://127.0.0.1:8080 create donor   -k <DONOR_PUBKEY>
+psibase -a http://127.0.0.1:8080 create desktr  -k <DESK_PUBKEY>
 ```
 
-Similarly, hash the canonical Ricardian personal remittance declaration confirming non-commercial family/humanitarian P2P support to a verified non-SDN individual (`nonCommercialPersonalDeclarationHash`).
+Push the accreditation and credential actions as a JSON action array (`corridor-setup.json`):
 
----
-
-## 5. Step 4: End-to-End 100% *Tamlik* Zakat Split & Reactive Tracking
-
-### 5.1 Bridge Liquidity Desk Registration (`creditclear`)
-Licensed exchange desks in bridge jurisdictions (`"TR"`, `"AE"`, `"UA"`, `"UZ"`) publish their client-verifiable Safe / Taproot / Squads multisig vaults and live FX spreads without Muabase holding custody:
-
-```typescript
-import { createMuabaseClient } from "@muabase/headless-sdk";
-
-const deskClient = createMuabaseClient({
-  endpoint: "https://qirim.node.muabase.org",
-  locale: "muamalat",
-  account: "bosphorus-desk",
-});
-
-await deskClient.creditClear.registerBridgeLiquidityDesk({
-  corridorJurisdiction: "TR",
-  deskLabel: "Bosphorus Licensed Sarf & Relief Desk (Istanbul)",
-  licenseRegistryHash: "0x4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a",
-  evmSafeAddress: "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
-  btcTaprootDescriptor:
-    "tr(xpub661MyMwAqRbcFtXgS5sYJABqqG9YLmC4Q1Rdap9gSE8NqtwybGhePY2gZ29ESFjqJoCu1Rupje8YtGqsefD265TMg7usUDFdp6W1EGMcet8)",
-  fxSpreadBps: 75, // 0.75% transparent FX spread (funded via donor sadaqahTipAmount, never Zakat principal)
-  maxPerTxUsdcCents: 2_500_000, // $25,000.00 max per P2P remittance
-  sadaqahFeeSubsidySupported: true,
-});
+```json
+[
+  {
+    "sender": "producers+3",
+    "service": "credential",
+    "method": "authorizeIssuer",
+    "data": { "issuer": "majlis", "domain": "humanitarian-verifier" }
+  },
+  {
+    "sender": "majlis",
+    "service": "credential",
+    "method": "issueDomainBadge",
+    "data": {
+      "account": "verif1",
+      "domain": "humanitarian-verifier",
+      "cert_hash": "5f2b000000000000000000000000000000000000000000000000000000000001"
+    }
+  },
+  {
+    "sender": "majlis",
+    "service": "credential",
+    "method": "updateTrustScore",
+    "data": { "account": "verif1", "score": 9200, "is_success": true }
+  },
+  {
+    "sender": "majlis",
+    "service": "credential",
+    "method": "updatePrecisionScore",
+    "data": { "account": "verif1", "domain": "humanitarian-verifier", "score": 9000, "is_accurate": true }
+  },
+  {
+    "sender": "majlis",
+    "service": "credential",
+    "method": "issueDomainBadge",
+    "data": {
+      "account": "verif2",
+      "domain": "humanitarian-verifier",
+      "cert_hash": "7c8d000000000000000000000000000000000000000000000000000000000002"
+    }
+  },
+  {
+    "sender": "majlis",
+    "service": "credential",
+    "method": "updateTrustScore",
+    "data": { "account": "verif2", "score": 8800, "is_success": true }
+  },
+  {
+    "sender": "majlis",
+    "service": "credential",
+    "method": "updatePrecisionScore",
+    "data": { "account": "verif2", "domain": "humanitarian-verifier", "score": 8600, "is_accurate": true }
+  }
+]
 ```
 
-### 5.2 Dual-Witness Attestation & 100% *Tamlik* Settlement (`staged-tx` + `ext-vault`)
-
-```typescript
-const donorClient = createMuabaseClient({
-  endpoint: "https://qirim.node.muabase.org",
-  locale: "muamalat",
-  account: "donor-ny",
-});
-
-// 1. Discover active bridge corridors in Turkey ("TR")
-const corridors = await donorClient.creditClear.listBridgeCorridors({
-  corridorJurisdiction: "TR",
-  activeOnly: true,
-});
-const selectedDesk = corridors[0];
-
-// 2. Propose zero-PII PersonalRemittanceAttestation (requires witness_quorum >= 2)
-const { attestationId } = await donorClient.stagedTx.proposeRemittanceAttestation({
-  recipientCommitmentHash,
-  corridorJurisdiction: "TR",
-  nonCommercialPersonalDeclarationHash,
-  asnafCategory: "FUQARA", // Eligible Zakat category (FUQARA | MASAKIN | GHARIMIN | IBN_AL_SABIL | GENERAL_SADAQAH)
-  witnessQuorum: 2,
-});
-
-// 3. Verifiers 1 & 2 independently verify off-chain packet & co-sign on-chain
-await verifier1Client.stagedTx.attestBeneficiaryCommitment({
-  attestationId,
-  recipientCommitmentHash,
-  domainBadge: "humanitarian-verifier",
-});
-
-await verifier2Client.stagedTx.attestBeneficiaryCommitment({
-  attestationId,
-  recipientCommitmentHash,
-  domainBadge: "humanitarian-verifier",
-});
-
-// 4. Create 100% Tamlik Zakat split intent
-//    - 100% of $1,000.00 (100_000 cents) Zakat principal routes to recipientBridgeVault
-//    - Optional $15.00 (1_500 cents) Sadaqah tip routes separately to cover 0.75% FX spread + node ops
-//    - Passing protocolFeeDeduction > 0 in ZAKAT_TAMLIK_100 immediately panics in both SDK and Wasm!
-const splitIntent = await donorClient.externalVault.createZakatRemittanceSplit({
-  attestationId,
-  mode: "ZAKAT_TAMLIK_100",
-  railType: "evm_safe", // or "bitcoin_taproot" | "solana_squads" | "bridge_corridor_api"
-  corridorJurisdiction: "TR",
-  recipientBridgeVault: selectedDesk.evmSafeAddress,
-  infraOpsVault: "0xQirimSadaqahInfraSink0000000000000000002",
-  zakatPrincipalAmount: 100_000,
-  sadaqahTipAmount: 1_500,
-  protocolFeeDeduction: 0,
-  recipientCommitmentHash,
-});
-
-// 5. Donor signs splitIntent.payloadJson client-side via Safe / hardware wallet, then records tx hash
-await donorClient.externalVault.confirmRemittanceSettlement({
-  intentId: splitIntent.intentId,
-  externalTxRef: "0x8a4f2c9b11e0d34789ab12cd34ef567890ab12cd34ef567890ab12cd34ef5678",
-});
-```
-
-### 5.3 Reactive SSE Quorum & Settlement Subscription (`useMuabaseTable`)
-
-```tsx
-import { useMuabaseTable } from "@muabase/headless-sdk";
-import type { PersonalRemittanceAttestation, ZakatRemittanceIntent } from "@muabase/headless-sdk";
-
-export function CorridorStatusMonitor({ client }: { client: any }) {
-  const attestations = useMuabaseTable<PersonalRemittanceAttestation>({
-    client,
-    service: "staged-tx",
-    table: "remittanceAttestationTable",
-    transport: "sse",
-    query: `{
-      remittanceAttestationTable(corridorJurisdiction: "TR") {
-        attestationId
-        corridorJurisdiction
-        asnafCategory
-        witnessQuorum
-        verifiedWitnesses
-        quorumSatisfied
-      }
-    }`,
-  });
-
-  const settlements = useMuabaseTable<ZakatRemittanceIntent>({
-    client,
-    service: "ext-vault",
-    table: "remittanceIntentTable",
-    transport: "sse",
-    query: `{
-      remittanceIntentTable(corridorJurisdiction: "TR") {
-        intentId
-        attestationId
-        mode
-        zakatPrincipalAmount
-        recipientAmount
-        sadaqahTipAmount
-        protocolFeeDeducted
-        externalTxRef
-        settled
-      }
-    }`,
-  });
-
-  return (
-    <div>
-      <h3>Asnaf Verification Quorum ({attestations.data.length})</h3>
-      <h3>Settled Tamlik Remittances ({settlements.data.filter((i) => i.settled).length})</h3>
-    </div>
-  );
-}
+```bash
+psibase -a http://127.0.0.1:8080 push corridor-setup.json -s <SIGNING_KEY>
 ```
 
 ---
 
-## 6. Regulatory & Shariah Compliance Checklist
+## 4. Step 3 — Protect Beneficiary PII via Selective Disclosure
 
-| Dimension | Standard / Citation | Enforced Protocol Mechanism |
-| :--- | :--- | :--- |
-| **Non-Custodial Software Safe Harbor** | **NYDFS BitLicense `23 NYCRR § 200.2(q)`** | `psinode` operators and UI hosts hold **0 private keys** and never take possession of fiat or digital assets. `ExternalVault` emits deterministic client-signed EVM Safe, Bitcoin Taproot Miniscript, or Solana Squads payloads. |
-| **Personal Remittance Compliance** | **OFAC General License No. 6 / Non-Commercial P2P** | Every `PersonalRemittanceAttestation` requires a non-zero 32-byte `non_commercial_personal_declaration_hash` Ricardian digest attesting personal, non-commercial humanitarian remittance to verified non-SDN individuals via licensed bridge corridors (`"TR"`, `"AE"`, `"UA"`, `"UZ"`). |
-| **100% Zakat *Tamlik* Delivery** | **Qur'an 9:60; AAOIFI Shariah Standard No. 35** | `CorridorSplitMode::ZAKAT_TAMLIK_100` asserts `protocol_fee_deduction == 0` and routes 100% of `zakat_principal_amount` to `recipient_bridge_vault`. Any fee deduction panics at state transition. |
-| **Voluntary Fee & FX Separation** | **AAOIFI Standard No. 35 (*Tabarru‘ / Sadaqah Nafilah*)** | Gas, node hosting, and bridge FX spreads (`fx_spread_bps`) are funded exclusively via an optional, separate donor `sadaqah_tip_amount` split routed to `infra_ops_vault` / `charity_sink`. |
-| **Zero-PII Beneficiary Protection (*Satr*)** | **Qur'an 2:282; *La Darar wa la Dirar*** | Plaintext names, addresses, and IBANs are rejected by 32-byte SHA-256 hex digest and 2-letter ISO corridor guards. Settlement is blocked until `witness_quorum >= 2` `"humanitarian-verifier"` badge holders (`trust_score >= 8000`) co-sign. |
+Seal beneficiary PII off-chain with `@muabase/headless-sdk` (`packages/shared-ui/headless-sdk/src/privacy.ts`). Only `envelope.commitmentHex` (a 32-byte salted SHA-256 digest) is written on-chain; auditors or field partners with a `ViewKeyGrant` open the encrypted envelope locally:
+
+```ts
+import {
+  sealSelectiveDisclosureEnvelope,
+  openSelectiveDisclosureEnvelope,
+  assertValidSha256Commitment,
+} from "@muabase/headless-sdk";
+
+const auditorViewSecret = crypto.getRandomValues(new Uint8Array(32));
+const beneficiaryPii = JSON.stringify({
+  legalName: "Amina Q.",
+  corridor: "TR",
+  payoutChannel: "IBAN:TR001234567890",
+  asnafCategory: "FUQARA",
+});
+
+// 1. Encrypt PII off-chain under AES-256-GCM bound to the salted SHA-256 commitment
+const envelope = await sealSelectiveDisclosureEnvelope(beneficiaryPii, [
+  { viewerId: "auditor-1", secret: auditorViewSecret },
+]);
+
+// 2. Validate zero-PII commitment before submitting on-chain
+const commitmentHash = assertValidSha256Commitment(envelope.commitmentHex);
+
+// 3. Selective disclosure: only holders of an authorized view key can open & verify preimage
+const disclosed = await openSelectiveDisclosureEnvelope(envelope, "auditor-1", auditorViewSecret);
+```
+
+---
+
+## 5. Step 4 — Execute End-to-End 100% *Tamlik* Zakat Disbursement
+
+1. **Register a non-custodial bridge desk (`cred-clear`):**
+   ```json
+   [
+     {
+       "sender": "desktr",
+       "service": "cred-clear",
+       "method": "registerBridgeLiquidityDesk",
+       "data": {
+         "corridor_jurisdiction": "TR",
+         "desk_label": "Bosphorus Non-Custodial Sarf",
+         "license_registry_hash": "4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a0",
+         "evm_safe_address": "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+         "btc_taproot_descriptor": "",
+         "solana_squads_pda": "",
+         "fx_spread_bps": 75,
+         "max_per_tx_usdc_cents": 2500000,
+         "sadaqah_fee_subsidy_supported": true
+       }
+     }
+   ]
+   ```
+
+2. **Propose attestation & collect 2-of-2 witness co-signatures (`staged-tx`):**
+   ```json
+   [
+     {
+       "sender": "donor",
+       "service": "staged-tx",
+       "method": "proposeRemittanceAttestation",
+       "data": {
+         "recipient_commitment_hash": "<COMMITMENT_HEX_64>",
+         "corridor_jurisdiction": "TR",
+         "non_commercial_personal_declaration_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+         "asnaf_category": "FUQARA",
+         "witness_quorum": 2
+       }
+     },
+     {
+       "sender": "verif1",
+       "service": "staged-tx",
+       "method": "attestBeneficiaryCommitment",
+       "data": {
+         "attestation_id": 1,
+         "recipient_commitment_hash": "<COMMITMENT_HEX_64>",
+         "domain_badge": "humanitarian-verifier"
+       }
+     },
+     {
+       "sender": "verif2",
+       "service": "staged-tx",
+       "method": "attestBeneficiaryCommitment",
+       "data": {
+         "attestation_id": 1,
+         "recipient_commitment_hash": "<COMMITMENT_HEX_64>",
+         "domain_badge": "humanitarian-verifier"
+       }
+     }
+   ]
+   ```
+
+3. **Create 100% *Tamlik* split intent & confirm settlement (`ext-vault`):**
+   - `protocol_fee_deduction` **must be `0`** under `ZAKAT_TAMLIK_100` (any non-zero fee panics with `Tamlik Violation`).
+   - `confirmRemittanceSettlement` enforces caller authorization (`donor` or `ext-vault`), rejects double-settlement, stores a double-entry `CorridorReceipt` (`CorridorReceiptTable`), and emits `complianceReceipt(intent_id, receipt_leaf_hash)`.
+
+   ```json
+   [
+     {
+       "sender": "donor",
+       "service": "ext-vault",
+       "method": "createZakatRemittanceSplit",
+       "data": {
+         "attestation_id": 1,
+         "mode": "ZAKAT_TAMLIK_100",
+         "rail_type": "evm_safe",
+         "corridor_jurisdiction": "TR",
+         "recipient_bridge_vault": "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+         "infra_ops_vault": "0xQirimSadaqahOpsVault00000000000000000002",
+         "zakat_principal_amount": 100000,
+         "sadaqah_tip_amount": 1500,
+         "protocol_fee_deduction": 0,
+         "recipient_commitment_hash": "<COMMITMENT_HEX_64>"
+       }
+     },
+     {
+       "sender": "donor",
+       "service": "ext-vault",
+       "method": "confirmRemittanceSettlement",
+       "data": {
+         "intent_id": 1,
+         "external_tx_ref": "0x8a9c00000000000000000000000000000000000000000000000000000000cafe"
+       }
+     }
+   ]
+   ```
+
+4. **Query public aggregate conservation via native subdomain GraphQL (zero PII exposed):**
+   ```bash
+   curl -s -X POST http://ext-vault.127.0.0.1:8080/graphql \
+     -H "Content-Type: application/json" \
+     -d '{"query":"{ corridorConservation(corridorJurisdiction: \"TR\") { settledCount totalPrincipalDelivered totalSadaqahTips totalFeesDeducted } corridorReceipt(intentId: 1) { intentId attestationId recipientAmount protocolFeeDeducted receiptLeafHash externalTxRef } }"}'
+   ```
+
+---
+
+## 6. Step 5 — Verify a Disbursement Receipt Offline via `dwal_merkle` Proof
+
+Fetch an anchored `muabase.dwal_merkle.v1` JSON inclusion proof directly from `psinode`'s native proof endpoint, then verify it offline with zero node connection:
+
+```bash
+# 1. Fetch anchored state proof from psinode
+curl -s -X POST http://127.0.0.1:8080/native/proof/state \
+  -H "Content-Type: application/json" \
+  -d '{"db":"service","keyHex":"<CORRIDOR_RECEIPT_KV_KEY_HEX>"}' \
+  > corridor-proof.json
+
+# 2. Verify offline with zero external dependencies (Node 22+)
+node tools/verify-merkle-proof.mjs corridor-proof.json
+
+# 3. Optional: export a federated Bitcoin OP_RETURN / EVM checkpoint anchor bundle
+node tools/checkpoint-anchor.mjs --from-proof corridor-proof.json > corridor-anchor.json
+node tools/checkpoint-anchor.mjs --verify corridor-anchor.json
+```
+
+To run the local cross-language C++ -> JS proof parity test suite without a running node:
+
+```bash
+cmake --build build-native --target muabase-db-dwal-tests muabase-proof-tool -j$(nproc)
+ctest --test-dir build-native -R '^n-muabase-db-' --output-on-failure
+node --test tools/test-verify-merkle-proof.mjs
+```
+
+---
+
+## 7. Step 6 — Export a `compliance.md` Audit Evidence Pack
+
+An external Shariah or regulatory auditor verifies all `compliance.md` Section 7 invariants for a disbursement using three self-contained artifacts (zero plaintext PII required):
+
+| Artifact | Source | Invariant Verified |
+|---|---|---|
+| `attestation.json` | `staged-tx` GraphQL `remittanceAttestation(attestationId)` | `witnessQuorum >= 2`, `"humanitarian-verifier"` badge, `trustScore >= 8000`, `precisionScore >= 8000`, 32-byte non-zero commitment hash |
+| `receipt.json` | `ext-vault` GraphQL `corridorReceipt(intentId)` + `corridorConservation("TR")` | `mode == ZAKAT_TAMLIK_100`, `protocolFeeDeducted == 0`, `recipientAmount == zakatPrincipalAmount`, double-entry `receiptLeafHash` |
+| `corridor-proof.json` + `corridor-anchor.json` | `POST /native/proof/state` + `tools/checkpoint-anchor.mjs` | Cryptographic `dwal_merkle` inclusion under signed block header + external checkpoint anchor |
+
+```bash
+mkdir -p evidence-pack
+curl -s -X POST http://staged-tx.127.0.0.1:8080/graphql -H "Content-Type: application/json" \
+  -d '{"query":"{ remittanceAttestation(attestationId: 1) { attestationId corridorJurisdiction asnafCategory witnessQuorum verifiedWitnesses quorumSatisfied recipientCommitmentHash } }"}' \
+  > evidence-pack/attestation.json
+curl -s -X POST http://ext-vault.127.0.0.1:8080/graphql -H "Content-Type: application/json" \
+  -d '{"query":"{ corridorReceipt(intentId: 1) { intentId attestationId recipientAmount sadaqahTipAmount protocolFeeDeducted externalTxRef receiptLeafHash } corridorConservation(corridorJurisdiction: \"TR\") { settledCount totalPrincipalDelivered totalFeesDeducted } }"}' \
+  > evidence-pack/receipt.json
+cp corridor-proof.json corridor-anchor.json evidence-pack/
+```
+
+---
+
+## 8. Troubleshooting
+
+- **`Unauthorized credential issuer`:** Accredit the issuing account first via `credential::authorizeIssuer` from `producers+3` (or `credential`).
+- **`Tamlik Violation`:** Ensure `protocol_fee_deduction` is `0` under `ZAKAT_TAMLIK_100`; route voluntary FX/ops support via `sadaqah_tip_amount`.
+- **`Unauthorized settlement confirmation`:** Only the original `donor` or `ext-vault` governance may call `confirmRemittanceSettlement`, and each intent settles at most once.
+- **Account name errors:** Psibase `AccountNumber` names must be lowercase ASCII `a-z`, `0-9`, `-` fitting within 64-bit base-32 compression (e.g., `majlis`, `verif1`, `cred-clear`, `ext-vault`).
+
+---
+
+## 9. Planned / RFC
+
+- **Native WebAuthn / Passkey Verification in `verify-sig`:** Currently browser signing uses software P-256 keys (`WebCrypto/plugin`) and `VerifySig` verifies raw `secp256k1`/`secp256r1` ECDSA. Extending `VerifySig` to verify FIDO2/WebAuthn `SHA256(authenticatorData || SHA256(clientDataJSON))` assertions is planned for a subsequent sprint.
+- **Native Server-Side SSE Streaming:** `psinode` serves GraphQL over HTTP and WebSockets via `wsauth`; `useMuabaseTable` falls back to polling when an external SSE gateway is not deployed.

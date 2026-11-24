@@ -124,23 +124,25 @@ Muabase equips developers with a set of universal canonical primitives implement
 | `asset_pool` | RWA Asset Series / Series LLC | Fractional co-ownership of real physical assets with shared revenue and liability. | `"tokens"` |
 | `lease` | Fixed Lease / P2P Rental | Separation of permanent asset ownership from temporary right-of-use. | `"lease-eng"` |
 | `equity_lease` | Progressive Lease-to-Own / Equity Lease | Gradual transfer of fractional asset equity alongside decreasing rental installments. | `"lease-eng"` |
-| `mutual_shield` | Mutual Protection Reserve Pool | Member-owned protection reserve based on mutual risk sharing with pro-rata surplus returns. | `"mutualshield"` / `"tokenstream"` |
-| `claim_council` | Peer Triage Committee | Impartial dispute arbitration by qualified, reliable peers based on verifiable evidence. | `"claimcouncil"` |
-| `evals` | Objective Bounty & Claim Ranking | Performance-based compensation for verified deliverables, ranked via Condorcet criteria. | `"evals"` |
-| `endowment_policy` | Trust Principal Preservation Lock | Strict preservation of principal corpus while allowing only productive yield to flow. | `"auth-delegate"` / `"tokenstream"` |
-| `priority_window` | Co-Owner Right of First Refusal | Mandatory exclusive pre-emption window for existing fractional co-owners before external offering. | `"tokens"` |
+| `mutual_shield` | Mutual Protection Reserve Pool | Member-owned protection reserve based on mutual risk sharing with pro-rata surplus returns. | `"mut-shield"` / `"tok-stream"` |
+| `claim_council` | Peer Triage Committee | Impartial dispute arbitration by qualified, reliable peers based on verifiable evidence. | `"claim-coun"` |
+| `evals` | Objective Bounty & Claim Ranking | Performance-based compensation for verified deliverables, ranked via Condorcet criteria. | `"evaluation"` |
+| `endowment_policy` | Trust Principal Preservation Lock | Strict preservation of principal corpus while allowing only productive yield to flow. | `"auth-delg"` / `"waqf-treas"` |
+| `priority_window` | Co-Owner Right of First Refusal | Mandatory exclusive pre-emption window for existing fractional co-owners before external offering. | `"tokens"` / `"token-swap"` |
 | `charity_sink` | Public Endowment Charity Sink | Absolute non-profiteering rule: punitive late fees are routed to charitable public utility. | `"lease-eng"` |
-| `credit_clear` | Multilateral Invoice Netting | Algorithmic debt set-off between reciprocal trading partners extinguishing obligations without cash transfers. | `"creditclear"` |
-| `liquidity_bridge` | Earned-Respect Liquidity Bridge | Debt novation and liquidity assignment backed by commercial reputation and collateral. | `"creditclear"` |
-| `trust_score` | Reliability & Audit Score | Non-transferable track record of probity, contract fulfillment, and truthful witness testimony. | `"credentials"` |
-| `domain_badge` | Domain Competence Credential | Soulbound domain capability verification (e.g. food inspector, master appraiser). | `"credentials"` |
-| `tangible_ratio` | Tangible Asset Backing Ratio (>= 51%) | Mathematical floor enforcing >= 51% tangible physical asset/lease backing to bar naked debt trading. | `"tokens"` |
+| `credit_clear` | Multilateral Invoice Netting | Algorithmic debt set-off between reciprocal trading partners extinguishing obligations without cash transfers. | `"cred-clear"` |
+| `liquidity_bridge` | Earned-Respect Liquidity Bridge | Debt novation and liquidity assignment backed by commercial reputation and collateral. | `"cred-clear"` |
+| `trust_score` | Reliability & Audit Score | Non-transferable track record of probity, contract fulfillment, and truthful witness testimony. | `"credential"` |
+| `domain_badge` | Domain Competence Credential | Soulbound domain capability verification (e.g. humanitarian verifier, master appraiser). | `"credential"` |
+| `tangible_ratio` | Tangible Asset Backing Ratio (>= 51%) | Mathematical floor enforcing >= 51% tangible physical asset/lease backing to bar naked debt trading. | `"tokens"` / `"nft"` |
 | `evidence_gate` | Dual-Witness Evidentiary Gate | 2-witness quorum verification of physical evidence digests prior to escrow release. | `"staged-tx"` |
 | `external_vault` | Non-Custodial Multi-Chain Splits | 0-key client-side execution on Stripe Connect, EVM Safe, and Bitcoin Taproot Miniscript. | `"ext-vault"` |
 | `guild_pod` | Cooperative Pod & Review Circle | Autonomous 5-7 peer governance pods operating consensus without centralized managerial capture. | `"guilds"` / `"subgroups"` |
 | `zakat_tamlik` | Zero-Fee Direct Principal Vault (100% Beneficiary Delivery) | 100% *tamlik* principal delivery (`ZAKAT_TAMLIK_100`) with zero protocol/FX fee deduction from Zakat principal; optional separate `sadaqah_tip`. | `"ext-vault"` |
 | `asnaf_gate` | Zero-PII Dual-Witness Beneficiary Eligibility Gate | Salted 32-byte SHA-256 beneficiary commitments attested by `witness_quorum >= 2` `"humanitarian-verifier"` credentials (`trust_score >= 8000`). | `"staged-tx"` |
-| `bridge_liquidity_desk` | Licensed Non-Custodial Bridge Liquidity Desk | Licensed bridge-country liquidity providers publishing non-custodial Safe/Taproot settlement addresses and live FX spreads. | `"creditclear"` |
+| `bridge_liquidity_desk` | Licensed Non-Custodial Bridge Liquidity Desk | Licensed bridge-country liquidity providers publishing non-custodial Safe/Taproot settlement addresses and live FX spreads. | `"cred-clear"` |
+| `waqf_treasury` | Programmable *Waqf* & Masjid Treasury OS | Rule-locked endowment corpus preservation, *shurut* disbursement caps, 2-of-3 board quorum, and key recovery. | `"waqf-treas"` |
+| `muamalat_tahkim` | Commercial *Muamalat* + *Tahkim* Arbitration | Scholar-attested *Istisna'* / *Mudarabah* milestone escrow, dispute freeze, and 2-of-3 arbitrator rulings. | `"muamalat"` |
 
 ---
 
@@ -280,13 +282,24 @@ const zakatIntent = await client.externalVault.createZakatRemittanceSplit({
 });
 ```
 
+<a name="choose-your-institutional-app"></a>
+### Choose Your Institutional App
+
+| Institutional Application | Primary Users | Core Services | Cryptographic & Compliance Guarantees | Quickstart Guide |
+| :--- | :--- | :--- | :--- | :--- |
+| **App 1: Verifiable Humanitarian & Zakat Corridor** | Donors, Diaspora Relief, Bridge Desks, Field Verifiers | `credential`, `staged-tx`, `cred-clear`, `ext-vault` | 100% *Tamlik* zero-fee principal (`ZAKAT_TAMLIK_100`), zero-PII selective disclosure, `>= 2` accredited witness quorum, offline `dwal_merkle` receipt proof | **[Humanitarian Corridor Quickstart](doc/HUMANITARIAN_CORRIDOR_QUICKSTART.md)** |
+| **App 2: Programmable *Waqf* & Masjid Treasury OS** | Endowment Founders, Masjid Boards, Treasurers, Auditors | `waqf-treas`, `auth-delg`, `auth-dyn`, `auth-rcovr`, `staged-tx` | Immutable *Hifz Asl al-Waqf* corpus lock, *shurut* category + cap enforcement, 2-of-3 board disbursements, public aggregate conservation, board-quorum key recovery | **[Waqf & Masjid Treasury Quickstart](doc/WAQF_MASJID_TREASURY_QUICKSTART.md)** |
+| **App 3: Commercial *Muamalat* + Native *Tahkim* Arbitration** | SMEs, Suppliers, Investors, Shariah Scholars, Arbitrators | `muamalat`, `staged-tx`, `credential` | Scholar-attested *Istisna'* / *Mudarabah* template pinning, milestone escrow, zero-plaintext B2B terms, dispute freeze, 2-of-3 *Tahkim* binding award | **[Muamalat & Tahkim Quickstart](doc/MUAMALAT_TAHKIM_QUICKSTART.md)** |
+
 <a name="reference-guides"></a>
 ### Reference Implementation Guides
 - **[High-Trust P2P Rental Marketplace (Pickle Competitor)](packages/shared-ui/headless-sdk/examples/fashion-guild-quickstart.md):** 93% take-home yield (`lease`), 4% mutual shield (`mutual_shield`), 3% SaaS operator, non-profiteering charity sink routing (`charity_sink`).
 - **[Un-Gameable Social Restaurant Ranking & Tastemaker App (Beli Competitor)](packages/shared-ui/headless-sdk/examples/beli-competitor-quickstart.md):** 93% tastemaker take-home, cryptographic proof-of-visit (`evidence_gate` receipt hashing), Wasm-native Condorcet pairwise tournaments (`evals`), non-custodial supper club escrow (`external_vault`), and zero-penalty food rescue sink (`charity_sink`).
 - **[Real Estate & Solar Infrastructure Cooperative (MizanVest)](packages/shared-ui/headless-sdk/examples/mizanvest-quickstart.md):** Workforce housing & commercial solar syndication (`asset_pool`), Yield Stabilization Reserve (8–12% target payout), 100% tangible asset backing (`tangible_ratio`), and endowment principal lock (`endowment_policy`).
 - **[Positive-Sum Ethical Forecasting Protocol (Irfan.Markets)](packages/shared-ui/headless-sdk/examples/irfan-markets-quickstart.md):** 100% principal protection, knowledge bounties from redirected yield (`evals`), dual-witness resolution gate (`evidence_gate`), and zero-house extraction charity sink (`charity_sink`).
-- **[Humanitarian & Zakat Remittance Corridors (QırımBridge / Ummah Rails)](doc/HUMANITARIAN_CORRIDOR_QUICKSTART.md):** 100% *tamlik* principal delivery (`ZAKAT_TAMLIK_100` with zero fee deduction from Zakat principal), zero-PII dual-witness `evidence_gate` beneficiary verification (`"humanitarian-verifier"`, `trust_score >= 8000`), OFAC GL 6 personal remittance Ricardian attestations, and non-custodial bridge-country settlement (`external_vault` + `credit_clear`).
+- **[Humanitarian & Zakat Remittance Corridors (QırımBridge / Ummah Rails)](doc/HUMANITARIAN_CORRIDOR_QUICKSTART.md):** 100% *tamlik* principal delivery (`ZAKAT_TAMLIK_100`), zero-PII selective disclosure, accredited dual-witness gate, and offline `dwal_merkle` proof verification.
+- **[Programmable *Waqf* & Masjid Treasury OS](doc/WAQF_MASJID_TREASURY_QUICKSTART.md):** Immutable corpus lock (`auth-delg` + `waqf-treas`), 2-of-3 board quorum disbursements, public aggregate conservation, and treasurer key recovery.
+- **[Commercial *Muamalat* + Native *Tahkim* Arbitration](doc/MUAMALAT_TAHKIM_QUICKSTART.md):** Scholar-attested *Istisna'* / *Mudarabah* milestone escrow, dispute freeze, and 2-of-3 *Tahkim* arbitration.
 
 ---
 

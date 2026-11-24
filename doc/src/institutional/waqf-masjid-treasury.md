@@ -1,0 +1,1 @@
+{{#include ../../WAQF_MASJID_TREASURY_QUICKSTART.md}}

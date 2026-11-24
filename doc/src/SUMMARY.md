@@ -1,6 +1,12 @@
-# psidk
+# Muabase / psidk
 
 - [Introduction](README.md)
+
+- [Institutional Apps & Quickstarts](institutional/README.md)
+  - [Muabase Specification](institutional/spec.md)
+  - [App 1: Humanitarian & Zakat Corridor](institutional/humanitarian-corridor.md)
+  - [App 2: Programmable Waqf & Masjid Treasury OS](institutional/waqf-masjid-treasury.md)
+  - [App 3: Commercial Muamalat + Tahkim Arbitration](institutional/muamalat-tahkim.md)
 
 - [Specifications](specifications/README.md)
 

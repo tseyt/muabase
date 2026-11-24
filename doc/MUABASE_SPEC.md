@@ -275,5 +275,19 @@ sequenceDiagram
 - `packages/user/MutualShield`: `mutual_shield` protection reserve pool with annual surplus rebates.
 - `packages/user/ClaimCouncil`: Rapid 3-peer damage triage (`claim_council`) and `evals` Condorcet bounty ranking.
 - `packages/user/CreditClear`: Multilateral B2B invoice clearing (`credit_clear`) and `liquidity_bridge` trust limits.
-- `packages/user/ExternalVault`: Non-custodial Bitcoin Taproot, EVM Safe, Solana Squads, and Stripe Connect split payloads.
-- `packages/shared-ui/headless-sdk`: Reactive TypeScript SDK for frontend developers (`AssetPoolConfig`, `UsufructLease`, `MuabaseClient`).
+- `packages/user/ExternalVault`: Non-custodial Bitcoin Taproot, EVM Safe, Solana Squads, Stripe Connect, and zero-fee `ZAKAT_TAMLIK_100` split payloads with double-entry compliance receipts (`ext-vault`).
+- `packages/user/WaqfTreasury`: Programmable *Waqf* & Masjid Treasury OS with immutable *shurut* locks, 2-of-3 board quorum disbursements, public aggregate conservation, and board-quorum key recovery (`waqf-treas`).
+- `packages/user/MuamalatTahkim`: Scholar-attested *Istisna'* / *Mudarabah* milestone escrow state machine with dispute freeze and 2-of-3 *Tahkim* arbitration (`muamalat`).
+- `rust/muabase_institutional`: Shared double-entry ledger, `dwal_merkle` receipt leaf hasher, scholar attestation / compliance policy hooks, 2-of-3 *Tahkim* panel, and selective-privacy envelopes.
+- `tools/verify-merkle-proof.mjs` & `tools/checkpoint-anchor.mjs`: Zero-dependency offline `muabase.dwal_merkle.v1` proof verifier and federated checkpoint-anchoring CLI (`POST /native/proof/state` -> Bitcoin `OP_RETURN` / EVM / `producers::recordExternalAnchor`).
+- `packages/shared-ui/headless-sdk`: Reactive TypeScript SDK (`MuabaseClient`, subdomain GraphQL transport, `/native/proof/state`, WebCrypto selective-disclosure envelopes).
+
+---
+
+## 9. Choose Your Institutional App
+
+| Application | Core Services | Quickstart Guide |
+|---|---|---|
+| **App 1: Verifiable Humanitarian & Zakat Corridor** | `credential`, `staged-tx`, `cred-clear`, `ext-vault` | [`doc/HUMANITARIAN_CORRIDOR_QUICKSTART.md`](HUMANITARIAN_CORRIDOR_QUICKSTART.md) |
+| **App 2: Programmable *Waqf* & Masjid Treasury OS** | `waqf-treas`, `auth-delg`, `auth-dyn`, `auth-rcovr`, `staged-tx` | [`doc/WAQF_MASJID_TREASURY_QUICKSTART.md`](WAQF_MASJID_TREASURY_QUICKSTART.md) |
+| **App 3: Commercial *Muamalat* + Native *Tahkim* Arbitration** | `muamalat`, `staged-tx`, `credential` | [`doc/MUAMALAT_TAHKIM_QUICKSTART.md`](MUAMALAT_TAHKIM_QUICKSTART.md) |
