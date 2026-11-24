@@ -182,12 +182,20 @@ export const PeersPage = () => {
                 "Only disconnections from transient connections are possible.",
             );
         } else if (peer.state == "backup") {
-            await chain.removePeer(peer.url!);
-            refetchConfig();
-            toast({
-                title: "Error",
-                description: "Failed to remove peer",
-            });
+            try {
+                await chain.removePeer(peer.url!);
+                refetchConfig();
+                toast({
+                    title: "Peer removed",
+                    description: `Removed ${peer.url}`,
+                });
+            } catch {
+                toast({
+                    variant: "destructive",
+                    title: "Error",
+                    description: "Failed to remove peer",
+                });
+            }
         } else if (peer.state == "persistent") {
             try {
                 await Promise.all([

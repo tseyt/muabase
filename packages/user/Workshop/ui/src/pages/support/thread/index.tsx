@@ -44,9 +44,13 @@ export const Thread: React.FC = () => {
 
     const threadId = useCurrentThreadId();
 
-    const latestMessage = appMessages[0];
+    const threadAppMessages = appMessages.filter(
+        (message) => getThreadIdentifier(message) === threadId,
+    );
+
+    const latestMessage = threadAppMessages[0];
     const subject = latestMessage ? latestMessage.subject : "";
-    const customer = latestMessage && latestMessage.sender;
+    const customer = latestMessage ? latestMessage.sender : "";
 
     const {
         data: customerMessages,
@@ -56,10 +60,6 @@ export const Thread: React.FC = () => {
 
     const threadCustomerMessages = (customerMessages || []).filter(
         (message) => getThreadIdentifier(message, false) == threadId,
-    );
-
-    const threadAppMessages = appMessages.filter(
-        (message) => getThreadIdentifier(message) === threadId,
     );
 
     const combinedMessages = [
@@ -74,19 +74,24 @@ export const Thread: React.FC = () => {
         : false;
 
     const sendMessage = async (message: string) => {
-        mailAction({
+        const trimmed = message.trim();
+        if (!trimmed || !customer) return false;
+        await mailAction({
             app: zAccount.parse(currentApp),
-            body: message,
+            body: trimmed,
             method: "send",
             receiver: customer,
-            subject: threadAppMessages[0].subject,
+            subject: subject || "Support reply",
         });
+        return true;
     };
 
-    const handleMessageSubmit = (e: React.FormEvent) => {
+    const handleMessageSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        sendMessage(newMessage);
-        setNewMessage("");
+        const sent = await sendMessage(newMessage);
+        if (sent) {
+            setNewMessage("");
+        }
     };
 
     const refresh = async () => {

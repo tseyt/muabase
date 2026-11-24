@@ -623,9 +623,12 @@ export const InvariantsStudioPage: React.FC = () => {
                                             {item.pairwiseLosses}L
                                         </div>
                                         <div className="text-muted-foreground text-[10px]">
-                                            Net: +
-                                            {Number(item.pairwiseWins) -
-                                                Number(item.pairwiseLosses)}
+                                            {(() => {
+                                                const net =
+                                                    Number(item.pairwiseWins) -
+                                                    Number(item.pairwiseLosses);
+                                                return `Net: ${net >= 0 ? "+" : ""}${net}`;
+                                            })()}
                                         </div>
                                     </div>
                                 </div>

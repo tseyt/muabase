@@ -212,6 +212,18 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({
                     };
                 }
                 if (Number(payload.witnessQuorum ?? 2) < 2) {
+                    const revertEvent: StudioEvent = {
+                        id: makeId(),
+                        timestamp: new Date().toISOString(),
+                        service,
+                        action,
+                        status: "reverted",
+                        latencyMs: 0.09,
+                        summary:
+                            "REVERTED: Dual-Witness Gate Invariant (witnessQuorum < 2)",
+                        payload,
+                    };
+                    setEvents((prev) => [revertEvent, ...prev]);
                     return {
                         ok: false,
                         message:
@@ -220,18 +232,19 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({
                 }
             }
 
-            // Try live psinode RPC call first, fallback gracefully to in-memory Triedent simulation
+            // Try live psinode RPC call first, marking simulated fallback explicitly when offline
+            let simulated = false;
             try {
                 await client.transact(service, action, payload);
             } catch {
-                // Local studio interactive mode when psinode daemon is not attached
+                simulated = true;
             }
 
             const elapsed = Number(
-                Math.max(0.12, Math.min(0.49, performance.now() - t0)).toFixed(2),
+                Math.max(0.01, performance.now() - t0).toFixed(2),
             );
 
-            let summary = `Executed ${service}::${action}`;
+            let summary = `${simulated ? "[Simulated] " : ""}Executed ${service}::${action}`;
 
             setTables((prev) => {
                 const next = { ...prev };

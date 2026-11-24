@@ -35,6 +35,7 @@ export const ServicesForm = ({
         >
             {filteredPackages.map((info) => (
                 <Controller
+                    key={info.name}
                     name={info.name}
                     control={servicesForm.control}
                     render={({ field }) => (
@@ -52,6 +53,7 @@ export const ServicesForm = ({
                 />
             ))}
             <Button
+                type="button"
                 className="mt-4"
                 variant="secondary"
                 onClick={() => {

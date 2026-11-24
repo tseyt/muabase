@@ -186,7 +186,11 @@ export const ServicesPage = () => {
                                 </tbody>
                             </table>
                             {rows.length === 0 && (
-                                <EmptyState>No packages match “{q}”</EmptyState>
+                                <EmptyState>
+                                    {q.trim()
+                                        ? `No packages match “${q}”`
+                                        : "No packages installed"}
+                                </EmptyState>
                             )}
                         </div>
                     )}

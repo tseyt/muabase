@@ -97,17 +97,19 @@ export const LogsPage = () => {
                 }
             });
             newSocket.addEventListener("message", (event: MessageEvent) => {
-                setLogData((prev) => {
+                try {
                     const newRecord = LogRecordSchema.parse(
                         JSON.parse(event.data),
                     );
-                    return [
+                    setLogData((prev) => [
                         newRecord,
                         ...(keepAllLogs.current
                             ? prev
                             : prev.slice(0, MAX_LOGS_ROWS - 1)),
-                    ];
-                });
+                    ]);
+                } catch {
+                    // Ignore malformed log frames
+                }
             });
             newSocket.addEventListener("close", (event: CloseEvent) => {
                 if (event.code == 1008) {
@@ -119,10 +121,14 @@ export const LogsPage = () => {
                 setLogSocket(null);
             });
         }
-        //  else if (!logEnabled && logSocket) {
-        //     logSocket.close();
-        // }
     }, [logSocket, logTimeout, keepAllLogs, logFilter]);
+
+    useEffect(() => {
+        return () => {
+            logSocket?.close();
+            if (logTimeout) clearTimeout(logTimeout);
+        };
+    }, [logSocket, logTimeout]);
 
     const onFilter = (input: LogFilterInputs) => {
         setLogFilter(input.filter);

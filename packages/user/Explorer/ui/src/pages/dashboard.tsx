@@ -61,7 +61,7 @@ export const DashboardPage = () => {
                 <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
                     <div>
                         <div className="text-muted-foreground text-[11px] font-medium tracking-[0.2em] uppercase">
-                            {networkName || "psibase"} · live explorer
+                            {networkName || "Muabase"} · live explorer
                         </div>
                         <h1 className="text-3xl font-semibold tracking-tight">
                             Network overview

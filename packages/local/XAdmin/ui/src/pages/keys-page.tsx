@@ -61,7 +61,7 @@ export const KeysPage = () => {
         isError: isErrorFetchingServerKeys,
         refetch: refetchServerKeys,
     } = useServerKeys();
-    const { mutate: addServerKey } = useAddServerKey();
+    const { mutateAsync: addServerKey } = useAddServerKey();
 
     const {
         data: keyDevices,

@@ -31,6 +31,9 @@ export const useDeleteStream = () => {
             ctx.client.invalidateQueries({
                 queryKey: QueryKey.stream(nftId),
             });
+            ctx.client.invalidateQueries({
+                queryKey: QueryKey.streams(),
+            });
             toast.success(`Deleted stream ${nftId}.`);
             navigate("/");
         },

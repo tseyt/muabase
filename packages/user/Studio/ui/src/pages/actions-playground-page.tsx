@@ -487,6 +487,7 @@ export const ActionsPlaygroundPage: React.FC = () => {
                             <CardContent>
                                 <form
                                     ref={formRef}
+                                    noValidate
                                     onSubmit={handleRunReducer}
                                     className="space-y-4"
                                 >

@@ -11,5 +11,5 @@ export const useEvaluation = (
     useQuery<Evaluation>({
         queryKey: ["evaluation", owner, id],
         queryFn: async () => getEvaluation(owner!, id!),
-        enabled: !!owner && !!id,
+        enabled: Boolean(owner) && id !== undefined && !Number.isNaN(id),
     });

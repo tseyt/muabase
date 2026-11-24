@@ -62,11 +62,15 @@ export const Stream = () => {
             tokenId: stream?.stream.tokenId,
         },
         onSubmit: async ({ value }) => {
+            const resolvedTokenId = stream?.stream.tokenId ?? value.tokenId;
+            if (resolvedTokenId === undefined) {
+                throw new Error("Stream token is still loading.");
+            }
             await deposit({
-                tokenId: String(value.tokenId),
+                tokenId: String(resolvedTokenId),
                 amount: value.amount,
                 memo: value.memo,
-                nftId: value.nftId!,
+                nftId: value.nftId ?? id!,
             });
             setShowCreateModal(false);
             form.reset();
@@ -86,7 +90,7 @@ export const Stream = () => {
             : (Number(stream.stream.claimable) /
                   Number(stream.stream.unclaimed)) *
               100
-        : 50;
+        : 0;
 
     if (error) {
         console.error(error);
@@ -97,7 +101,10 @@ export const Stream = () => {
         <div className="flex flex-col gap-2">
             <div className="rounded-sm border p-3">
                 <div className="my-3 w-full">
-                    <Progress value={percent} />
+                    <Progress
+                        aria-label="Stream claimable progress"
+                        value={percent}
+                    />
                 </div>
                 <div className="flex justify-between">
                     <div className="">
@@ -190,7 +197,9 @@ export const Stream = () => {
                                 }}
                             >
                                 <Button
+                                    type="button"
                                     variant="outline"
+                                    aria-label="Delete stream"
                                     disabled={!isFullyClaimed || isDeleting}
                                     onClick={() => {
                                         setShowDeleteModal(true);
@@ -208,12 +217,28 @@ export const Stream = () => {
                                     </DialogHeader>
                                     <DialogFooter>
                                         <Button
-                                            type="submit"
+                                            type="button"
+                                            variant="outline"
+                                            disabled={isDeleting}
                                             onClick={() =>
-                                                deleteStream({ nftId: id! })
+                                                setShowDeleteModal(false)
                                             }
                                         >
-                                            Delete
+                                            Cancel
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            variant="destructive"
+                                            disabled={isDeleting}
+                                            onClick={() =>
+                                                void deleteStream({
+                                                    nftId: id!,
+                                                })
+                                            }
+                                        >
+                                            {isDeleting
+                                                ? "Deleting..."
+                                                : "Delete"}
                                         </Button>
                                     </DialogFooter>
                                 </DialogContent>

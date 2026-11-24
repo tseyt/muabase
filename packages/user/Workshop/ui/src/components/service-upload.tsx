@@ -21,10 +21,8 @@ interface FileInputProps {
 
 export const FileInput = ({ onChange, disabled }: FileInputProps) => {
     const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
-        if (!e.target.files) return;
-
-        const selectedFiles = Array.from(e.target.files);
-        const file = selectedFiles[0];
+        const file = e.target.files?.[0];
+        if (!file) return;
 
         const built = {
             name: file.name,
@@ -40,6 +38,8 @@ export const FileInput = ({ onChange, disabled }: FileInputProps) => {
             <Input
                 disabled={disabled}
                 type="file"
+                accept=".wasm,application/wasm"
+                aria-label="Upload WASM service file"
                 onChange={handleFileChange}
             />
         </Card>

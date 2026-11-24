@@ -47,7 +47,7 @@ const specRows = [
         icon: Landmark,
         label: "Governance",
         dev: "None",
-        prod: "Fractal network",
+        prod: "Multi-producer BFT",
         priv: "Single provider",
     },
     {

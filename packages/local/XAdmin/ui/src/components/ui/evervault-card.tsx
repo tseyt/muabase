@@ -121,6 +121,7 @@ export function CardPattern({ mouseX, mouseY, randomString, gradient }: any) {
                 style={style}
             />
             <motion.div
+                aria-hidden="true"
                 className="absolute inset-0 rounded-2xl opacity-0 mix-blend-overlay  group-hover/card:opacity-100"
                 style={style}
             >

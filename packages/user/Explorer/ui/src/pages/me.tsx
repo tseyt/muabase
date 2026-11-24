@@ -186,7 +186,7 @@ const Dashboard = ({ user }: { user: string }) => {
                         />
                         <div className="min-w-0 flex-1">
                             <div className="text-muted-foreground text-[11px] font-medium uppercase tracking-[0.2em]">
-                                {networkName || "psibase"} · signed in as
+                                {networkName || "Muabase"} · signed in as
                             </div>
                             <h1 className="flex flex-wrap items-center gap-x-2 gap-y-1 text-3xl font-semibold tracking-tight">
                                 <span
